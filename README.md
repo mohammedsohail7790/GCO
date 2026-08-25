@@ -51,7 +51,8 @@ npm run test:e2e         # 32 real E2E tests against the live API - see docs/tes
 
 ## Docs
 
-- [production-readiness.md](docs/production-readiness.md) - **start here** - authoritative current status
+- [final-gco-audit.md](docs/final-gco-audit.md) - **start here** - independent audit against the original business requirements
+- [production-readiness.md](docs/production-readiness.md) - authoritative current status
 - [production-readiness-audit.md](docs/production-readiness-audit.md) - detailed findings/fixes log
 - [client-integration-checklist.md](docs/client-integration-checklist.md) - what's needed to connect a real client
 - [architecture.md](docs/architecture.md) - system diagram, process boundaries
