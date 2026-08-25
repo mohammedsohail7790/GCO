@@ -9,8 +9,9 @@ Four layers, each with a different job. All four have actually been run - see `d
 - `assignmentPolicy.test.ts` - operator selection, capacity, SLA deadline math (8 tests)
 - `rbac.test.ts` - the permission matrix (5 tests)
 - `tenantGuard.test.ts` - tenant-scope resolution per role, including the ASSISTANT/MANAGER global-vs-tenant-scoped distinction (8 tests)
+- `realtimeTickets.test.ts` - realtime WS tickets and REST access tokens are mutually rejected by each other's verifier (4 tests)
 
-21/21 passing as of this writing.
+25/25 passing as of this writing.
 
 ## 2. Integration tests (`npm run test:integration`)
 
@@ -36,8 +37,9 @@ Four layers, each with a different job. All four have actually been run - see `d
 | `07-session-security.spec.ts` | Missing/invalid/forged tokens, logout invalidation, login error-message parity, privilege escalation via request body |
 | `08-ai-memory.spec.ts` | Explicit-fact extraction with full traceability; vague text extracts nothing (no hallucination) |
 | `09-dead-letter-recovery.spec.ts` | A real job driven to permanent failure, landing in dead-letter, requeued by an admin, audited, and denied to a CLIENT |
+| `10-usage-ledger-business-model.spec.ts` | The usage ledger validated against the exact stated business model (€0.14/€0.06/€0.08/€0.004 per message), permission-gated margin visibility, duplicate-safety |
 
-28/28 passing. Each spec file seeds its own isolated tenant(s) (`tests/e2e/helpers.ts::seedIsolatedTenant`) so tests never collide with the demo data or each other, and cleans up after itself.
+32/32 passing. Each spec file seeds its own isolated tenant(s) (`tests/e2e/helpers.ts::seedIsolatedTenant`) so tests never collide with the demo data or each other, and cleans up after itself.
 
 **Known constraint**: the suite runs with `workers: 1` (fully serial) because all tests share one running worker process and one database - parallelizing would introduce queue-contention flakiness rather than genuine isolation. This makes the suite slower (~30s) than a "properly" parallel one, which is the right tradeoff at this size.
 

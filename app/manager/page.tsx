@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { apiFetch } from '@/lib/api/client'
+import { useRealtime } from '@/lib/realtime/useRealtime'
 
 interface Overview {
   operators: { available: number; busy: number; offline: number; paused: number }
@@ -33,15 +34,22 @@ export default function ManagerPage() {
   const [overview, setOverview] = useState<Overview | null>(null)
   const [operators, setOperators] = useState<OperatorRow[]>([])
 
+  const load = useCallback(() => {
+    apiFetch<Overview>('/analytics/overview').then(setOverview).catch(() => {})
+    apiFetch<OperatorRow[]>('/operators').then(setOperators).catch(() => {})
+  }, [])
+
   useEffect(() => {
-    const load = () => {
-      apiFetch<Overview>('/analytics/overview').then(setOverview).catch(() => {})
-      apiFetch<OperatorRow[]>('/operators').then(setOperators).catch(() => {})
-    }
+    // Unconditional polling fallback - keeps running regardless of WebSocket
+    // connectivity (see useRealtime below); the database stays authoritative.
     load()
     const id = setInterval(load, 8000)
     return () => clearInterval(id)
-  }, [])
+  }, [load])
+
+  // Accelerator only: nudges an immediate refetch on a push event, never
+  // trusted as data on its own.
+  useRealtime(load, true)
 
   return (
     <div className="min-h-screen p-6">

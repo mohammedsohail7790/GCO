@@ -2,7 +2,7 @@
 
 Multi-tenant, API-driven platform connecting international dating apps to human conversation operators, with an AI copilot that suggests replies for human review (never auto-sends in V1).
 
-**Status**: V1 core pipeline implemented AND verified end-to-end (typecheck/lint/build/tests all pass; the full message pipeline - webhook -> assignment -> AI suggestion -> operator UI -> send -> delivery -> usage ledger - was walked through manually against real Postgres/Redis, including a real browser session). See [docs/mvp.md](docs/mvp.md) for exactly what was verified and the known gaps, and [docs/decisions.md](docs/decisions.md) for how (no Docker/Homebrew were available, so a local toolchain was assembled without touching system paths).
+**Status**: production-hardened V1, first-client-ready. 61 automated tests (25 unit, 4 integration, 32 E2E) all passing, plus manual load testing at 100/500/1000 msgs/min and realtime push verified in a real browser. See [docs/production-readiness.md](docs/production-readiness.md) for the authoritative current status (VERIFIED vs. IMPLEMENTED BUT NOT VERIFIED vs. BLOCKED vs. NOT YET BUILT), [docs/production-readiness-audit.md](docs/production-readiness-audit.md) for the detailed findings/fixes log, and [docs/client-integration-checklist.md](docs/client-integration-checklist.md) for exactly what's needed to connect the first real client.
 
 ## Quick start
 
@@ -18,7 +18,7 @@ npm run seed
 
 npm run dev            # web app -> http://localhost:3000
 npm run worker:dev     # in another terminal
-npx tsx workers/realtime-server.ts   # in another terminal
+npx tsx workers/realtime-server.ts   # in another terminal - realtime push for the dashboards
 ```
 
 Seeded demo logins (password `DemoPassword123!`):
@@ -45,10 +45,15 @@ npm run lint
 npm test                 # unit tests (assignment policy, RBAC, tenant isolation)
 npm run test:integration # requires Postgres running (see above)
 npm run build
+# with the app + worker + postgres + redis running:
+npm run test:e2e         # 32 real E2E tests against the live API - see docs/testing.md
 ```
 
 ## Docs
 
+- [production-readiness.md](docs/production-readiness.md) - **start here** - authoritative current status
+- [production-readiness-audit.md](docs/production-readiness-audit.md) - detailed findings/fixes log
+- [client-integration-checklist.md](docs/client-integration-checklist.md) - what's needed to connect a real client
 - [architecture.md](docs/architecture.md) - system diagram, process boundaries
 - [database.md](docs/database.md) - schema, race-safety, tenant isolation
 - [api.md](docs/api.md) - endpoint reference
@@ -56,6 +61,8 @@ npm run build
 - [queue.md](docs/queue.md) - BullMQ setup, idempotency, dead-letter
 - [security.md](docs/security.md) - authn/authz, tenant isolation, secrets
 - [deployment.md](docs/deployment.md) - Docker, health checks, operational assumptions
+- [testing.md](docs/testing.md) - the four test layers and how to run them
+- [load-testing.md](docs/load-testing.md) - method, measured results, caveats
 - [operations.md](docs/operations.md) - tracing a message, QC workflow
 - [recovery.md](docs/recovery.md) - emergency recovery actions
 - [mvp.md](docs/mvp.md) - V1 checklist and gaps

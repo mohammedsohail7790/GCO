@@ -5,15 +5,18 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: gco
-      POSTGRES_PASSWORD: gco_dev_password
-      POSTGRES_DB: gco
+      # Sourced from .env (docker compose reads a .env file in this directory
+      # automatically) - never hardcode a real password directly in this
+      # committed file. Keep these consistent with DATABASE_URL in .env.
+      POSTGRES_USER: ${POSTGRES_USER:-gco}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-gco}
     ports:
       - '5432:5432'
     volumes:
       - gco_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U gco']
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-gco}']
       interval: 5s
       timeout: 5s
       retries: 10
@@ -21,6 +24,13 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    # No password by default (fine for local dev, isolated on this compose
+    # network). For any deployment where the Redis port might be reachable
+    # beyond this network: add `command: redis-server --requirepass
+    # ${REDIS_PASSWORD}` here and set REDIS_URL in .env to
+    # redis://:password@host:port (ioredis parses that natively). Not
+    # enabled by default here since it's unverified without Docker available
+    # in this environment - see docs/production-readiness-audit.md.
     ports:
       - '6379:6379'
     volumes:

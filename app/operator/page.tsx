@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { apiFetch } from '@/lib/api/client'
+import { useRealtime } from '@/lib/realtime/useRealtime'
 
 interface Message {
   id: string
@@ -75,14 +76,21 @@ export default function OperatorPage() {
   }, [activeId])
 
   useEffect(() => {
-    // Deliberate poll-on-mount-then-interval pattern (WS upgrade path is documented
-    // separately) - `load` sets state asynchronously after its own fetch resolves,
-    // it does not set state synchronously during this effect.
+    // Deliberate poll-on-mount-then-interval pattern - `load` sets state
+    // asynchronously after its own fetch resolves, it does not set state
+    // synchronously during this effect. This polling interval is the
+    // unconditional fallback (see useRealtime below) and keeps running
+    // regardless of WebSocket connectivity - the database stays authoritative.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     load()
     const id = setInterval(load, 5000)
     return () => clearInterval(id)
   }, [load])
+
+  // Accelerator only: a push notification just triggers an immediate refetch
+  // via the same `load()` used by polling above - never trusted as data on
+  // its own. If this never connects, polling above still drives everything.
+  useRealtime(load, true)
 
   const active = items.find((i) => i.conversation.id === activeId) ?? null
 
