@@ -43,6 +43,16 @@ This V1 architecture is designed to survive: a single worker crash (BullMQ redel
 - `npx prisma migrate deploy` is forward-only by design; to roll back a bad migration, write and deploy a new down-migration rather than editing history.
 - Container images are tagged per build; rolling back the `web`/`worker` containers to the previous tag is safe as long as no destructive migration was applied in between.
 
-## Backups
+## Backups and restore
 
-- Configure automated PostgreSQL backups (e.g. your managed Postgres provider's PITR) - not included in this repo since it is infrastructure/provider-specific.
+**Status: procedure documented below, NOT drilled/tested in this project.** A backup strategy nobody has ever restored from is unverified by definition - schedule an actual restore drill before relying on this.
+
+- **PostgreSQL is the only thing that needs backing up.** It is the sole source of truth for every business record - conversations, messages, assignments, usage ledger, audit logs (see `docs/decisions.md` "Airtable is not the source of truth"). Redis holds only the queue, rate-limit counters, and pub/sub state - all disposable; a Redis data loss loses in-flight jobs (recoverable by re-sending the original webhooks, since `WebhookEvent` rows persist independently in Postgres) but no business data.
+- **Backup**: use your PostgreSQL provider's automated continuous backup / point-in-time recovery (PITR) — not built into this repo since the mechanism is entirely provider-specific (managed RDS/Cloud SQL snapshot schedule, `pg_basebackup` + WAL archiving for self-hosted, etc.). At minimum, daily full backups with PITR granularity for anything more precise than "restore to yesterday."
+- **Restore procedure** (generic — adapt to your provider):
+  1. Provision a new Postgres instance (or use your provider's point-in-time restore feature directly) from the desired backup/timestamp.
+  2. Point a *staging* `DATABASE_URL` at the restored instance and run `npx prisma migrate deploy` to confirm the schema matches what the app expects (a backup taken before a migration was applied will be behind — this step surfaces that immediately).
+  3. Smoke-test against staging: `GET /api/v1/health`, log in, load a dashboard, confirm data looks sane for the expected restore point.
+  4. Only then repoint production's `DATABASE_URL` (and restart `web`/`worker` containers to pick it up) — this is a deliberate, manual cutover, not automated, so a bad restore doesn't propagate silently.
+  5. Redis needs no restore step — the worker's queues start empty and the periodic sweep (`workers/index.ts`) plus any client webhook retries repopulate the ingest queue from `WebhookEvent` rows if needed.
+- **What's NOT covered**: cross-region failover, automated restore testing/game-days, a documented RTO/RPO target — these are commitments to make explicitly with whoever owns production infrastructure, not something to assume from this document alone.
