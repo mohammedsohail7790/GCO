@@ -24,9 +24,16 @@ export default function ClientPanelPage() {
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [form, setForm] = useState({ type: 'FEEDBACK', subject: '', description: '' })
   const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   function load() {
-    apiFetch<Usage>('/usage/summary').then(setUsage).catch(() => {})
+    apiFetch<Usage>('/usage/summary')
+      .then((d) => {
+        setUsage(d)
+        setError(null)
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load dashboard data'))
     apiFetch<Ticket[]>('/tickets').then(setTickets).catch(() => {})
   }
 
@@ -35,10 +42,13 @@ export default function ClientPanelPage() {
   async function submitTicket(e: React.FormEvent) {
     e.preventDefault()
     setSubmitting(true)
+    setSubmitError(null)
     try {
       await apiFetch('/tickets', { method: 'POST', body: JSON.stringify(form) })
       setForm({ type: 'FEEDBACK', subject: '', description: '' })
       load()
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to submit')
     } finally {
       setSubmitting(false)
     }
@@ -47,6 +57,10 @@ export default function ClientPanelPage() {
   return (
     <div className="min-h-screen p-6">
       <h1 className="mb-6 text-xl font-semibold text-slate-900">Client dashboard</h1>
+
+      {error && (
+        <div className="mb-4 rounded-md bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>
+      )}
 
       <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-3">
         <div className="rounded-lg border border-slate-200 bg-white p-4">
@@ -88,6 +102,7 @@ export default function ClientPanelPage() {
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
             />
+            {submitError && <p className="text-sm text-red-700">{submitError}</p>}
             <button
               type="submit"
               disabled={submitting}

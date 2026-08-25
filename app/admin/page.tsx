@@ -19,10 +19,16 @@ interface SystemHealth {
 export default function AdminPage() {
   const [tenants, setTenants] = useState<Tenant[]>([])
   const [health, setHealth] = useState<SystemHealth | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const load = () => {
-      apiFetch<Tenant[]>('/admin/tenants').then(setTenants).catch(() => {})
+      apiFetch<Tenant[]>('/admin/tenants')
+        .then((d) => {
+          setTenants(d)
+          setError(null)
+        })
+        .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load dashboard data'))
       apiFetch<SystemHealth>('/admin/system-health').then(setHealth).catch(() => {})
     }
     load()
@@ -33,6 +39,10 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen p-6">
       <h1 className="mb-6 text-xl font-semibold text-slate-900">CEO / Admin</h1>
+
+      {error && (
+        <div className="mb-4 rounded-md bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>
+      )}
 
       <div className="mb-8 grid gap-4 sm:grid-cols-2">
         <div className="rounded-lg border border-slate-200 bg-white p-4">

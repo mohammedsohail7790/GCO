@@ -33,9 +33,15 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
 export default function ManagerPage() {
   const [overview, setOverview] = useState<Overview | null>(null)
   const [operators, setOperators] = useState<OperatorRow[]>([])
+  const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(() => {
-    apiFetch<Overview>('/analytics/overview').then(setOverview).catch(() => {})
+    apiFetch<Overview>('/analytics/overview')
+      .then((d) => {
+        setOverview(d)
+        setError(null)
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load dashboard data'))
     apiFetch<OperatorRow[]>('/operators').then(setOperators).catch(() => {})
   }, [])
 
@@ -54,6 +60,10 @@ export default function ManagerPage() {
   return (
     <div className="min-h-screen p-6">
       <h1 className="mb-6 text-xl font-semibold text-slate-900">Manager dashboard</h1>
+
+      {error && (
+        <div className="mb-4 rounded-md bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>
+      )}
 
       {overview && (
         <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
