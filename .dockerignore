@@ -1,0 +1,23 @@
+# Never let these into the Docker build context - a stray developer .env
+# with real secrets getting COPY'd into an image layer is exactly the kind
+# of leak that's easy to miss until it's in a public registry. Confirmed this
+# was a real risk: Next's standalone build output copies any .env file it
+# finds next to it (see docs/production-readiness-audit.md).
+.env
+.env.local
+.env.*.local
+
+node_modules
+.next
+.tools
+.git
+.github
+
+npm-debug.log*
+*.log
+
+test-results
+playwright-report
+coverage
+
+.DS_Store

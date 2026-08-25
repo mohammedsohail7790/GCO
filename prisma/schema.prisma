@@ -1,0 +1,566 @@
+// GCO core schema.
+// Design notes: every tenant-scoped table carries `tenantId` and is indexed on it.
+// See docs/database.md for entity relationship notes and rationale.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Tenancy, identity, RBAC
+// ---------------------------------------------------------------------------
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+model Tenant {
+  id        String       @id @default(cuid())
+  name      String
+  slug      String       @unique
+  status    TenantStatus @default(ACTIVE)
+
+  pricePerMessageEurCents      Int @default(14)   // 0.14 EUR
+  operatorCostPerMessageEurCents Int @default(6)  // 0.06 EUR
+  defaultOperatorCapacity      Int @default(2)
+  defaultResponseSlaSeconds    Int @default(120)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users            User[]
+  operators        Operator[]
+  conversations    Conversation[]
+  messages         Message[]
+  aiMemories       AiMemory[]
+  aiGenerations    AiGeneration[]
+  tickets          Ticket[]
+  usageRecords     UsageRecord[]
+  integrations     Integration[]
+  webhookEvents    WebhookEvent[]
+  auditLogs        AuditLog[]
+  notifications    Notification[]
+  notes            Note[]
+
+  @@index([status])
+}
+
+enum Role {
+  CEO_ADMIN
+  MANAGER
+  ASSISTANT
+  OPERATOR
+  CLIENT
+}
+
+model User {
+  id           String   @id @default(cuid())
+  tenantId     String?  // null for internal staff (CEO_ADMIN/MANAGER/ASSISTANT/OPERATOR); set for CLIENT users
+  email        String   @unique
+  passwordHash String
+  role         Role
+  displayName  String
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  lastLoginAt  DateTime?
+
+  tenant   Tenant?   @relation(fields: [tenantId], references: [id])
+  operator Operator?
+  sessions Session[]
+
+  @@index([tenantId])
+  @@index([role])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  refreshToken String   @unique
+  userAgent    String?
+  ipAddress    String?
+  createdAt    DateTime @default(now())
+  expiresAt    DateTime
+  revokedAt    DateTime?
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Operators
+// ---------------------------------------------------------------------------
+
+enum OperatorStatus {
+  OFFLINE
+  AVAILABLE
+  BUSY
+  PAUSED
+}
+
+model Operator {
+  id            String         @id @default(cuid())
+  operatorNumber Int           @unique @default(autoincrement())
+  userId        String         @unique
+  tenantId      String         // primary tenant; cross-tenant assignment via OperatorService
+  status        OperatorStatus @default(OFFLINE)
+  capacity      Int            @default(2) // configurable, default matches Tenant.defaultOperatorCapacity
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  user           User             @relation(fields: [userId], references: [id])
+  tenant         Tenant           @relation(fields: [tenantId], references: [id])
+  services       OperatorService[]
+  assignments    Assignment[]
+  metricSnapshots OperatorMetricSnapshot[]
+
+  @@index([tenantId, status])
+}
+
+// Which tenants/clients an operator is authorized to handle
+model OperatorService {
+  id         String   @id @default(cuid())
+  operatorId String
+  tenantId   String
+  createdAt  DateTime @default(now())
+
+  operator Operator @relation(fields: [operatorId], references: [id])
+
+  @@unique([operatorId, tenantId])
+  @@index([tenantId])
+}
+
+model OperatorMetricSnapshot {
+  id                 String   @id @default(cuid())
+  operatorId         String
+  periodStart        DateTime
+  periodEnd          DateTime
+  messagesHandled    Int      @default(0)
+  avgResponseSeconds Float?
+  slaBreaches        Int      @default(0)
+  createdAt          DateTime @default(now())
+
+  operator Operator @relation(fields: [operatorId], references: [id])
+
+  @@index([operatorId, periodStart])
+}
+
+// ---------------------------------------------------------------------------
+// Conversations & messages
+// ---------------------------------------------------------------------------
+
+enum ConversationState {
+  QUEUED
+  ASSIGNED
+  ACTIVE
+  WAITING_FOR_OPERATOR
+  WAITING_FOR_CLIENT
+  EXPIRED
+  REASSIGNING
+  CLOSED
+  FAILED
+}
+
+model Conversation {
+  id            String             @id @default(cuid())
+  tenantId      String
+  externalUserId String            // the end-user on the client platform
+  state         ConversationState  @default(QUEUED)
+  priority      Int                @default(0) // higher = more urgent, for queue ordering
+  language      String?
+  currentAssignmentId String?      @unique
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  closedAt      DateTime?
+
+  tenant       Tenant         @relation(fields: [tenantId], references: [id])
+  messages     Message[]
+  assignments  Assignment[]   @relation("ConversationAssignments")
+  currentAssignment Assignment? @relation("CurrentAssignment", fields: [currentAssignmentId], references: [id])
+  aiMemories   AiMemory[]
+  notes        Note[]
+
+  @@index([tenantId, state])
+  @@index([tenantId, externalUserId])
+  // The worker sweep (workers/index.ts) scans QUEUED/REASSIGNING conversations
+  // across ALL tenants, not scoped to one - a plain state index serves that
+  // query; (tenantId, state) above serves the per-tenant dashboard queries.
+  @@index([state])
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum MessageStatus {
+  RECEIVED
+  PENDING_REVIEW
+  SENT
+  DELIVERED
+  FAILED
+}
+
+model Message {
+  id             String            @id @default(cuid())
+  tenantId       String
+  conversationId String
+  direction      MessageDirection
+  status         MessageStatus     @default(RECEIVED)
+  content        String            @db.Text
+  externalMessageId String?        // ID from the client platform, for idempotency/tracing
+  operatorId     String?           // who sent it, for OUTBOUND
+  aiGenerationId String?           @unique // the suggestion this was based on, if any
+  createdAt      DateTime          @default(now())
+  sentAt         DateTime?
+  deliveredAt    DateTime?
+  failedReason   String?
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  conversation Conversation  @relation(fields: [conversationId], references: [id])
+  events       MessageEvent[]
+  aiGeneration AiGeneration? @relation(fields: [aiGenerationId], references: [id])
+  usageRecord  UsageRecord?
+
+  // conversationId-only, not (tenantId, conversationId): every hot-path read
+  // (buildConversationContext, operator workspace) filters by conversationId
+  // alone - see docs/database.md.
+  @@index([conversationId])
+  @@unique([tenantId, externalMessageId, direction])
+}
+
+enum MessageEventType {
+  INGESTED
+  DEDUPED
+  QUEUED
+  ASSIGNED
+  AI_SUGGESTED
+  EDITED
+  SENT
+  DELIVERY_CONFIRMED
+  DELIVERY_FAILED
+}
+
+// Append-only lifecycle trace per message - answers "why wasn't this answered"
+model MessageEvent {
+  id        String           @id @default(cuid())
+  messageId String
+  type      MessageEventType
+  metadata  Json?
+  createdAt DateTime         @default(now())
+
+  message Message @relation(fields: [messageId], references: [id])
+
+  @@index([messageId])
+}
+
+// ---------------------------------------------------------------------------
+// Assignment engine
+// ---------------------------------------------------------------------------
+
+enum AssignmentStatus {
+  ACTIVE
+  EXPIRED
+  COMPLETED
+  CANCELLED
+}
+
+model Assignment {
+  id             String           @id @default(cuid())
+  tenantId       String
+  conversationId String
+  operatorId     String
+  status         AssignmentStatus @default(ACTIVE)
+  slaSeconds     Int
+  assignedAt     DateTime         @default(now())
+  respondsBy     DateTime         // assignedAt + slaSeconds, authoritative server-side deadline
+  respondedAt    DateTime?
+  expiredAt      DateTime?
+  releaseReason  String?
+
+  conversation Conversation @relation("ConversationAssignments", fields: [conversationId], references: [id])
+  isCurrentFor Conversation? @relation("CurrentAssignment")
+  operator     Operator      @relation(fields: [operatorId], references: [id])
+  history      AssignmentHistoryEntry[]
+
+  @@index([tenantId, status])
+  @@index([operatorId, status])
+  @@index([respondsBy])
+}
+
+model AssignmentHistoryEntry {
+  id           String   @id @default(cuid())
+  assignmentId String
+  event        String   // e.g. "created", "expired", "reassigned", "completed"
+  actorUserId  String?  // null when system-initiated
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id])
+
+  @@index([assignmentId])
+}
+
+// ---------------------------------------------------------------------------
+// AI: generations (copilot output) & memory (extracted facts)
+// ---------------------------------------------------------------------------
+
+model AiGeneration {
+  id               String   @id @default(cuid())
+  tenantId         String
+  conversationId   String
+  provider         String
+  model            String
+  suggestedReply   String   @db.Text
+  language         String?
+  confidence       Float?
+  reasoningSummary String?  @db.Text
+  flags            Json?    // string[]
+  requiresReview   Boolean  @default(true)
+  latencyMs        Int?
+  tokenUsage       Json?
+  status           String   @default("generated") // generated | accepted | edited | rejected | failed
+  errorMessage     String?
+  createdAt        DateTime @default(now())
+
+  tenant  Tenant   @relation(fields: [tenantId], references: [id])
+  message Message?
+
+  // conversationId-only - see the identical note on Message.@@index above.
+  @@index([conversationId])
+}
+
+enum MemoryExtractionType {
+  LOCATION
+  AGE
+  OCCUPATION
+  INTEREST
+  PREFERENCE
+  FACT
+  COMMITMENT
+  STATUS
+  OTHER
+}
+
+model AiMemory {
+  id                String                @id @default(cuid())
+  tenantId          String
+  conversationId    String
+  externalUserId    String
+  type              MemoryExtractionType
+  value             String
+  confidence        Float
+  sourceMessageId   String
+  isDeleted         Boolean               @default(false)
+  correctedValue    String?
+  correctedByUserId String?
+  createdAt         DateTime              @default(now())
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id])
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+
+  // conversationId-only - see the identical note on Message.@@index above.
+  @@index([conversationId])
+  // Not yet queried directly, but modeled for a planned "all memory for this
+  // user across conversations" manager view - kept tenant-scoped since that
+  // query would be tenant-wide by nature.
+  @@index([tenantId, externalUserId])
+}
+
+model Note {
+  id             String   @id @default(cuid())
+  tenantId       String
+  conversationId String
+  authorUserId   String
+  body           String   @db.Text
+  createdAt      DateTime @default(now())
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id])
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+
+  // conversationId-only - see the identical note on Message.@@index above.
+  @@index([conversationId])
+}
+
+// ---------------------------------------------------------------------------
+// Tickets (client feedback/requests)
+// ---------------------------------------------------------------------------
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TicketType {
+  FEEDBACK
+  REQUEST
+  COMPLAINT
+  OPERATIONAL_ISSUE
+}
+
+model Ticket {
+  id           String         @id @default(cuid())
+  tenantId     String
+  creatorUserId String
+  type         TicketType
+  priority     TicketPriority @default(MEDIUM)
+  status       TicketStatus   @default(OPEN)
+  subject      String
+  description  String         @db.Text
+  assigneeUserId String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  tenant  Tenant        @relation(fields: [tenantId], references: [id])
+  history TicketHistoryEntry[]
+
+  @@index([tenantId, status])
+}
+
+model TicketHistoryEntry {
+  id        String   @id @default(cuid())
+  ticketId  String
+  actorUserId String?
+  action    String
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id])
+
+  @@index([ticketId])
+}
+
+// ---------------------------------------------------------------------------
+// Usage ledger (billing source of truth)
+// ---------------------------------------------------------------------------
+
+model UsageRecord {
+  id                String   @id @default(cuid())
+  tenantId          String
+  messageId         String   @unique
+  eventType         String   // "message_processed"
+  billable          Boolean  @default(true)
+  priceEurCents     Int
+  operatorCostEurCents Int
+  idempotencyKey    String   @unique
+  source            String   // "webhook" | "operator_send" | ...
+  createdAt         DateTime @default(now())
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  message Message @relation(fields: [messageId], references: [id])
+
+  @@index([tenantId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Integrations & webhooks
+// ---------------------------------------------------------------------------
+
+enum IntegrationStatus {
+  ACTIVE
+  DISABLED
+  DEGRADED
+}
+
+model Integration {
+  id          String            @id @default(cuid())
+  tenantId    String
+  adapterKey  String            // e.g. "mock-dating-app", "dev-webhook"
+  name        String
+  status      IntegrationStatus @default(ACTIVE)
+  config      Json              // non-secret config (base URLs, adapter options)
+  secretRef   String?           // reference/name of secret in secrets manager, never the raw secret
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id])
+  webhookEvents WebhookEvent[]
+
+  @@index([tenantId])
+}
+
+model WebhookEvent {
+  id             String   @id @default(cuid())
+  tenantId       String
+  integrationId  String
+  externalEventId String  // for dedup
+  payloadHash    String
+  rawPayload     Json
+  processed      Boolean  @default(false)
+  processedAt    DateTime?
+  error          String?
+  createdAt      DateTime @default(now())
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id])
+  integration Integration @relation(fields: [integrationId], references: [id])
+
+  @@unique([integrationId, externalEventId])
+  @@index([tenantId, processed])
+}
+
+// ---------------------------------------------------------------------------
+// Audit & system events
+// ---------------------------------------------------------------------------
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  tenantId   String?
+  actorUserId String?
+  action     String
+  resource   String
+  resourceId String?
+  metadata   Json?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, createdAt])
+  @@index([actorUserId])
+  // CEO_ADMIN's global audit view (GET /admin/audit-logs with no tenantId
+  // filter) orders by createdAt across all tenants - (tenantId, createdAt)
+  // above can't serve that ordering efficiently on its own.
+  @@index([createdAt])
+}
+
+model SystemEvent {
+  id        String   @id @default(cuid())
+  category  String   // "queue" | "integration" | "ai" | "db" | "worker"
+  severity  String   // "info" | "warning" | "error" | "critical"
+  message   String
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([category, createdAt])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  tenantId  String?
+  userId    String?
+  type      String
+  payload   Json
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id])
+
+  @@index([userId, readAt])
+}

@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: gco
+          POSTGRES_PASSWORD: gco_ci_password
+          POSTGRES_DB: gco
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U gco"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://gco:gco_ci_password@localhost:5432/gco?schema=public
+      REDIS_URL: redis://localhost:6379
+      AUTH_SECRET: ci-only-secret-not-for-production-use-1234567890
+      DEV_WEBHOOK_SECRET: ci-only-webhook-secret-1234567890
+      AI_PROVIDER: mock
+      NODE_ENV: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - run: npx prisma generate
+
+      - run: npx prisma migrate deploy
+
+      - run: npm run typecheck
+
+      - run: npm run lint
+
+      - run: npm test
+
+      - run: npm run test:integration
+
+      - run: npm run build
+
+      - name: Seed demo data
+        run: npm run seed
+
+      - name: Start worker in background
+        run: npm run worker:dev &
+
+      - name: Start app in background
+        run: npm run start &
+        env:
+          PORT: 3000
+
+      - name: Wait for app health check
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3000/api/v1/health > /dev/null; then
+              echo "App is healthy"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "App did not become healthy in time"
+          exit 1
+
+      - name: Run E2E suite
+        run: npm run test:e2e
+        env:
+          E2E_BASE_URL: http://localhost:3000
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+  # Deployment is intentionally a separate, manually-triggered workflow (not
+  # included here) - this CI job's only job is "should this be allowed to
+  # merge/deploy at all", per spec: never deploy if tests fail.
