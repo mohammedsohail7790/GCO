@@ -21,13 +21,29 @@ interface OperatorRow {
   user: { displayName: string; email: string }
 }
 
-function StatCard({ label, value }: { label: string; value: string | number }) {
+function StatCard({ label, value, accent }: { label: string; value: string | number; accent?: 'good' | 'warn' }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4">
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-card">
       <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
-      <p className="mt-1 text-2xl font-semibold text-slate-900">{value}</p>
+      <p
+        className={`mt-1.5 text-2xl font-semibold tabular-nums ${
+          accent === 'warn' ? 'text-amber-600' : accent === 'good' ? 'text-emerald-600' : 'text-slate-900'
+        }`}
+      >
+        {value}
+      </p>
     </div>
   )
+}
+
+function StatusPill({ status }: { status: string }) {
+  const styles: Record<string, string> = {
+    AVAILABLE: 'bg-emerald-100 text-emerald-700',
+    BUSY: 'bg-amber-100 text-amber-700',
+    PAUSED: 'bg-slate-100 text-slate-600',
+    OFFLINE: 'bg-slate-100 text-slate-400',
+  }
+  return <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${styles[status] ?? 'bg-slate-100 text-slate-600'}`}>{status}</span>
 }
 
 export default function ManagerPage() {
@@ -58,50 +74,68 @@ export default function ManagerPage() {
   useRealtime(load, true)
 
   return (
-    <div className="min-h-screen p-6">
-      <h1 className="mb-6 text-xl font-semibold text-slate-900">Manager dashboard</h1>
+    <div className="min-h-screen bg-slate-50 p-6">
+      <div className="mb-6 flex items-center gap-2.5">
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-500">
+          <span className="text-xs font-bold text-white">G</span>
+        </div>
+        <h1 className="text-lg font-semibold tracking-tight text-slate-900">Manager dashboard</h1>
+      </div>
 
       {error && (
-        <div className="mb-4 rounded-md bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>
+        <div className="mb-4 flex items-center gap-2 rounded-lg bg-red-50 px-4 py-2.5 text-sm text-red-700">
+          <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+          </svg>
+          {error}
+        </div>
       )}
 
       {overview && (
         <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-          <StatCard label="Available operators" value={overview.operators.available} />
+          <StatCard label="Available operators" value={overview.operators.available} accent="good" />
           <StatCard label="Busy operators" value={overview.operators.busy} />
           <StatCard label="Queue size" value={overview.queueSize} />
           <StatCard label="Active conversations" value={overview.activeConversations} />
-          <StatCard label="SLA breaches (24h)" value={overview.slaBreachesLast24h} />
+          <StatCard
+            label="SLA breaches (24h)"
+            value={overview.slaBreachesLast24h}
+            accent={overview.slaBreachesLast24h > 0 ? 'warn' : 'good'}
+          />
         </div>
       )}
 
-      <div className="rounded-lg border border-slate-200 bg-white">
-        <div className="border-b border-slate-200 p-4">
-          <h2 className="font-semibold text-slate-900">Operators</h2>
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-card">
+        <div className="border-b border-slate-200 px-4 py-3">
+          <h2 className="text-sm font-semibold text-slate-900">Operators</h2>
         </div>
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+          <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
             <tr>
-              <th className="px-4 py-2">#</th>
-              <th className="px-4 py-2">Name</th>
-              <th className="px-4 py-2">Status</th>
-              <th className="px-4 py-2">Load</th>
+              <th className="px-4 py-2.5">#</th>
+              <th className="px-4 py-2.5">Name</th>
+              <th className="px-4 py-2.5">Status</th>
+              <th className="px-4 py-2.5">Load</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {operators.map((op) => (
-              <tr key={op.id}>
-                <td className="px-4 py-2">{op.operatorNumber}</td>
-                <td className="px-4 py-2">{op.user.displayName}</td>
-                <td className="px-4 py-2">
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs">{op.status}</span>
+              <tr key={op.id} className="transition hover:bg-slate-50">
+                <td className="px-4 py-2.5 tabular-nums text-slate-500">{op.operatorNumber}</td>
+                <td className="px-4 py-2.5 font-medium text-slate-900">{op.user.displayName}</td>
+                <td className="px-4 py-2.5">
+                  <StatusPill status={op.status} />
                 </td>
-                <td className="px-4 py-2">{op.activeAssignments} / {op.capacity}</td>
+                <td className="px-4 py-2.5 tabular-nums text-slate-600">
+                  {op.activeAssignments} / {op.capacity}
+                </td>
               </tr>
             ))}
             {operators.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-6 text-center text-slate-400">No operators yet.</td>
+                <td colSpan={4} className="px-4 py-8 text-center text-slate-400">
+                  No operators yet.
+                </td>
               </tr>
             )}
           </tbody>
