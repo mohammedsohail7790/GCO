@@ -8,6 +8,7 @@ import { ok, fail, handleRouteError } from '@/lib/api/response'
 import { ACCESS_COOKIE } from '@/lib/auth/session'
 import { writeAuditLog } from '@/lib/audit/log'
 import { isRateLimited, RATE_LIMITS } from '@/lib/api/rateLimit'
+import { isTenantActive } from '@/lib/tenant/activity'
 
 const LoginSchema = z.object({
   email: z.string().email(),
@@ -28,6 +29,13 @@ export async function POST(req: NextRequest) {
 
     const user = await db.user.findUnique({ where: { email: body.email } })
     if (!user || !user.isActive) return fail('Invalid credentials', 401)
+
+    // A user of a SUSPENDED/ARCHIVED tenant cannot sign in. Fail identically to
+    // a bad password so we don't leak whether a tenant is suspended. Global
+    // operational roles (CEO_ADMIN/ASSISTANT) have no tenant and are unaffected.
+    if (user.tenantId && !(await isTenantActive(user.tenantId))) {
+      return fail('Invalid credentials', 401)
+    }
 
     const validPassword = await bcrypt.compare(body.password, user.passwordHash)
     if (!validPassword) {

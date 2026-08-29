@@ -5,9 +5,9 @@ import { getAdapter } from '@/lib/integrations/registry'
 import { enqueueMessageIngest } from '@/lib/queue/jobs'
 import { ok, fail, handleRouteError } from '@/lib/api/response'
 import { isRateLimited, RATE_LIMITS } from '@/lib/api/rateLimit'
+import { isTenantActive, isMessageCapReached } from '@/lib/tenant/activity'
 
 export const dynamic = 'force-dynamic'
-
 /**
  * Inbound webhook entry point for a client integration. Per spec section 18:
  * verify -> validate -> persist raw event -> dedup -> enqueue -> return fast.
@@ -27,6 +27,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ int
     const integration = await db.integration.findUnique({ where: { id: integrationId } })
     if (!integration || integration.status !== 'ACTIVE') {
       return fail('Unknown or inactive integration', 404)
+    }
+
+    // Enforce Tenant.status: a SUSPENDED/ARCHIVED tenant accepts no new inbound
+    // traffic. This is the primary "stop the tap" control for a pilot or client
+    // whose operation must be paused. Checked before any persistence.
+    if (!(await isTenantActive(integration.tenantId))) {
+      return fail('Tenant is not active', 409)
+    }
+
+    // Optional per-tenant message-volume cap (Tenant.messageCap, null =
+    // uncapped). Rejects once the cap is reached so a controlled pilot has a
+    // hard, enforceable ceiling on billable inbound messages.
+    if (await isMessageCapReached(integration.tenantId)) {
+      return fail('Tenant message volume cap reached', 429)
     }
 
     const rawBody = await req.text()

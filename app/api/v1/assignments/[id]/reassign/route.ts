@@ -4,6 +4,7 @@ import { requirePermission } from '@/lib/api/guard'
 import { db } from '@/lib/db/client'
 import { manualReassign } from '@/lib/assignment/engine'
 import { ok, fail, handleRouteError } from '@/lib/api/response'
+import { isRateLimited, RATE_LIMITS } from '@/lib/api/rateLimit'
 
 const BodySchema = z.object({ reason: z.string().min(1).max(500) })
 
@@ -12,6 +13,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const { id } = await params
     const session = await requirePermission(req, 'CONVERSATION_REASSIGN')
     const { reason } = BodySchema.parse(await req.json())
+
+    if (
+      await isRateLimited(`ops-write:${session.sub}`, RATE_LIMITS.AUTHENTICATED_WRITE.max, RATE_LIMITS.AUTHENTICATED_WRITE.windowSeconds)
+    ) {
+      return fail('Rate limit exceeded', 429)
+    }
 
     const assignment = await db.assignment.findUnique({ where: { id } })
     if (!assignment) return fail('Assignment not found', 404)

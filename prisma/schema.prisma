@@ -32,6 +32,10 @@ model Tenant {
   defaultOperatorCapacity      Int @default(2)
   defaultResponseSlaSeconds    Int @default(120)
 
+  // Optional per-tenant cap on total billable inbound messages (usage records).
+  // null = unlimited. Used for controlled pilot volume caps (see docs/GCO_V1_PRODUCT_TECHNICAL_DRAFT.md §18).
+  messageCap Int?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

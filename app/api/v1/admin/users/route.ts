@@ -6,6 +6,7 @@ import { db } from '@/lib/db/client'
 import { created, handleRouteError, fail } from '@/lib/api/response'
 import { writeAuditLog } from '@/lib/audit/log'
 import { defaults } from '@/lib/config/flags'
+import { isRateLimited, RATE_LIMITS } from '@/lib/api/rateLimit'
 
 const CreateSchema = z.object({
   email: z.string().email(),
@@ -20,6 +21,12 @@ export async function POST(req: NextRequest) {
   try {
     const session = await requirePermission(req, 'USER_MANAGE')
     const body = CreateSchema.parse(await req.json())
+
+    if (
+      await isRateLimited(`admin-write:${session.sub}`, RATE_LIMITS.AUTHENTICATED_WRITE.max, RATE_LIMITS.AUTHENTICATED_WRITE.windowSeconds)
+    ) {
+      return fail('Rate limit exceeded', 429)
+    }
 
     // CLIENT/OPERATOR/MANAGER are tenant-scoped roles (they manage or belong to
     // one client relationship - see lib/auth/tenantGuard.ts::resolveTenantScope).

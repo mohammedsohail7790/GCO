@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { getSession } from '@/lib/auth/session'
+import { requirePermission } from '@/lib/api/guard'
 import { resolveTenantScope } from '@/lib/auth/tenantGuard'
 import { db } from '@/lib/db/client'
 import { ok, handleRouteError } from '@/lib/api/response'
@@ -8,7 +8,11 @@ import { ok, handleRouteError } from '@/lib/api/response'
  *  async materialized aggregates once volume requires it, see docs/decisions.md). */
 export async function GET(req: NextRequest) {
   try {
-    const session = await getSession(req)
+    // Gate by the declared RBAC permission (CEO_ADMIN/MANAGER/CLIENT per the
+    // permission matrix). Previously this route depended only on a valid
+    // session, which let OPERATOR - who has no VIEW_TENANT_ANALYTICS
+    // permission - read manager-level operational analytics.
+    const session = await requirePermission(req, 'VIEW_TENANT_ANALYTICS')
     const url = new URL(req.url)
     const tenantId = resolveTenantScope(session, url.searchParams.get('tenantId'))
 

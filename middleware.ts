@@ -25,6 +25,13 @@ export async function middleware(req: NextRequest) {
   try {
     const secret = new TextEncoder().encode(process.env.AUTH_SECRET)
     const { payload } = await jwtVerify(token, secret)
+    // Only REST access tokens may satisfy the middleware role gate. Realtime
+    // tickets are a distinct, short-lived token type (see lib/auth/tokens.ts)
+    // that must NOT be accepted here - the REST API rejects them via its own
+    // `typ` check, but middleware should not grant them a free pass either.
+    if (payload.typ !== 'access') {
+      return NextResponse.redirect(new URL('/login', req.url))
+    }
     const role = payload.role as string
     if (!ROLE_PREFIXES[protectedPrefix]!.includes(role)) {
       return NextResponse.redirect(new URL('/', req.url))

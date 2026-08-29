@@ -6,6 +6,7 @@ import { assertCan } from '@/lib/auth/rbac'
 import { db } from '@/lib/db/client'
 import { ok, created, paginated, fail, handleRouteError } from '@/lib/api/response'
 import { writeAuditLog } from '@/lib/audit/log'
+import { isRateLimited, RATE_LIMITS } from '@/lib/api/rateLimit'
 
 const CreateSchema = z.object({
   type: z.enum(['FEEDBACK', 'REQUEST', 'COMPLAINT', 'OPERATIONAL_ISSUE']),
@@ -46,6 +47,12 @@ export async function POST(req: NextRequest) {
     }
     const body = CreateSchema.parse(await req.json())
     if (!session.tenantId) return fail('No tenant context', 400)
+
+    if (
+      await isRateLimited(`ticket-write:${session.sub}`, RATE_LIMITS.AUTHENTICATED_WRITE.max, RATE_LIMITS.AUTHENTICATED_WRITE.windowSeconds)
+    ) {
+      return fail('Rate limit exceeded', 429)
+    }
 
     const ticket = await db.ticket.create({
       data: {

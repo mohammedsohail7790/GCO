@@ -5,6 +5,7 @@ import { enqueueAiSuggestion, enqueueMemoryExtraction, enqueueAnalyticsEvent } f
 import { recordMessageUsage } from '@/lib/usage/ledger'
 import { publishRealtimeEvent } from '@/lib/realtime/publish'
 import { flags } from '@/lib/config/flags'
+import { isTenantActive } from '@/lib/tenant/activity'
 
 /**
  * Processes one previously-persisted WebhookEvent: normalizes it, persists
@@ -21,6 +22,19 @@ export async function processWebhookEvent(webhookEventId: string) {
 
   const integration = await db.integration.findUniqueOrThrow({ where: { id: event.integrationId } })
   const adapter = getAdapter(integration.adapterKey)
+
+  // Enforce Tenant.status on the ingestion path (defense in depth alongside the
+  // webhook route's check): if the tenant was suspended/archived after this
+  // event was queued, do NOT create any billable message. Mark the event
+  // processed as a terminal no-op so it is not retried or dead-lettered - we
+  // deliberately drop already-queued traffic for a tenant that has been stopped.
+  if (event.tenantId && !(await isTenantActive(event.tenantId))) {
+    await db.webhookEvent.update({
+      where: { id: event.id },
+      data: { processed: true, processedAt: new Date(), error: 'tenant_inactive_dropped' },
+    })
+    return
+  }
 
   try {
     const normalized = adapter.normalizeInbound(event.rawPayload)

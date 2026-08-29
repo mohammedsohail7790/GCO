@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { getSession } from '@/lib/auth/session'
+import { requirePermission } from '@/lib/api/guard'
 import { db } from '@/lib/db/client'
 import { ok, fail, handleRouteError } from '@/lib/api/response'
 
@@ -7,13 +7,16 @@ import { ok, fail, handleRouteError } from '@/lib/api/response'
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
-    const session = await getSession(req)
+    // This endpoint returns private conversation content (the suggested reply
+    // text), gated to the VIEW_CONVERSATION_CONTENT permission (CEO_ADMIN,
+    // MANAGER, OPERATOR). CLIENT has no such permission and so cannot read the
+    // private suggestions of any conversation, including within its own tenant.
+    const session = await requirePermission(req, 'VIEW_CONVERSATION_CONTENT')
     const conversation = await db.conversation.findUnique({ where: { id } })
     if (!conversation) return fail('Conversation not found', 404)
 
-    // Every role except CEO_ADMIN is pinned to its own tenant - this endpoint
-    // returns private conversation content (the suggested reply text), so a
-    // guessed/enumerated conversation id from another tenant must not leak it.
+    // Tenant scoping: every role except CEO_ADMIN is pinned to its own tenant,
+    // so a guessed/enumerated conversation id from another tenant must not leak.
     if (session.role !== 'CEO_ADMIN' && session.tenantId !== conversation.tenantId) {
       return fail('Forbidden', 403)
     }

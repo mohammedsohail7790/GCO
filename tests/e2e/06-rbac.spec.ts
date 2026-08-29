@@ -46,6 +46,27 @@ test.describe('RBAC boundaries', () => {
 
     const auditRes = await tenant.operatorCtx.get('/api/v1/admin/audit-logs')
     expect(auditRes.status()).toBe(403)
+
+    // V1 hardening: analytics/overview is a manager-level operational view and
+    // must be gated by VIEW_TENANT_ANALYTICS (CEO_ADMIN/MANAGER/CLIENT). An
+    // OPERATOR has no such permission and must be rejected (previously it could
+    // read it with only a valid session).
+    const overviewRes = await tenant.operatorCtx.get('/api/v1/analytics/overview')
+    expect(overviewRes.status()).toBe(403)
+  })
+
+  test('CLIENT cannot read private AI suggestion content, incl. intra-tenant', async () => {
+    // The suggestion route serves private conversation content (the suggested
+    // reply). It is gated by VIEW_CONVERSATION_CONTENT (CEO_ADMIN/MANAGER/
+    // OPERATOR), so a CLIENT - even for its own tenant - must not read it. The
+    // permission check runs before the conversation lookup, so an unknown id
+    // still returns 403 (not 404) for an unauthorized role.
+    const clientRes = await tenant.clientCtx.get(`/api/v1/conversations/some-fake-id/suggestion`)
+    expect(clientRes.status()).toBe(403)
+
+    // A MANAGER in the same tenant retains legitimate access (permission granted).
+    const managerRes = await tenant.managerCtx.get(`/api/v1/conversations/some-fake-id/suggestion`)
+    expect(managerRes.status()).toBe(404) // authorized but conversation not found
   })
 
   test('MANAGER cannot perform CEO_ADMIN-only operations', async () => {
