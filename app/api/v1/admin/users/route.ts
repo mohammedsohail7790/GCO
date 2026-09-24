@@ -12,9 +12,10 @@ const CreateSchema = z.object({
   email: z.string().email(),
   password: z.string().min(10),
   displayName: z.string().min(1).max(120),
-  role: z.enum(['CEO_ADMIN', 'MANAGER', 'ASSISTANT', 'OPERATOR', 'CLIENT']),
+  role: z.enum(['CEO_ADMIN', 'MANAGER', 'ASSISTANT', 'OPERATOR', 'CLIENT', 'HUNTER']),
   tenantId: z.string().nullable().optional(),
   operatorCapacity: z.number().int().positive().optional(),
+  commissionPercentage: z.number().min(0).max(100).optional(),
 })
 
 export async function POST(req: NextRequest) {
@@ -56,6 +57,12 @@ export async function POST(req: NextRequest) {
           capacity: body.operatorCapacity ?? defaults.operatorCapacity,
           services: { create: { tenantId: body.tenantId! } },
         },
+      })
+    }
+
+    if (body.role === 'HUNTER') {
+      await db.hunterProfile.create({
+        data: { userId: user.id, commissionPercentage: body.commissionPercentage ?? 10.0 },
       })
     }
 

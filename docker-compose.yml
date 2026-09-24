@@ -11,8 +11,14 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-gco}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
       POSTGRES_DB: ${POSTGRES_DB:-gco}
-    ports:
-      - '5432:5432'
+    # No `ports:` mapping - PostgreSQL must never be reachable outside the
+    # Docker network (production requirement). web/worker/realtime already
+    # reach it via the internal service name `postgres:5432`, which does not
+    # need or use a host port at all. Docker publishes ports by inserting its
+    # own iptables/FORWARD rules ahead of UFW's - a host port here would be
+    # internet-reachable regardless of any UFW rule. Need a one-off psql
+    # session from the host? Use `docker compose exec postgres psql -U ...`
+    # instead of publishing a port for it.
     volumes:
       - gco_postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -31,8 +37,8 @@ services:
     # redis://:password@host:port (ioredis parses that natively). Not
     # enabled by default here since it's unverified without Docker available
     # in this environment - see docs/production-readiness-audit.md.
-    ports:
-      - '6379:6379'
+    # No `ports:` mapping - same production reasoning as postgres above:
+    # nothing outside the Docker network needs to reach Redis directly.
     volumes:
       - gco_redis_data:/data
     healthcheck:
@@ -41,10 +47,29 @@ services:
       timeout: 5s
       retries: 10
 
+  # web/worker/realtime all override DATABASE_URL/REDIS_URL below rather than
+  # trusting whatever is in .env's own DATABASE_URL/REDIS_URL: those are
+  # written for LOCAL (non-Docker) development, where Postgres/Redis run on
+  # the host and "localhost" is correct. Inside a container, "localhost"
+  # refers to that container itself, not the sibling `postgres`/`redis`
+  # containers - a plain `env_file: .env` alone would make every one of
+  # these three services fail to connect to anything. The override derives
+  # the URL from the same POSTGRES_USER/PASSWORD/DB already used to
+  # configure the postgres service itself, so the two can never drift apart.
   web:
     build:
       context: .
       dockerfile: Dockerfile
+      # These are compiled into the client bundle / static pages at build
+      # time (see Dockerfile) - `env_file: .env` below only affects the
+      # running container's server-side process env, not what's already
+      # baked into the built assets. Compose reads these from ITS OWN .env
+      # file in this directory (the same file, just a different mechanism
+      # than env_file) - set the real values there before deploying to a
+      # real domain, or these silently fall back to the localhost defaults.
+      args:
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+        NEXT_PUBLIC_REALTIME_URL: ${NEXT_PUBLIC_REALTIME_URL:-ws://localhost:3001}
     restart: unless-stopped
     depends_on:
       postgres:
@@ -52,9 +77,25 @@ services:
       redis:
         condition: service_healthy
     env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-gco}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-gco}?schema=public
+      REDIS_URL: redis://redis:6379
+    # Bound to loopback only - the reverse proxy (added when the domain/HTTPS
+    # phase happens) runs on the same host and reaches this over 127.0.0.1;
+    # the public internet should only ever reach the app via 80/443 on the
+    # proxy, never directly on :3000 in plaintext.
     ports:
-      - '3000:3000'
+      - '127.0.0.1:3000:3000'
     command: ['node', 'server.js']
+    healthcheck:
+      # Node's own http module, not curl/wget - this alpine image has neither
+      # installed, and adding one just for a healthcheck isn't worth the
+      # extra package. Hits the real, existing liveness endpoint.
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/api/v1/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
 
   worker:
     build:
@@ -67,7 +108,59 @@ services:
       redis:
         condition: service_healthy
     env_file: .env
-    command: ['node', 'workers/index.js']
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-gco}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-gco}?schema=public
+      REDIS_URL: redis://redis:6379
+    # workers/index.ts is never compiled to JS anywhere in this build
+    # (tsconfig.json has noEmit: true; the Dockerfile only runs `next build`,
+    # which builds the app, not the workers) - `node workers/index.js` would
+    # fail on container start because that file does not exist. Run it the
+    # same way `npm run worker` already does in local dev: via tsx, which is
+    # present in node_modules because the deps stage's `npm ci` runs before
+    # NODE_ENV=production is set in the runner stage.
+    command: ['npx', 'tsx', 'workers/index.ts']
+    # No HTTP/TCP surface to probe - workers/index.ts is a pure BullMQ
+    # consumer with no listener of its own. A synthetic healthcheck here
+    # would just re-check "is the process alive," which Docker already
+    # tracks without one. Verify real health via `docker compose logs
+    # worker` (no crash-loop) and GET /api/v1/admin/system-health from the
+    # web container (queue depths, dead-letter counts) - see
+    # docs/docker-staging-verification.md.
+
+  realtime:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-gco}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-gco}?schema=public
+      REDIS_URL: redis://redis:6379
+    # Previously entirely absent from this compose file - the realtime
+    # WebSocket server (workers/realtime-server.ts) never ran in a
+    # docker-compose deployment, silently breaking the realtime feature
+    # (see tests/e2e/11-realtime-security.spec.ts) even though `web` and
+    # `worker` came up healthy.
+    command: ['npx', 'tsx', 'workers/realtime-server.ts']
+    # Loopback-only, same reasoning as web above - the reverse proxy handles
+    # the public wss:// upgrade on :443 and proxies to 127.0.0.1 here.
+    ports:
+      - '127.0.0.1:${REALTIME_PORT:-3001}:${REALTIME_PORT:-3001}'
+    healthcheck:
+      # Unlike the worker, this service does listen (a raw WebSocket server
+      # on REALTIME_PORT) - a TCP connect check is a real, meaningful probe
+      # here, not a synthetic one. Uses Node's net module for the same
+      # reason as web's healthcheck: no curl/wget in this alpine image.
+      test: ["CMD", "node", "-e", "require('net').connect(process.env.REALTIME_PORT||3001,'localhost').on('connect',function(){this.end();process.exit(0)}).on('error',()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
 volumes:
   gco_postgres_data:

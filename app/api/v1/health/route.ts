@@ -1,5 +1,5 @@
 import { db } from '@/lib/db/client'
-import { getRedisConnection } from '@/lib/queue/connection'
+import { getAppRedisConnection } from '@/lib/queue/connection'
 import { ok } from '@/lib/api/response'
 
 export const dynamic = 'force-dynamic'
@@ -18,7 +18,12 @@ export async function GET() {
 
   const redisStart = Date.now()
   try {
-    await getRedisConnection().ping()
+    // The app's shared BullMQ connection (getRedisConnection) has
+    // maxRetriesPerRequest: null and would hang this liveness check
+    // indefinitely during a real Redis outage instead of reporting
+    // unhealthy - use the fast-fail connection here instead (confirmed by
+    // fault injection).
+    await getAppRedisConnection().ping()
     checks.redis = { status: 'up', latencyMs: Date.now() - redisStart }
   } catch (err) {
     checks.redis = { status: 'down', error: err instanceof Error ? err.message : 'unknown' }

@@ -8,6 +8,7 @@ import { memoryExtractionProcessor } from './processors/memoryExtraction'
 import { outboundDeliveryProcessor } from './processors/outboundDelivery'
 import { assignmentTimeoutProcessor } from './processors/assignmentTimeout'
 import { analyticsProcessor } from './processors/analytics'
+import { bpoHandoffProcessor } from './processors/bpoHandoff'
 import { db } from '@/lib/db/client'
 import { tryAssignConversation } from '@/lib/assignment/engine'
 import { logger } from '@/lib/observability/logger'
@@ -38,6 +39,11 @@ function makeWorker(name: string, processor: (job: Job) => Promise<void>, concur
           metadata: { jobId: job.id, data: job.data as any, error: err.message },
         },
       })
+      if (name === QUEUE_NAMES.BPO_HANDOFF && (job.data as any)?.leadId) {
+        await db.bpoHandoff
+          .update({ where: { leadId: (job.data as any).leadId }, data: { status: 'DEAD_LETTERED' } })
+          .catch(() => null) // best-effort - the generic dead-letter record above is the authoritative trail either way
+      }
     }
   })
 
@@ -53,6 +59,7 @@ const workers = [
   makeWorker(QUEUE_NAMES.OUTBOUND_DELIVERY, outboundDeliveryProcessor, 10),
   makeWorker(QUEUE_NAMES.ASSIGNMENT_TIMEOUT, assignmentTimeoutProcessor, 5),
   makeWorker(QUEUE_NAMES.ANALYTICS, analyticsProcessor, 20),
+  makeWorker(QUEUE_NAMES.BPO_HANDOFF, bpoHandoffProcessor, 5),
 ]
 
 // Periodic sweep: catches conversations left QUEUED/REASSIGNING because no
@@ -75,10 +82,31 @@ const sweepTimer = setInterval(async () => {
   }
 }, SWEEP_INTERVAL_MS)
 
+// Lead-lock sweep: releases leads whose 30-day ownership lock has expired
+// with no qualifying activity to extend it (see lib/crm/leads.ts::logActivity,
+// which bumps ownershipExpiresAt on real activity). Hourly, not 15s - a lead
+// lock has none of the SLA-timer urgency a live conversation assignment does.
+const LEAD_SWEEP_INTERVAL_MS = 60 * 60 * 1000
+const leadSweepTimer = setInterval(async () => {
+  try {
+    const { releaseLead } = await import('@/lib/crm/leads')
+    const expired = await db.lead.findMany({
+      where: { ownerId: { not: null }, ownershipExpiresAt: { lt: new Date() } },
+      take: 100,
+    })
+    for (const lead of expired) {
+      await releaseLead(lead.id, null, 'auto_released')
+    }
+  } catch (err) {
+    logger.error({ component: 'worker:lead-sweep', err: err instanceof Error ? err.message : err }, 'lead sweep error')
+  }
+}, LEAD_SWEEP_INTERVAL_MS)
+
 logger.info({ queueCount: workers.length, sweepIntervalMs: SWEEP_INTERVAL_MS }, 'GCO workers started')
 
 async function shutdown() {
   clearInterval(sweepTimer)
+  clearInterval(leadSweepTimer)
   await Promise.all(workers.map((w) => w.close()))
   await connection.quit()
   process.exit(0)

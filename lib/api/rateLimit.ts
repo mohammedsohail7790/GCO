@@ -1,4 +1,5 @@
-import { getRedisConnection } from '@/lib/queue/connection'
+import { getAppRedisConnection } from '@/lib/queue/connection'
+import { logger } from '@/lib/observability/logger'
 
 /**
  * Redis-backed fixed-window rate limiter. Works correctly across multiple
@@ -7,16 +8,30 @@ import { getRedisConnection } from '@/lib/queue/connection'
  * docs/production-readiness-audit.md).
  *
  * Returns true if the request should be BLOCKED (limit exceeded).
+ *
+ * Fails OPEN (returns false / "not limited") if Redis itself is unreachable,
+ * rather than throwing and turning a Redis outage into a full outage of
+ * every rate-limited route (login, webhooks, all authenticated writes,
+ * public forms) - confirmed by fault injection this was previously the
+ * actual failure mode: killing Redis made these requests hang indefinitely.
+ * Losing this secondary abuse-prevention layer during a Redis outage is an
+ * acceptable trade-off; primary controls (auth, RBAC, tenant isolation,
+ * webhook signatures) do not depend on Redis at all.
  */
 export async function isRateLimited(key: string, maxRequests: number, windowSeconds: number): Promise<boolean> {
-  const redis = getRedisConnection()
+  const redis = getAppRedisConnection()
   const bucketKey = `gco:ratelimit:${key}:${Math.floor(Date.now() / (windowSeconds * 1000))}`
 
-  const count = await redis.incr(bucketKey)
-  if (count === 1) {
-    await redis.expire(bucketKey, windowSeconds)
+  try {
+    const count = await redis.incr(bucketKey)
+    if (count === 1) {
+      await redis.expire(bucketKey, windowSeconds)
+    }
+    return count > maxRequests
+  } catch (err) {
+    logger.error({ err: err instanceof Error ? err.message : err, key }, 'rate limiter unavailable - failing open')
+    return false
   }
-  return count > maxRequests
 }
 
 /** Standard limits used across the API - centralized so they're easy to tune per deployment. */
@@ -36,4 +51,8 @@ export const RATE_LIMITS = {
   // Login already has its own in-memory limiter (app/api/v1/auth/login/route.ts);
   // this constant is reserved for migrating it to this Redis-backed one.
   LOGIN: { max: 10, windowSeconds: 15 * 60 },
+  // Unauthenticated public forms (contact, careers) - keyed by IP. Generous
+  // enough for a real visitor who mistypes and resubmits, tight enough to
+  // blunt a scripted flood against an endpoint with no login wall at all.
+  PUBLIC_FORM: { max: 5, windowSeconds: 60 },
 } as const

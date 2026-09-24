@@ -19,9 +19,18 @@ npx tsx workers/realtime-server.ts   # separate terminal - realtime WS on :3001
 docker compose up -d --build
 ```
 
-This starts Postgres, Redis, the `web` container, and a `worker` container from the same image (see `Dockerfile`, multi-stage Next.js standalone build). The realtime server is not yet included in `docker-compose.yml` as a separate service - add a third container from the same image running `node workers/realtime-server.js` before going live (tracked as a known gap, see `docs/decisions.md`).
+This starts Postgres, Redis, the `web` container, a `worker` container, and a `realtime` container, all from the same image (see `Dockerfile`, multi-stage Next.js standalone build).
 
-**Status**: `next.config.js` now sets `output: 'standalone'` (a prior gap meant `docker build` would have failed at the `COPY .next/standalone` step - never caught because Docker wasn't available in the environment this was first built in) and a `.dockerignore` now excludes `.env*`/`.git`/`node_modules` from the build context (a prior gap meant a local `.env` could get baked into the image - see `docs/production-readiness-audit.md`). `npm run build` + `npm run start` (the non-containerized equivalent of what the Docker image runs) have been verified to work end-to-end. **The actual `docker build`/`docker compose up` commands themselves have still not been executed** - Docker is not available in this development environment. Run them yourself before trusting the container image; the Dockerfile has been code-reviewed and its assumptions verified indirectly, but not run.
+**Status (re-audited this session, Docker still unavailable in this environment - findings below are from static review, not a real `docker build`/`docker compose up` run):**
+
+Three concrete bugs were found by static review and fixed, none previously caught because Docker has never been runnable here:
+1. `Dockerfile` did `COPY --from=builder /app/public ./public`, but no `public/` directory exists anywhere in this repo - `COPY` fails the whole build if its source doesn't exist. Fixed by adding an empty, tracked `public/.gitkeep`.
+2. `docker-compose.yml`'s `worker` service ran `node workers/index.js` - that file is never produced anywhere (`tsconfig.json` has `noEmit: true`; the Dockerfile's build step only runs `next build`, not a workers compile step), so the worker container would have failed on every start. Fixed to run `npx tsx workers/index.ts`, the same way `npm run worker` already does in local dev (`tsx` ships as a devDependency but is present in the image because `npm ci` in the `deps` stage runs before `NODE_ENV=production` is set).
+3. The realtime WebSocket server (`workers/realtime-server.ts`) was entirely absent from `docker-compose.yml` - previously the known gap this section used to describe. It now has its own `realtime` service using the same fix as #2.
+
+A fourth, separate gap was also found and fixed: `NEXT_PUBLIC_SITE_URL`/`NEXT_PUBLIC_REALTIME_URL` are compiled into the client bundle and into statically-prerendered pages at `next build` time - setting them only in the runtime `.env` that `env_file` passes to the `web` container has no effect on an already-built image. `docker-compose.yml`'s `web` service now passes them as `build.args` (read from compose's own `.env` file), and the `Dockerfile` declares matching `ARG`/`ENV` in the `builder` stage. Set real values before deploying to a real domain - left unset, they silently fall back to the `localhost` defaults.
+
+`next.config.js` sets `output: 'standalone'`, and a `.dockerignore` excludes `.env*`/`.git`/`node_modules` from the build context. `npm run build` + `npm run start` (the non-containerized approximation of what the image runs) have been verified to work end-to-end, and the full migration/test suite passes against a real Postgres/Redis. **The actual `docker build`/`docker compose up` commands themselves have still never been executed anywhere this code has run** - Docker remains unavailable in every environment this project has been developed in. Run them yourself, end to end, before trusting the container image in production; everything above is from code review plus indirect verification (the same commands the image runs, run directly), not a real container build.
 
 Before first boot in any new environment:
 
@@ -31,8 +40,8 @@ npx prisma migrate deploy
 
 ## Health checks
 
-- `GET /api/v1/health` - liveness/readiness (checks DB + Redis), no auth required. Point your orchestrator's health check here.
-- `GET /api/v1/admin/system-health` - authenticated, richer view (queue depths, recent errors) for the admin System Health screen.
+- `GET /api/v1/health` - liveness/readiness (checks DB + Redis), no auth required. Point your orchestrator's health check here. Confirmed by fault injection (killing Redis mid-run) to now report `503` within milliseconds rather than hanging - it previously used the same connection as BullMQ (`maxRetriesPerRequest: null`), which meant a Redis outage made this endpoint (and login, and every rate-limited route) hang indefinitely instead of degrading. Fixed in `lib/queue/connection.ts` by giving ad-hoc, non-queue Redis use (health check, rate limiter, realtime pub/sub) its own bounded-retry connection.
+- `GET /api/v1/admin/system-health` - authenticated, richer view (queue depths, recent errors) for the admin System Health screen. Still uses the BullMQ-style connection (it reads real `Queue` objects) - a Redis outage can make this specific admin page slow rather than instant, which is an acceptable trade-off given it's a diagnostic screen an operator opens *because* something is already wrong, not a liveness probe.
 
 ## Operational assumptions (be honest about what "24/7" means here)
 

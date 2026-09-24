@@ -12,6 +12,7 @@ const ROLE_PREFIXES: Record<string, string[]> = {
   '/manager': ['MANAGER', 'ASSISTANT', 'CEO_ADMIN'],
   '/operator': ['OPERATOR'],
   '/client-panel': ['CLIENT'],
+  '/hunter': ['HUNTER'],
 }
 
 export async function middleware(req: NextRequest) {
@@ -44,5 +45,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/manager/:path*', '/operator/:path*', '/client-panel/:path*'],
+  matcher: ['/admin/:path*', '/manager/:path*', '/operator/:path*', '/client-panel/:path*', '/hunter/:path*'],
 }

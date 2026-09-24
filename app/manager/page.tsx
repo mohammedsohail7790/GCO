@@ -3,6 +3,8 @@
 import { useEffect, useState, useCallback } from 'react'
 import { apiFetch } from '@/lib/api/client'
 import { useRealtime } from '@/lib/realtime/useRealtime'
+import { StatCard } from '@/components/ui/StatCard'
+import { StatusPill } from '@/components/ui/StatusPill'
 
 interface Overview {
   operators: { available: number; busy: number; offline: number; paused: number }
@@ -21,34 +23,29 @@ interface OperatorRow {
   user: { displayName: string; email: string }
 }
 
-function StatCard({ label, value, accent }: { label: string; value: string | number; accent?: 'good' | 'warn' }) {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-card">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
-      <p
-        className={`mt-1.5 text-2xl font-semibold tabular-nums ${
-          accent === 'warn' ? 'text-amber-600' : accent === 'good' ? 'text-emerald-600' : 'text-slate-900'
-        }`}
-      >
-        {value}
-      </p>
-    </div>
-  )
+interface ManagerCrmDashboard {
+  totalLeads: number
+  byStage: Record<string, number>
+  pendingApprovals: number
+  teamCommissionEurCents: number
 }
 
-function StatusPill({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    AVAILABLE: 'bg-emerald-100 text-emerald-700',
-    BUSY: 'bg-amber-100 text-amber-700',
-    PAUSED: 'bg-slate-100 text-slate-600',
-    OFFLINE: 'bg-slate-100 text-slate-400',
-  }
-  return <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${styles[status] ?? 'bg-slate-100 text-slate-600'}`}>{status}</span>
+interface Approval {
+  id: string
+  reason: string | null
+  lead: { id: string; companyName: string; contactName: string }
+  submitter: { displayName: string }
+}
+
+function eur(cents: number) {
+  return `€${(cents / 100).toFixed(2)}`
 }
 
 export default function ManagerPage() {
   const [overview, setOverview] = useState<Overview | null>(null)
   const [operators, setOperators] = useState<OperatorRow[]>([])
+  const [crm, setCrm] = useState<ManagerCrmDashboard | null>(null)
+  const [approvals, setApprovals] = useState<Approval[]>([])
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(() => {
@@ -59,6 +56,8 @@ export default function ManagerPage() {
       })
       .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load dashboard data'))
     apiFetch<OperatorRow[]>('/operators').then(setOperators).catch(() => {})
+    apiFetch<ManagerCrmDashboard>('/crm/dashboard/manager').then(setCrm).catch(() => {})
+    apiFetch<Approval[]>('/crm/approvals').then(setApprovals).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -72,6 +71,15 @@ export default function ManagerPage() {
   // Accelerator only: nudges an immediate refetch on a push event, never
   // trusted as data on its own.
   useRealtime(load, true)
+
+  async function decide(approvalId: string, decision: 'APPROVED' | 'REJECTED') {
+    try {
+      await apiFetch(`/crm/approvals/${approvalId}/decide`, { method: 'POST', body: JSON.stringify({ decision }) })
+      load()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to record decision')
+    }
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 p-6">
@@ -140,6 +148,55 @@ export default function ManagerPage() {
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Sales CRM - team visibility. Financial figures beyond team commission
+          totals (MRR, net margin, payout control) remain CEO-only, per RBAC. */}
+      <div className="mt-8 mb-6 flex items-center gap-2.5">
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-500">
+          <span className="text-xs font-bold text-white">G</span>
+        </div>
+        <h2 className="text-lg font-semibold tracking-tight text-slate-900">Sales CRM — team</h2>
+      </div>
+
+      {crm && (
+        <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <StatCard label="Total leads" value={crm.totalLeads} />
+          <StatCard label="Pending approvals" value={crm.pendingApprovals} accent={crm.pendingApprovals > 0 ? 'warn' : 'good'} />
+          <StatCard label="Team commission" value={eur(crm.teamCommissionEurCents)} />
+          <StatCard label="Closed won" value={crm.byStage['CLOSED_WON'] ?? 0} accent="good" />
+        </div>
+      )}
+
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-card">
+        <div className="border-b border-slate-200 px-4 py-3">
+          <h2 className="text-sm font-semibold text-slate-900">Pending approvals</h2>
+        </div>
+        <ul className="divide-y divide-slate-100">
+          {approvals.map((a) => (
+            <li key={a.id} className="flex items-center justify-between p-4">
+              <div>
+                <p className="text-sm font-medium text-slate-900">{a.lead.companyName}</p>
+                <p className="text-xs text-slate-500">Submitted by {a.submitter.displayName}</p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => decide(a.id, 'APPROVED')}
+                  className="rounded bg-emerald-500 px-3 py-1 text-xs font-medium text-white hover:bg-emerald-600"
+                >
+                  Approve
+                </button>
+                <button
+                  onClick={() => decide(a.id, 'REJECTED')}
+                  className="rounded bg-red-500 px-3 py-1 text-xs font-medium text-white hover:bg-red-600"
+                >
+                  Reject
+                </button>
+              </div>
+            </li>
+          ))}
+          {approvals.length === 0 && <li className="p-4 text-sm text-slate-400">No pending approvals.</li>}
+        </ul>
       </div>
     </div>
   )

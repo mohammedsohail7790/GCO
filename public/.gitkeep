@@ -1,0 +1,9 @@
+# Keeps this directory tracked in git.
+#
+# Dockerfile does `COPY --from=builder /app/public ./public` for the
+# standalone build (Next.js's own convention for static assets served
+# outside the app - see node_modules/next/dist/docs/.../output.md). Docker's
+# COPY fails the whole build if the source path does not exist, and this app
+# currently has no /public assets (the favicon is an inline data: URI in
+# app/layout.tsx) - so this file exists purely to keep the directory present
+# for that COPY to succeed. Safe to remove once real static assets live here.

@@ -15,6 +15,13 @@ export function signWebhookBody(body: string): string {
   return crypto.createHmac('sha256', DEV_WEBHOOK_SECRET).update(body).digest('hex')
 }
 
+/** Same signing, but with an arbitrary secret - for tests that need a
+ *  second integration with its own distinct webhook secret (per-integration
+ *  secrets, not one shared DEV_WEBHOOK_SECRET - see the webhook route). */
+export function signWebhookBodyWithSecret(body: string, secret: string): string {
+  return crypto.createHmac('sha256', secret).update(body).digest('hex')
+}
+
 /** A fresh, independent cookie-jar session, logged in as the given user. */
 export async function loginAs(email: string, password = 'DemoPassword123!'): Promise<APIRequestContext> {
   const ctx = await request.newContext({ baseURL: BASE_URL })
@@ -88,9 +95,15 @@ export async function seedIsolatedTenant(namePrefix: string): Promise<SeededTena
   // Integration row isn't exposed via a dedicated admin endpoint yet (see
   // docs/mvp.md gaps) - create it directly against the DB via a thin internal
   // helper route is out of scope for V1, so tests seed it through Prisma.
+  // webhookSecret set here so sendWebhook()'s existing signWebhookBody(),
+  // which signs with DEV_WEBHOOK_SECRET, keeps verifying - per-integration
+  // secrets doesn't mean every test needs its own distinct one; it means the
+  // webhook route reads the integration's OWN stored secret rather than a
+  // hardcoded env var (see tests/e2e/18-webhook-security.spec.ts for the
+  // "two integrations, two different secrets" case specifically).
   const { db } = await import('@/lib/db/client')
   const integration = await db.integration.create({
-    data: { tenantId, adapterKey: 'dev-mock', name: `[E2E] Integration ${unique}`, config: {} },
+    data: { tenantId, adapterKey: 'dev-mock', name: `[E2E] Integration ${unique}`, config: {}, webhookSecret: DEV_WEBHOOK_SECRET },
   })
 
   const operatorCtx = await loginAs(operatorEmail, password)
@@ -139,6 +152,63 @@ export async function waitFor(check: () => Promise<boolean>, timeoutMs = 8000, i
     await new Promise((r) => setTimeout(r, intervalMs))
   }
   return false
+}
+
+interface SeededHunter {
+  userId: string
+  email: string
+  ctx: APIRequestContext
+}
+
+/** Creates a fresh, isolated Hunter (global role, no tenant) via the CEO admin API. */
+export async function seedHunter(namePrefix: string, commissionPercentage?: number): Promise<SeededHunter> {
+  const admin = await sharedAdminContext()
+  const unique = `${namePrefix}-${Date.now()}-${Math.floor(Math.random() * 10000)}`
+  const email = `hunter-${unique}@e2e.gco`
+  const password = 'DemoPassword123!'
+
+  const res = await admin.post('/api/v1/admin/users', {
+    data: { email, password, displayName: `[E2E] Hunter ${unique}`, role: 'HUNTER', commissionPercentage },
+  })
+  if (!res.ok()) throw new Error(`hunter create failed: ${await res.text()}`)
+  const user = (await res.json()).data
+
+  const ctx = await loginAs(email, password)
+  return { userId: user.id, email, ctx }
+}
+
+export async function cleanupHunter(userId: string) {
+  const { db } = await import('@/lib/db/client')
+  await db.leadHistoryEntry.deleteMany({ where: { actorUserId: userId } })
+  await db.commission.deleteMany({ where: { hunterId: userId } })
+  await db.approval.deleteMany({ where: { OR: [{ submittedByUserId: userId }, { reviewedByUserId: userId }] } })
+  await db.lead.updateMany({ where: { ownerId: userId }, data: { ownerId: null } })
+  await db.calendarBooking.deleteMany({ where: { hunterId: userId } })
+  await db.hunterProfile.deleteMany({ where: { userId } })
+  await db.session.deleteMany({ where: { userId } })
+  await db.user.delete({ where: { id: userId } }).catch(() => null)
+}
+
+export async function cleanupLead(leadId: string) {
+  const { db } = await import('@/lib/db/client')
+  await db.leadHistoryEntry.deleteMany({ where: { leadId } })
+  await db.revenueRecord.deleteMany({ where: { leadId } })
+  await db.commission.deleteMany({ where: { leadId } })
+  await db.approval.deleteMany({ where: { leadId } })
+  const handoff = await db.bpoHandoff.findUnique({ where: { leadId } })
+  await db.bpoHandoff.deleteMany({ where: { leadId } })
+  await db.calendarBooking.updateMany({ where: { leadId }, data: { leadId: null } })
+  await db.lead.delete({ where: { id: leadId } }).catch(() => null)
+  // The BPO handoff creates a Tenant ("lead-<id>" slug) once it succeeds -
+  // clean that up too so tests don't leak tenants across runs. Also catches
+  // any revenue recorded against that tenant with no leadId (e.g. a
+  // simulated "month 2" recurring-revenue entry, which is deliberately
+  // NOT linked to a lead), which the leadId-scoped delete above wouldn't.
+  if (handoff?.tenantId) {
+    await db.revenueRecord.deleteMany({ where: { tenantId: handoff.tenantId } })
+    await db.fulfillmentCost.deleteMany({ where: { tenantId: handoff.tenantId } })
+    await db.tenant.delete({ where: { id: handoff.tenantId } }).catch(() => null)
+  }
 }
 
 export async function cleanupTenant(tenantId: string) {

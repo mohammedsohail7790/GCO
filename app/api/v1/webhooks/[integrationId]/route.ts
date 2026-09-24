@@ -6,6 +6,7 @@ import { enqueueMessageIngest } from '@/lib/queue/jobs'
 import { ok, fail, handleRouteError } from '@/lib/api/response'
 import { isRateLimited, RATE_LIMITS } from '@/lib/api/rateLimit'
 import { isTenantActive, isMessageCapReached } from '@/lib/tenant/activity'
+import { logger } from '@/lib/observability/logger'
 
 export const dynamic = 'force-dynamic'
 /**
@@ -46,8 +47,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ int
     const rawBody = await req.text()
     const adapter = getAdapter(integration.adapterKey)
 
-    const secret = process.env.DEV_WEBHOOK_SECRET ?? ''
-    if (!adapter.verifyWebhookSignature(rawBody, req.headers, secret)) {
+    // Business rule (confirmed): every integration has its own webhook
+    // secret - no shared/global secret across unrelated clients. Previously
+    // this read one global DEV_WEBHOOK_SECRET env var for every integration,
+    // meaning anyone who learned it could forge webhooks against ANY
+    // tenant's integration ID, not just their own. An integration with no
+    // secret configured cannot possibly verify - fail closed, and log
+    // (without ever logging the secret value itself) for operator visibility.
+    if (!integration.webhookSecret) {
+      logger.warn({ integrationId: integration.id }, 'webhook rejected: integration has no webhookSecret configured')
+      return fail('Invalid webhook signature', 401)
+    }
+    if (!adapter.verifyWebhookSignature(rawBody, req.headers, integration.webhookSecret)) {
       return fail('Invalid webhook signature', 401)
     }
 

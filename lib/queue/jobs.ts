@@ -5,6 +5,7 @@ import {
   outboundDeliveryQueue,
   assignmentTimeoutQueue,
   analyticsQueue,
+  bpoHandoffQueue,
 } from './queues'
 
 // All enqueue helpers use a deterministic jobId derived from a domain key so
@@ -63,4 +64,10 @@ export async function cancelAssignmentTimeoutCheck(assignmentId: string) {
 
 export function enqueueAnalyticsEvent(type: string, payload: Record<string, unknown>) {
   return analyticsQueue.add(type, payload, { removeOnComplete: true })
+}
+
+/** Deterministic jobId on leadId - a retried/duplicate approval decision can never
+ *  double-enqueue the handoff for the same lead. */
+export function enqueueBpoHandoff(leadId: string) {
+  return bpoHandoffQueue.add('handoff', { leadId }, { jobId: `bpo-handoff-${leadId}` })
 }

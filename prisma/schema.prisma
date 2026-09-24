@@ -22,15 +22,15 @@ enum TenantStatus {
 }
 
 model Tenant {
-  id        String       @id @default(cuid())
-  name      String
-  slug      String       @unique
-  status    TenantStatus @default(ACTIVE)
+  id     String       @id @default(cuid())
+  name   String
+  slug   String       @unique
+  status TenantStatus @default(ACTIVE)
 
-  pricePerMessageEurCents      Int @default(14)   // 0.14 EUR
-  operatorCostPerMessageEurCents Int @default(6)  // 0.06 EUR
-  defaultOperatorCapacity      Int @default(2)
-  defaultResponseSlaSeconds    Int @default(120)
+  pricePerMessageEurCents        Int @default(14) // 0.14 EUR
+  operatorCostPerMessageEurCents Int @default(6) // 0.06 EUR
+  defaultOperatorCapacity        Int @default(2)
+  defaultResponseSlaSeconds      Int @default(120)
 
   // Optional per-tenant cap on total billable inbound messages (usage records).
   // null = unlimited. Used for controlled pilot volume caps (see docs/GCO_V1_PRODUCT_TECHNICAL_DRAFT.md §18).
@@ -52,6 +52,10 @@ model Tenant {
   auditLogs        AuditLog[]
   notifications    Notification[]
   notes            Note[]
+  commissions      Commission[]
+  revenueRecords   RevenueRecord[]
+  fulfillmentCosts FulfillmentCost[]
+  bpoHandoffs      BpoHandoff[]
 
   @@index([status])
 }
@@ -62,35 +66,41 @@ enum Role {
   ASSISTANT
   OPERATOR
   CLIENT
+  HUNTER
 }
 
 model User {
-  id           String   @id @default(cuid())
-  tenantId     String?  // null for internal staff (CEO_ADMIN/MANAGER/ASSISTANT/OPERATOR); set for CLIENT users
-  email        String   @unique
+  id           String    @id @default(cuid())
+  tenantId     String? // null for internal staff (CEO_ADMIN/MANAGER/ASSISTANT/OPERATOR/HUNTER); set for CLIENT users
+  email        String    @unique
   passwordHash String
   role         Role
   displayName  String
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
   lastLoginAt  DateTime?
 
-  tenant   Tenant?   @relation(fields: [tenantId], references: [id])
-  operator Operator?
-  sessions Session[]
+  tenant             Tenant?            @relation(fields: [tenantId], references: [id])
+  operator           Operator?
+  hunterProfile      HunterProfile?
+  sessions           Session[]
+  leadsOwned         Lead[]             @relation("LeadOwner")
+  leadActivity       LeadHistoryEntry[]
+  approvalsSubmitted Approval[]         @relation("ApprovalSubmitter")
+  approvalsReviewed  Approval[]         @relation("ApprovalReviewer")
 
   @@index([tenantId])
   @@index([role])
 }
 
 model Session {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   userId       String
-  refreshToken String   @unique
+  refreshToken String    @unique
   userAgent    String?
   ipAddress    String?
-  createdAt    DateTime @default(now())
+  createdAt    DateTime  @default(now())
   expiresAt    DateTime
   revokedAt    DateTime?
 
@@ -111,19 +121,19 @@ enum OperatorStatus {
 }
 
 model Operator {
-  id            String         @id @default(cuid())
-  operatorNumber Int           @unique @default(autoincrement())
-  userId        String         @unique
-  tenantId      String         // primary tenant; cross-tenant assignment via OperatorService
-  status        OperatorStatus @default(OFFLINE)
-  capacity      Int            @default(2) // configurable, default matches Tenant.defaultOperatorCapacity
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id             String         @id @default(cuid())
+  operatorNumber Int            @unique @default(autoincrement())
+  userId         String         @unique
+  tenantId       String // primary tenant; cross-tenant assignment via OperatorService
+  status         OperatorStatus @default(OFFLINE)
+  capacity       Int            @default(2) // configurable, default matches Tenant.defaultOperatorCapacity
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
-  user           User             @relation(fields: [userId], references: [id])
-  tenant         Tenant           @relation(fields: [tenantId], references: [id])
-  services       OperatorService[]
-  assignments    Assignment[]
+  user            User                     @relation(fields: [userId], references: [id])
+  tenant          Tenant                   @relation(fields: [tenantId], references: [id])
+  services        OperatorService[]
+  assignments     Assignment[]
   metricSnapshots OperatorMetricSnapshot[]
 
   @@index([tenantId, status])
@@ -174,23 +184,23 @@ enum ConversationState {
 }
 
 model Conversation {
-  id            String             @id @default(cuid())
-  tenantId      String
-  externalUserId String            // the end-user on the client platform
-  state         ConversationState  @default(QUEUED)
-  priority      Int                @default(0) // higher = more urgent, for queue ordering
-  language      String?
-  currentAssignmentId String?      @unique
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
-  closedAt      DateTime?
+  id                  String            @id @default(cuid())
+  tenantId            String
+  externalUserId      String // the end-user on the client platform
+  state               ConversationState @default(QUEUED)
+  priority            Int               @default(0) // higher = more urgent, for queue ordering
+  language            String?
+  currentAssignmentId String?           @unique
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  closedAt            DateTime?
 
-  tenant       Tenant         @relation(fields: [tenantId], references: [id])
-  messages     Message[]
-  assignments  Assignment[]   @relation("ConversationAssignments")
-  currentAssignment Assignment? @relation("CurrentAssignment", fields: [currentAssignmentId], references: [id])
-  aiMemories   AiMemory[]
-  notes        Note[]
+  tenant            Tenant       @relation(fields: [tenantId], references: [id])
+  messages          Message[]
+  assignments       Assignment[] @relation("ConversationAssignments")
+  currentAssignment Assignment?  @relation("CurrentAssignment", fields: [currentAssignmentId], references: [id])
+  aiMemories        AiMemory[]
+  notes             Note[]
 
   @@index([tenantId, state])
   @@index([tenantId, externalUserId])
@@ -214,31 +224,31 @@ enum MessageStatus {
 }
 
 model Message {
-  id             String            @id @default(cuid())
-  tenantId       String
-  conversationId String
-  direction      MessageDirection
-  status         MessageStatus     @default(RECEIVED)
-  content        String            @db.Text
-  externalMessageId String?        // ID from the client platform, for idempotency/tracing
-  operatorId     String?           // who sent it, for OUTBOUND
-  aiGenerationId String?           @unique // the suggestion this was based on, if any
-  createdAt      DateTime          @default(now())
-  sentAt         DateTime?
-  deliveredAt    DateTime?
-  failedReason   String?
+  id                String           @id @default(cuid())
+  tenantId          String
+  conversationId    String
+  direction         MessageDirection
+  status            MessageStatus    @default(RECEIVED)
+  content           String           @db.Text
+  externalMessageId String? // ID from the client platform, for idempotency/tracing
+  operatorId        String? // who sent it, for OUTBOUND
+  aiGenerationId    String?          @unique // the suggestion this was based on, if any
+  createdAt         DateTime         @default(now())
+  sentAt            DateTime?
+  deliveredAt       DateTime?
+  failedReason      String?
 
-  tenant       Tenant        @relation(fields: [tenantId], references: [id])
-  conversation Conversation  @relation(fields: [conversationId], references: [id])
+  tenant       Tenant         @relation(fields: [tenantId], references: [id])
+  conversation Conversation   @relation(fields: [conversationId], references: [id])
   events       MessageEvent[]
-  aiGeneration AiGeneration? @relation(fields: [aiGenerationId], references: [id])
+  aiGeneration AiGeneration?  @relation(fields: [aiGenerationId], references: [id])
   usageRecord  UsageRecord?
 
+  @@unique([tenantId, externalMessageId, direction])
   // conversationId-only, not (tenantId, conversationId): every hot-path read
   // (buildConversationContext, operator workspace) filters by conversationId
   // alone - see docs/database.md.
   @@index([conversationId])
-  @@unique([tenantId, externalMessageId, direction])
 }
 
 enum MessageEventType {
@@ -285,14 +295,14 @@ model Assignment {
   status         AssignmentStatus @default(ACTIVE)
   slaSeconds     Int
   assignedAt     DateTime         @default(now())
-  respondsBy     DateTime         // assignedAt + slaSeconds, authoritative server-side deadline
+  respondsBy     DateTime // assignedAt + slaSeconds, authoritative server-side deadline
   respondedAt    DateTime?
   expiredAt      DateTime?
   releaseReason  String?
 
-  conversation Conversation @relation("ConversationAssignments", fields: [conversationId], references: [id])
-  isCurrentFor Conversation? @relation("CurrentAssignment")
-  operator     Operator      @relation(fields: [operatorId], references: [id])
+  conversation Conversation             @relation("ConversationAssignments", fields: [conversationId], references: [id])
+  isCurrentFor Conversation?            @relation("CurrentAssignment")
+  operator     Operator                 @relation(fields: [operatorId], references: [id])
   history      AssignmentHistoryEntry[]
 
   @@index([tenantId, status])
@@ -303,8 +313,8 @@ model Assignment {
 model AssignmentHistoryEntry {
   id           String   @id @default(cuid())
   assignmentId String
-  event        String   // e.g. "created", "expired", "reassigned", "completed"
-  actorUserId  String?  // null when system-initiated
+  event        String // e.g. "created", "expired", "reassigned", "completed"
+  actorUserId  String? // null when system-initiated
   metadata     Json?
   createdAt    DateTime @default(now())
 
@@ -327,7 +337,7 @@ model AiGeneration {
   language         String?
   confidence       Float?
   reasoningSummary String?  @db.Text
-  flags            Json?    // string[]
+  flags            Json? // string[]
   requiresReview   Boolean  @default(true)
   latencyMs        Int?
   tokenUsage       Json?
@@ -355,7 +365,7 @@ enum MemoryExtractionType {
 }
 
 model AiMemory {
-  id                String                @id @default(cuid())
+  id                String               @id @default(cuid())
   tenantId          String
   conversationId    String
   externalUserId    String
@@ -363,10 +373,10 @@ model AiMemory {
   value             String
   confidence        Float
   sourceMessageId   String
-  isDeleted         Boolean               @default(false)
+  isDeleted         Boolean              @default(false)
   correctedValue    String?
   correctedByUserId String?
-  createdAt         DateTime              @default(now())
+  createdAt         DateTime             @default(now())
 
   tenant       Tenant       @relation(fields: [tenantId], references: [id])
   conversation Conversation @relation(fields: [conversationId], references: [id])
@@ -420,31 +430,31 @@ enum TicketType {
 }
 
 model Ticket {
-  id           String         @id @default(cuid())
-  tenantId     String
-  creatorUserId String
-  type         TicketType
-  priority     TicketPriority @default(MEDIUM)
-  status       TicketStatus   @default(OPEN)
-  subject      String
-  description  String         @db.Text
+  id             String         @id @default(cuid())
+  tenantId       String
+  creatorUserId  String
+  type           TicketType
+  priority       TicketPriority @default(MEDIUM)
+  status         TicketStatus   @default(OPEN)
+  subject        String
+  description    String         @db.Text
   assigneeUserId String?
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
-  tenant  Tenant        @relation(fields: [tenantId], references: [id])
+  tenant  Tenant               @relation(fields: [tenantId], references: [id])
   history TicketHistoryEntry[]
 
   @@index([tenantId, status])
 }
 
 model TicketHistoryEntry {
-  id        String   @id @default(cuid())
-  ticketId  String
+  id          String   @id @default(cuid())
+  ticketId    String
   actorUserId String?
-  action    String
-  metadata  Json?
-  createdAt DateTime @default(now())
+  action      String
+  metadata    Json?
+  createdAt   DateTime @default(now())
 
   ticket Ticket @relation(fields: [ticketId], references: [id])
 
@@ -456,16 +466,16 @@ model TicketHistoryEntry {
 // ---------------------------------------------------------------------------
 
 model UsageRecord {
-  id                String   @id @default(cuid())
-  tenantId          String
-  messageId         String   @unique
-  eventType         String   // "message_processed"
-  billable          Boolean  @default(true)
-  priceEurCents     Int
+  id                   String   @id @default(cuid())
+  tenantId             String
+  messageId            String   @unique
+  eventType            String // "message_processed"
+  billable             Boolean  @default(true)
+  priceEurCents        Int
   operatorCostEurCents Int
-  idempotencyKey    String   @unique
-  source            String   // "webhook" | "operator_send" | ...
-  createdAt         DateTime @default(now())
+  idempotencyKey       String   @unique
+  source               String // "webhook" | "operator_send" | ...
+  createdAt            DateTime @default(now())
 
   tenant  Tenant  @relation(fields: [tenantId], references: [id])
   message Message @relation(fields: [messageId], references: [id])
@@ -484,15 +494,24 @@ enum IntegrationStatus {
 }
 
 model Integration {
-  id          String            @id @default(cuid())
-  tenantId    String
-  adapterKey  String            // e.g. "mock-dating-app", "dev-webhook"
-  name        String
-  status      IntegrationStatus @default(ACTIVE)
-  config      Json              // non-secret config (base URLs, adapter options)
-  secretRef   String?           // reference/name of secret in secrets manager, never the raw secret
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+  id            String            @id @default(cuid())
+  tenantId      String
+  adapterKey    String // e.g. "mock-dating-app", "dev-webhook"
+  name          String
+  status        IntegrationStatus @default(ACTIVE)
+  config        Json // non-secret config (base URLs, adapter options)
+  secretRef     String? // reference/name of secret in a real secrets manager, once one exists - not used yet
+  // The actual per-integration webhook HMAC secret (see app/api/v1/webhooks/[integrationId]/route.ts).
+  // Business rule (confirmed): every integration has its own secret - no
+  // shared/global secret across unrelated clients. No secrets manager exists
+  // yet (secretRef above is reserved for that, unused), so this is stored as
+  // a DB column - standard V1 practice, gated by normal DB access controls;
+  // never `select`-ed into any API response, and rotation is deliberate
+  // single-value overwrite (PATCH /api/v1/admin/integrations/[id]/webhook-secret) -
+  // the old value stops working immediately, no dual-secret grace period.
+  webhookSecret String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
 
   tenant        Tenant         @relation(fields: [tenantId], references: [id])
   webhookEvents WebhookEvent[]
@@ -501,16 +520,16 @@ model Integration {
 }
 
 model WebhookEvent {
-  id             String   @id @default(cuid())
-  tenantId       String
-  integrationId  String
-  externalEventId String  // for dedup
-  payloadHash    String
-  rawPayload     Json
-  processed      Boolean  @default(false)
-  processedAt    DateTime?
-  error          String?
-  createdAt      DateTime @default(now())
+  id              String    @id @default(cuid())
+  tenantId        String
+  integrationId   String
+  externalEventId String // for dedup
+  payloadHash     String
+  rawPayload      Json
+  processed       Boolean   @default(false)
+  processedAt     DateTime?
+  error           String?
+  createdAt       DateTime  @default(now())
 
   tenant      Tenant      @relation(fields: [tenantId], references: [id])
   integration Integration @relation(fields: [integrationId], references: [id])
@@ -524,15 +543,15 @@ model WebhookEvent {
 // ---------------------------------------------------------------------------
 
 model AuditLog {
-  id         String   @id @default(cuid())
-  tenantId   String?
+  id          String   @id @default(cuid())
+  tenantId    String?
   actorUserId String?
-  action     String
-  resource   String
-  resourceId String?
-  metadata   Json?
-  ipAddress  String?
-  createdAt  DateTime @default(now())
+  action      String
+  resource    String
+  resourceId  String?
+  metadata    Json?
+  ipAddress   String?
+  createdAt   DateTime @default(now())
 
   tenant Tenant? @relation(fields: [tenantId], references: [id])
 
@@ -546,8 +565,8 @@ model AuditLog {
 
 model SystemEvent {
   id        String   @id @default(cuid())
-  category  String   // "queue" | "integration" | "ai" | "db" | "worker"
-  severity  String   // "info" | "warning" | "error" | "critical"
+  category  String // "queue" | "integration" | "ai" | "db" | "worker"
+  severity  String // "info" | "warning" | "error" | "critical"
   message   String
   metadata  Json?
   createdAt DateTime @default(now())
@@ -556,15 +575,257 @@ model SystemEvent {
 }
 
 model Notification {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   tenantId  String?
   userId    String?
   type      String
   payload   Json
   readAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   tenant Tenant? @relation(fields: [tenantId], references: [id])
 
   @@index([userId, readAt])
+}
+
+// ---------------------------------------------------------------------------
+// Sales CRM (Hunters, Leads, Pipeline, Approvals, Commissions)
+//
+// Deliberately NOT scoped by Tenant: a Lead is a pre-client sales prospect in
+// GCO's own sales pipeline, distinct from Tenant (an already-onboarded client
+// of GCO's conversation-operations platform). A Lead becomes a Tenant only
+// once it reaches CLOSED_WON and the BPO handoff runs. See docs/crm.md.
+// ---------------------------------------------------------------------------
+
+// 1:1 role-profile table off User, mirroring the existing Operator pattern -
+// holds fields meaningful only for the HUNTER role.
+model HunterProfile {
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  commissionPercentage Decimal  @default(10.0) @db.Decimal(5, 2) // e.g. 10.00 = 10%
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+enum PipelineStage {
+  NEW
+  CONTACTED
+  ENGAGED
+  QUALIFIED
+  MEETING_BOOKED
+  PROPOSAL
+  PENDING_APPROVAL
+  CLOSED_WON
+  CLOSED_LOST
+}
+
+model Lead {
+  id                     String        @id @default(cuid())
+  companyName            String
+  contactName            String
+  email                  String        @unique // hard duplicate block
+  phone                  String?
+  website                String?
+  domain                 String? // derived from website/email; indexed, NOT unique - soft-warning only
+  vatId                  String?       @unique // hard duplicate block when provided; Postgres allows multiple NULLs
+  industry               String?
+  country                String?
+  source                 String?
+  notes                  String?       @db.Text
+  estimatedValueEurCents Int? // deal-size estimate, drives the CEO dashboard's "pipeline value"
+  ownerId                String? // null = unassigned/released
+  ownershipStartedAt     DateTime?
+  ownershipExpiresAt     DateTime? // bumped forward on qualifying activity; auto-released by the worker sweep once passed
+  pipelineStage          PipelineStage @default(NEW)
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+
+  owner            User?              @relation("LeadOwner", fields: [ownerId], references: [id])
+  history          LeadHistoryEntry[]
+  approvals        Approval[]
+  commissions      Commission[]
+  bpoHandoff       BpoHandoff?
+  calendarBookings CalendarBooking[]
+
+  @@index([ownerId])
+  @@index([domain])
+  @@index([pipelineStage])
+  @@index([ownershipExpiresAt])
+}
+
+model LeadHistoryEntry {
+  id          String   @id @default(cuid())
+  leadId      String
+  actorUserId String? // null when system-initiated (e.g. auto_released)
+  action      String // created | claimed | released | auto_released | activity_logged | stage_changed | submitted_for_approval | approved | rejected
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  lead  Lead  @relation(fields: [leadId], references: [id])
+  actor User? @relation(fields: [actorUserId], references: [id])
+
+  @@index([leadId])
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Approval {
+  id                String         @id @default(cuid())
+  leadId            String
+  submittedByUserId String
+  reviewedByUserId  String?
+  status            ApprovalStatus @default(PENDING)
+  reason            String?        @db.Text // Hunter's submission note
+  reviewNotes       String?        @db.Text // Manager/CEO's decision note
+  createdAt         DateTime       @default(now())
+  reviewedAt        DateTime?
+
+  lead      Lead  @relation(fields: [leadId], references: [id])
+  submitter User  @relation("ApprovalSubmitter", fields: [submittedByUserId], references: [id])
+  reviewer  User? @relation("ApprovalReviewer", fields: [reviewedByUserId], references: [id])
+
+  @@index([leadId])
+  @@index([status])
+}
+
+enum CommissionStatus {
+  PENDING
+  APPROVED
+  PAID
+  CANCELLED
+}
+
+// Business rule (confirmed): commission is 10%, ONE-TIME, on the first
+// month's ACTUALLY COLLECTED revenue only - never recurring, and never
+// payable merely because a lead reached Closed Won. It is created exactly
+// once, at first-payment confirmation (lib/crm/approvals.ts::confirmFirstPayment),
+// not at approval-decide time. @@unique([leadId]) is the DB-level guarantee
+// behind "exactly once": a second concurrent (or retried) confirmation for
+// the same lead hits this constraint and fails cleanly (P2002), the same
+// idempotency pattern already used for Lead.email/vatId elsewhere in this
+// schema - not a new mechanism invented for this.
+model Commission {
+  id                   String           @id @default(cuid())
+  leadId               String           @unique
+  hunterId             String // User.id of the HUNTER
+  tenantId             String? // set at confirmation time once the BPO handoff's Tenant exists
+  percentage           Decimal          @db.Decimal(5, 2) // snapshotted from HunterProfile at confirmation time
+  revenueBasisEurCents Int // the actual first-month payment amount confirmed received
+  amountEurCents       Int // always server-calculated: revenueBasisEurCents * percentage / 100
+  status               CommissionStatus @default(PENDING)
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  lead   Lead    @relation(fields: [leadId], references: [id])
+  tenant Tenant? @relation(fields: [tenantId], references: [id])
+
+  @@index([hunterId, status])
+}
+
+enum RevenueSource {
+  DEAL_CLOSED
+  MANUAL
+}
+
+model RevenueRecord {
+  id             String        @id @default(cuid())
+  tenantId       String
+  leadId         String?
+  amountEurCents Int
+  periodStart    DateTime
+  periodEnd      DateTime
+  source         RevenueSource @default(MANUAL)
+  createdAt      DateTime      @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, periodStart])
+}
+
+model FulfillmentCost {
+  id             String   @id @default(cuid())
+  tenantId       String
+  periodStart    DateTime
+  periodEnd      DateTime
+  amountEurCents Int
+  source         String   @default("MANUAL")
+  createdAt      DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, periodStart])
+}
+
+enum BpoHandoffStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  DEAD_LETTERED
+}
+
+// One handoff per closed deal - idempotent on leadId/eventId so a duplicate
+// approval attempt (or a retried queue job) can never create a second Tenant.
+model BpoHandoff {
+  id          String           @id @default(cuid())
+  leadId      String           @unique
+  tenantId    String? // filled once the Tenant is actually created
+  eventId     String           @unique // deterministic: "handoff-<leadId>"
+  payload     Json
+  status      BpoHandoffStatus @default(PENDING)
+  attempts    Int              @default(0)
+  lastError   String?
+  createdAt   DateTime         @default(now())
+  processedAt DateTime?
+
+  lead   Lead    @relation(fields: [leadId], references: [id])
+  tenant Tenant? @relation(fields: [tenantId], references: [id])
+}
+
+enum CalendarProvider {
+  CALENDLY
+}
+
+enum CalendarBookingStatus {
+  NOT_CONFIGURED
+  BOOKED
+  CANCELLED
+}
+
+model CalendarBooking {
+  id              String                @id @default(cuid())
+  hunterId        String
+  leadId          String?
+  provider        CalendarProvider      @default(CALENDLY)
+  status          CalendarBookingStatus @default(NOT_CONFIGURED)
+  externalEventId String?
+  scheduledAt     DateTime?
+  createdAt       DateTime              @default(now())
+
+  lead Lead? @relation(fields: [leadId], references: [id])
+
+  @@index([hunterId])
+}
+
+// Public "Careers" page submissions. Deliberately not modeled on Lead (a
+// candidate is not a sales prospect). No status/review-pipeline workflow yet -
+// CEO_ADMIN/MANAGER can list submissions (see /admin/career-applications),
+// but there is no stage tracking beyond that until explicitly requested.
+model CareerApplication {
+  id        String   @id @default(cuid())
+  fullName  String
+  email     String
+  phone     String?
+  country   String?
+  languages String?
+  message   String?  @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
 }

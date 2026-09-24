@@ -32,6 +32,30 @@ export const PERMISSIONS = {
   TICKET_CREATE: ['CLIENT'],
   TICKET_MANAGE: ['CEO_ADMIN', 'MANAGER', 'ASSISTANT'],
   TICKET_VIEW_OWN: ['CLIENT'],
+
+  // Sales CRM - leads
+  LEAD_CREATE: ['HUNTER', 'MANAGER', 'CEO_ADMIN'],
+  LEAD_VIEW_OWN: ['HUNTER'],
+  LEAD_VIEW_TEAM: ['MANAGER', 'CEO_ADMIN'],
+  LEAD_CLAIM: ['HUNTER'],
+  LEAD_RELEASE: ['HUNTER', 'MANAGER', 'CEO_ADMIN'],
+
+  // Sales CRM - approvals
+  APPROVAL_SUBMIT: ['HUNTER'],
+  APPROVAL_DECIDE: ['MANAGER', 'CEO_ADMIN'],
+
+  // Sales CRM - commissions & revenue
+  COMMISSION_VIEW_OWN: ['HUNTER'],
+  COMMISSION_VIEW_TEAM: ['MANAGER', 'CEO_ADMIN'],
+  COMMISSION_CONFIGURE: ['CEO_ADMIN'],
+  PAYOUT_MANAGE: ['CEO_ADMIN'],
+  REVENUE_RECORD: ['MANAGER', 'CEO_ADMIN'],
+
+  // Sales CRM - BPO handoff recovery
+  BPO_HANDOFF_MANAGE: ['CEO_ADMIN', 'ASSISTANT'],
+
+  // Public website - careers applications
+  CAREER_VIEW: ['CEO_ADMIN', 'MANAGER'],
 } as const
 
 export type PermissionKey = keyof typeof PERMISSIONS
