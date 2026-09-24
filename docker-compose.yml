@@ -101,6 +101,17 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      # Required even though worker never serves the Next.js app - `npm run
+      # build` in the Dockerfile's shared `builder` stage runs regardless of
+      # which service the resulting image ends up running, and without a
+      # value here Docker's `ENV KEY=${ARG}` sets it to a literal empty
+      # string (not absent), which crashed the build entirely: `new URL('')`
+      # in lib/config/site.ts threw ERR_INVALID_URL. Confirmed by a real
+      # failed `docker compose build` - `web` declared this args block,
+      # `worker`/`realtime` did not, despite sharing the identical Dockerfile.
+      args:
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+        NEXT_PUBLIC_REALTIME_URL: ${NEXT_PUBLIC_REALTIME_URL:-ws://localhost:3001}
     restart: unless-stopped
     depends_on:
       postgres:
@@ -131,6 +142,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      # Same reasoning as worker's args block above - required for the
+      # shared builder stage's `npm run build` to succeed, not because
+      # realtime itself serves the Next.js app.
+      args:
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+        NEXT_PUBLIC_REALTIME_URL: ${NEXT_PUBLIC_REALTIME_URL:-ws://localhost:3001}
     restart: unless-stopped
     depends_on:
       postgres:

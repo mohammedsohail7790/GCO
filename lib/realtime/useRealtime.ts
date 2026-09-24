@@ -3,7 +3,9 @@
 import { useEffect, useRef } from 'react'
 import { apiFetch } from '@/lib/api/client'
 
-const REALTIME_URL = process.env.NEXT_PUBLIC_REALTIME_URL ?? 'ws://localhost:3001'
+// `||` not `??` - see lib/config/site.ts for why an empty string (not just
+// undefined) needs to fall back too.
+const REALTIME_URL = process.env.NEXT_PUBLIC_REALTIME_URL || 'ws://localhost:3001'
 
 /**
  * Subscribes to the realtime push server as an ACCELERATOR for a dashboard

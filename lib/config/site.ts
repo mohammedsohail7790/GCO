@@ -1,6 +1,13 @@
 // Public website config - absolute base URL for canonical links, Open Graph
 // tags, robots.txt, and sitemap.xml. See .env.example for NEXT_PUBLIC_SITE_URL.
-export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000').replace(/\/$/, '')
+// `||` (not `??`) deliberately - an empty string must fall back too, not
+// just undefined/null. Confirmed necessary by a real production build
+// failure: when this var is unset for a given build (e.g. a docker-compose
+// service whose `build.args` doesn't happen to declare it), Docker's
+// `ENV KEY=${ARG}` sets it to a literal empty string rather than leaving it
+// absent, which `??` alone doesn't catch - `new URL('')` below then throws
+// ERR_INVALID_URL and fails the entire build.
+export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(/\/$/, '')
 
 export const SITE_NAME = 'GCO'
 export const SITE_TAGLINE = 'Managed conversation operations for growing businesses'
