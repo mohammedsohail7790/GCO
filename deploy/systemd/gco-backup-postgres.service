@@ -1,0 +1,9 @@
+[Unit]
+Description=GCO PostgreSQL backup
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=gco
+ExecStart=/opt/gco/scripts/backup-postgres.sh

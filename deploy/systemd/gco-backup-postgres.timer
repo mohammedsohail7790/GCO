@@ -1,0 +1,12 @@
+[Unit]
+Description=Daily GCO PostgreSQL backup
+
+[Timer]
+OnCalendar=*-*-* 03:30:00 UTC
+# Runs the backup on next boot if the server was down at the scheduled time,
+# rather than silently skipping a whole day.
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target
