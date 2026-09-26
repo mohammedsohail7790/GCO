@@ -1,0 +1,33 @@
+# GCO production reverse proxy.
+#
+# Caddy handles ACME (Let's Encrypt) HTTP-01 challenges on :80 automatically
+# for every hostname listed below - no explicit config needed for
+# /.well-known/acme-challenge/*, and HTTP->HTTPS redirect is Caddy's default
+# behavior for any site block with no explicit `http://` scheme.
+#
+# Both hostnames sit behind Cloudflare (DNS: Proxied, SSL/TLS mode: Full).
+# Cloudflare terminates the browser-facing TLS session and forwards to this
+# origin; Caddy's own Let's Encrypt certificate here is what makes that
+# Cloudflare->origin leg (and a direct hit on the origin IP) itself valid
+# HTTPS - not a self-signed cert, satisfying "Full" now and "Full (strict)"
+# later if you tighten Cloudflare's mode.
+
+globalconversationoperations.com {
+	encode gzip
+	reverse_proxy 127.0.0.1:3000
+}
+
+app.globalconversationoperations.com {
+	encode gzip
+
+	# workers/realtime-server.ts's WebSocketServer has no `path` option - it
+	# accepts a connection on any path and only reads the `?token=` query
+	# param (see wss.on('connection', (socket, req) => ...)). This path
+	# prefix is therefore a routing choice at the proxy layer, not something
+	# baked into the realtime server itself; NEXT_PUBLIC_REALTIME_URL is set
+	# to match it exactly (wss://app.../realtime).
+	@realtime path /realtime*
+	reverse_proxy @realtime 127.0.0.1:3001
+
+	reverse_proxy 127.0.0.1:3000
+}
