@@ -24,7 +24,18 @@ Each step is labeled:
 **AUTOMATED, REQUIRES GCO ADMIN.** Creating a user with role `OPERATOR` via the same endpoint above also creates the `Operator` profile and a default `OperatorService` row automatically (see `app/api/v1/admin/users/route.ts`).
 
 ## 6. Integration configuration
-**MANUAL, REQUIRES GCO ADMIN.** No admin API currently exists to create a new `Integration` row - only `PATCH /api/v1/admin/integrations/:id/webhook-secret` exists, and that rotates the secret on an **already-existing** integration. Creating the integration record itself today requires a direct, reviewed database operation by engineering. **This is a known gap** worth a small follow-up feature (a proper `POST /api/v1/admin/integrations` route) before repeated real-client onboarding makes the manual step a bottleneck - not built in this phase per the "no speculative feature development" instruction.
+**AUTOMATED, REQUIRES GCO ADMIN.** *(Updated in Phase 11 - this used to require a direct database operation; it no longer does.)*
+
+`POST /api/v1/admin/integrations` (CEO_ADMIN only, same `INTEGRATION_MANAGE` permission the rotation endpoint already used) creates an `Integration` row for a tenant:
+
+- **Who can create one:** CEO_ADMIN only. Manager does not gain access merely because Managers can manage CRM data - this was a deliberate design decision, not an oversight.
+- **Required fields:** `tenantId` (must be an existing tenant), `adapterKey` (must be a *registered* adapter - see `lib/integrations/registry.ts::listAdapterKeys()`; an unregistered/misspelled key is rejected at creation time rather than failing later when a real webhook arrives), `name`.
+- **Optional fields:** `config` (non-secret adapter configuration, defaults to `{}`), `status` (defaults `ACTIVE`; may be created `DISABLED` for staged provisioning - see `docs/first-client-security-gate.md`), `secret` (supply one issued by the client's own platform, or omit it to have GCO generate a strong random one).
+- **Secret handling:** returned exactly once, in the creation response only - identical one-time-disclosure pattern to the existing rotation endpoint. No `GET` (list or otherwise) can ever return it; the route's `SAFE_SELECT` explicitly excludes `webhookSecret`/`secretRef` at the database query level, not just by omitting it from the response object.
+- **Rotation:** unchanged - `PATCH /api/v1/admin/integrations/:id/webhook-secret`, same one-time-disclosure pattern, same CEO_ADMIN-only gate.
+- **Audit:** every creation writes an `integration.create` audit log entry (actor, tenant, integration ID, adapterKey, status - never the secret value).
+- **What this does NOT do:** it does not implement any external provider (WhatsApp, Instagram, Shopify, etc.) - it only removes the manual-database-step bottleneck for creating the `Integration` *record* itself. Building the client-specific channel behind it is still the work described in `docs/integration-feasibility-template.md`. There is also still no dedicated enable/disable route (only creation-time `status`) - documented as a future improvement, not built, since Phase 11 found it wasn't required for safe provisioning.
+- **List/read:** `GET /api/v1/admin/integrations` (optionally `?tenantId=`), same CEO_ADMIN-only gate, safe metadata only (provider, tenant, status, config, created/updated dates - never the secret).
 
 ## 7. Channel configuration
 **MANUAL, REQUIRES CLIENT.** Depends entirely on which channel/adapter is in scope - see the relevant `docs/integration-feasibility-template.md` assessment for that channel.

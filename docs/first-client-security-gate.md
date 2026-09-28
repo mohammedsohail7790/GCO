@@ -43,8 +43,9 @@ Status as of Phase 10 (production commit `6af6081`), re-verify per-client at pro
 
 | Item | Status |
 |---|---|
+| Integration provisioning | ✅ VERIFIED (Phase 11) - `POST /api/v1/admin/integrations`, CEO_ADMIN only, validates tenant + adapter registration, secret returned exactly once, never on ordinary reads. Live-tested: created integration immediately accepted a validly-signed webhook and rejected an invalid one. |
 | Credentials securely configured | Process defined (`docs/client-onboarding-checklist.md` - secure exchange, never chat/Telegram); per-client verification required at provisioning time |
-| Webhook signatures verified | ✅ VERIFIED mechanism (fails closed without a valid signature) |
+| Webhook signatures verified | ✅ VERIFIED mechanism (fails closed without a valid signature) - re-confirmed live in Phase 11 against a freshly-provisioned integration, not just the pre-existing demo one |
 | API permissions minimized | Per-client - confirm during `docs/integration-feasibility-template.md` |
 | Rate limits understood | Per-client - confirm during technical discovery |
 
