@@ -11,7 +11,8 @@
   - **Lead 1 - "[DEMO] Northwind Supply Co"**: fresh, unclaimed, sitting at `NEW`. Used to demo ownership/claiming live.
   - **Lead 2 - "[DEMO] Marlowe & Finch Goods"**: already claimed by the demo Hunter and walked to `PROPOSAL`. Used to demo the approval → commission → BPO handoff flow without spending live time on every pipeline stage.
   - **One inbound demo conversation** (a fictional "order hasn't shipped" message) has already come in through the real webhook ingestion pipeline and was auto-assigned to the demo Operator by the actual assignment engine - not manually forced. Sitting in queue, ready to answer live.
-- All demo data is clearly marked `[DEMO]` / `@demo.gco` / `.test` domains. None of it is real client or customer data.
+- All demo data is clearly marked `[DEMO]` / `@demo.gco` domains. None of it is real client or customer data.
+- **Operational note:** if the demo conversation sits unanswered for more than the demo tenant's SLA window, the assignment engine will keep expiring and auto-reassigning it (this is correct, verified behavior - it's the same SLA-timeout mechanism a real client's conversations rely on). Left unattended for days, this generates a large number of harmless-but-noisy `Assignment` rows. Before a demo that's more than a day or two after the environment was last refreshed, re-run `npm run seed` (idempotent - safe to run repeatedly, recreates only what's missing) to get a clean, freshly-assigned conversation.
 
 ## 0:00-0:45 - GCO overview
 
