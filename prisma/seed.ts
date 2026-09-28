@@ -9,10 +9,14 @@ const db = new PrismaClient()
 async function main() {
   console.log('Seeding demo data (DEV ONLY)...')
 
+  // Fictional e-commerce/services company used as the standard sales-demo
+  // narrative (see docs/sales-demo-script.md) - not a real client. Slug kept
+  // as `demo-dating-app` for backwards compatibility with any existing demo
+  // data already keyed on it; only the display name shown on screen changed.
   const tenant = await db.tenant.upsert({
     where: { slug: 'demo-dating-app' },
-    update: {},
-    create: { name: '[DEMO] Dating App Co', slug: 'demo-dating-app' },
+    update: { name: '[DEMO] Everline Retail Co' },
+    create: { name: '[DEMO] Everline Retail Co', slug: 'demo-dating-app' },
   })
 
   const integration = await db.integration.create({
