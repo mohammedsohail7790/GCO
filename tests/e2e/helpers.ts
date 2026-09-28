@@ -92,19 +92,21 @@ export async function seedIsolatedTenant(namePrefix: string): Promise<SeededTena
   await createUser(managerEmail, 'MANAGER')
   await createUser(clientEmail, 'CLIENT')
 
-  // Integration row isn't exposed via a dedicated admin endpoint yet (see
-  // docs/mvp.md gaps) - create it directly against the DB via a thin internal
-  // helper route is out of scope for V1, so tests seed it through Prisma.
-  // webhookSecret set here so sendWebhook()'s existing signWebhookBody(),
-  // which signs with DEV_WEBHOOK_SECRET, keeps verifying - per-integration
-  // secrets doesn't mean every test needs its own distinct one; it means the
-  // webhook route reads the integration's OWN stored secret rather than a
-  // hardcoded env var (see tests/e2e/18-webhook-security.spec.ts for the
-  // "two integrations, two different secrets" case specifically).
-  const { db } = await import('@/lib/db/client')
-  const integration = await db.integration.create({
-    data: { tenantId, adapterKey: 'dev-mock', name: `[E2E] Integration ${unique}`, config: {}, webhookSecret: DEV_WEBHOOK_SECRET },
+  // Provisioned through the real admin API (app/api/v1/admin/integrations/route.ts,
+  // Phase 11) rather than a direct Prisma write - this now exercises the
+  // actual CEO_ADMIN-only creation path the same way a real onboarding would.
+  // `secret` is supplied explicitly (rather than left to auto-generate) so
+  // sendWebhook()'s existing signWebhookBody(), which signs with
+  // DEV_WEBHOOK_SECRET, keeps verifying - per-integration secrets doesn't
+  // mean every test needs its own distinct one; it means the webhook route
+  // reads the integration's OWN stored secret rather than a hardcoded env
+  // var (see tests/e2e/18-webhook-security.spec.ts for the "two
+  // integrations, two different secrets" case specifically).
+  const integrationRes = await admin.post('/api/v1/admin/integrations', {
+    data: { tenantId, adapterKey: 'dev-mock', name: `[E2E] Integration ${unique}`, config: {}, secret: DEV_WEBHOOK_SECRET },
   })
+  if (!integrationRes.ok()) throw new Error(`integration create failed: ${await integrationRes.text()}`)
+  const integration = (await integrationRes.json()).data
 
   const operatorCtx = await loginAs(operatorEmail, password)
   const managerCtx = await loginAs(managerEmail, password)
