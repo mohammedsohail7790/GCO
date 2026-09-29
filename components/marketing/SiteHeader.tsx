@@ -1,5 +1,7 @@
 import Link from 'next/link'
 import { MobileMenu } from './MobileMenu'
+import { GCOLockup } from './GCOLogo'
+import { getCalendarProvider } from '@/lib/integrations/calendar/provider'
 
 const NAV_LINKS = [
   { href: '/services', label: 'Services' },
@@ -9,16 +11,19 @@ const NAV_LINKS = [
 ]
 
 export function SiteHeader() {
+  // Same fallback logic as the homepage's own "Book a Call" CTA (see
+  // app/page.tsx) - previously this header always linked to /contact
+  // regardless of whether Calendly was configured, silently mislabeling a
+  // plain contact link as "Book a Call". One consistent primary CTA now
+  // behaves identically everywhere it appears (per the Phase 14 conversion-
+  // path requirement).
+  const bookingUrl = getCalendarProvider().getBookingUrl()
+
   return (
     <header className="sticky top-0 z-40 border-b border-paper-border bg-paper/85 backdrop-blur-md">
       <div className="mx-auto flex h-[72px] max-w-6xl items-center justify-between px-6">
-        <Link href="/" className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-ink">
-            <span className="font-display text-[13px] font-bold text-paper">G</span>
-          </div>
-          <span className="font-display text-[15px] font-semibold tracking-tight text-graphite">
-            GCO
-          </span>
+        <Link href="/" aria-label="GCO home">
+          <GCOLockup size="md" />
         </Link>
 
         <nav className="hidden items-center gap-9 md:flex">
@@ -40,13 +45,24 @@ export function SiteHeader() {
           >
             Client Login
           </Link>
-          <Link
-            href="/contact"
-            className="hidden rounded-lg bg-ink px-5 py-2.5 text-[13.5px] font-semibold text-paper transition-colors hover:bg-ink-700 md:block"
-          >
-            Book a Call
-          </Link>
-          <MobileMenu />
+          {bookingUrl ? (
+            <a
+              href={bookingUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="hidden rounded-lg bg-ink px-5 py-2.5 text-[13.5px] font-semibold text-paper transition-colors hover:bg-ink-700 md:block"
+            >
+              Book a Call
+            </a>
+          ) : (
+            <Link
+              href="/contact"
+              className="hidden rounded-lg bg-ink px-5 py-2.5 text-[13.5px] font-semibold text-paper transition-colors hover:bg-ink-700 md:block"
+            >
+              Book a Call
+            </Link>
+          )}
+          <MobileMenu bookingUrl={bookingUrl} />
         </div>
       </div>
     </header>

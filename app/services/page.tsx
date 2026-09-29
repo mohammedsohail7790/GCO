@@ -4,6 +4,7 @@ import { SiteFooter } from '@/components/marketing/SiteFooter'
 import { Container } from '@/components/marketing/Container'
 import { Eyebrow } from '@/components/marketing/SectionHeader'
 import { ServiceCard } from '@/components/marketing/ServiceCard'
+import { getCalendarProvider } from '@/lib/integrations/calendar/provider'
 import { pageMetadata } from '@/lib/config/site'
 
 export const metadata = pageMetadata({
@@ -17,10 +18,10 @@ export const metadata = pageMetadata({
 // rather than already running - never marked "implemented" for something
 // that requires a client-specific connector that hasn't been built yet.
 const SERVICES = [
-  { title: 'Chat Operations', body: 'Real-time, human-handled conversation management across the channels your business already uses.' },
-  { title: 'Conversation Engagement', body: 'Operators keep conversations active, timely, and consistent with your tone and goals.' },
-  { title: 'Content & Chat Moderation', body: 'Consistent moderation against clearly defined standards, with supervision on top.' },
-  { title: 'Customer Support Operations', body: 'Trained operators handling day-to-day support conversations at the volume you need.' },
+  { title: 'Chat Operations', body: 'GCO operates real-time conversation handling across your channels - so volume growth never means slower or less consistent responses.' },
+  { title: 'Conversation Engagement', body: 'GCO keeps conversations active, timely, and on-brand - because an unanswered conversation is a lost one, at any scale.' },
+  { title: 'Content & Chat Moderation', body: 'GCO enforces your standards consistently, conversation after conversation - so quality doesn’t depend on which operator is on shift.' },
+  { title: 'Customer Support Operations', body: 'GCO handles day-to-day support volume with trained operators - freeing your team to work on what actually needs their attention.' },
   { title: 'Multilingual Operator Teams', body: 'Teams staffed for the languages your users actually speak, not just your headquarters.' },
   { title: '24/7 Coverage', body: 'Shift-based staffing so conversations get a response regardless of time zone.' },
   { title: 'Quality Assurance & Supervision', body: 'Ongoing review of conversations against your standards, with feedback built into the operation.' },
@@ -33,6 +34,8 @@ const SERVICES = [
 ]
 
 export default function ServicesPage() {
+  const bookingUrl = getCalendarProvider().getBookingUrl()
+
   return (
     <>
       <SiteHeader />
@@ -63,9 +66,15 @@ export default function ServicesPage() {
               <p className="mt-3 max-w-xl text-[14.5px] leading-relaxed text-white/60">
                 Tell us about your conversations and coverage needs and we&apos;ll help you figure out the right setup.
               </p>
-              <Link href="/contact" className="mt-7 inline-block rounded-lg bg-accent-500 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-600">
-                Talk to Us
-              </Link>
+              {bookingUrl ? (
+                <a href={bookingUrl} target="_blank" rel="noreferrer" className="mt-7 inline-block rounded-lg bg-accent-500 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-600">
+                  Book a Call
+                </a>
+              ) : (
+                <Link href="/contact" className="mt-7 inline-block rounded-lg bg-accent-500 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-600">
+                  Book a Call
+                </Link>
+              )}
             </div>
           </Container>
         </section>

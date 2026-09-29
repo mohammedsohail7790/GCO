@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { Container } from './Container'
+import { GCOLockup } from './GCOLogo'
 
 export function SiteFooter() {
   return (
@@ -7,15 +8,10 @@ export function SiteFooter() {
       <Container className="py-16">
         <div className="flex flex-col gap-12 lg:flex-row lg:items-start lg:justify-between">
           <div className="max-w-sm">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-7 w-7 items-center justify-center rounded-md bg-white/10">
-                <span className="font-display text-xs font-bold text-white">G</span>
-              </div>
-              <span className="font-display text-sm font-semibold tracking-tight text-white">GCO</span>
-            </div>
+            <GCOLockup size="sm" tone="onDark" withTagline />
             <p className="mt-4 text-sm leading-relaxed text-white/50">
-              Global Conversation Operations - managed human conversation operations, supported by AI-assisted
-              workflows, for businesses that need reliable coverage at scale.
+              Managed human conversation operations, supported by AI-assisted workflows, for businesses that need
+              reliable coverage at scale.
             </p>
           </div>
 

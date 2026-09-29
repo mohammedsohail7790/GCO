@@ -12,7 +12,7 @@ const NAV_LINKS = [
   { href: '/contact', label: 'Contact' },
 ]
 
-export function MobileMenu() {
+export function MobileMenu({ bookingUrl }: { bookingUrl: string | null }) {
   const [open, setOpen] = useState(false)
 
   // Lock body scroll while the drawer is open - without this the page
@@ -85,14 +85,27 @@ export function MobileMenu() {
                   {link.label}
                 </Link>
               ))}
-              <Link
-                href="/contact"
-                onClick={() => setOpen(false)}
-                className="animate-fade-up mt-6 w-fit rounded-lg bg-accent-500 px-6 py-3 text-sm font-semibold text-white"
-                style={{ animationDelay: `${NAV_LINKS.length * 0.05}s` }}
-              >
-                Book a Call
-              </Link>
+              {bookingUrl ? (
+                <a
+                  href={bookingUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => setOpen(false)}
+                  className="animate-fade-up mt-6 w-fit rounded-lg bg-accent-500 px-6 py-3 text-sm font-semibold text-white"
+                  style={{ animationDelay: `${NAV_LINKS.length * 0.05}s` }}
+                >
+                  Book a Call
+                </a>
+              ) : (
+                <Link
+                  href="/contact"
+                  onClick={() => setOpen(false)}
+                  className="animate-fade-up mt-6 w-fit rounded-lg bg-accent-500 px-6 py-3 text-sm font-semibold text-white"
+                  style={{ animationDelay: `${NAV_LINKS.length * 0.05}s` }}
+                >
+                  Book a Call
+                </Link>
+              )}
             </nav>
           </div>,
           document.body,

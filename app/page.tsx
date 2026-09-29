@@ -7,6 +7,7 @@ import { Container } from '@/components/marketing/Container'
 import { Eyebrow, SectionHeader } from '@/components/marketing/SectionHeader'
 import { OperationsFlow } from '@/components/marketing/OperationsFlow'
 import { ServiceCard } from '@/components/marketing/ServiceCard'
+import { HumanAiInfrastructure } from '@/components/marketing/HumanAiInfrastructure'
 import { getCalendarProvider } from '@/lib/integrations/calendar/provider'
 import { pageMetadata } from '@/lib/config/site'
 
@@ -64,7 +65,7 @@ export default async function Home() {
           />
           <Container className="relative grid gap-16 py-24 sm:py-28 lg:grid-cols-[1.1fr_0.9fr] lg:items-center lg:gap-8">
             <div className="animate-fade-up">
-              <Eyebrow tone="dark">Managed Conversation Operations</Eyebrow>
+              <Eyebrow tone="dark">Global Conversation Operations</Eyebrow>
               <h1 className="font-display mt-5 max-w-xl text-[2.75rem] font-semibold leading-[1.08] tracking-tight sm:text-5xl">
                 Conversation operations, built for scale.
               </h1>
@@ -84,7 +85,7 @@ export default async function Home() {
                   </Link>
                 )}
                 <Link href="/how-it-works" className="text-sm font-semibold text-white/80 transition-colors hover:text-white">
-                  See how it works →
+                  See How It Works →
                 </Link>
               </div>
             </div>
@@ -130,6 +131,8 @@ export default async function Home() {
             </div>
           </Container>
         </section>
+
+        <HumanAiInfrastructure />
 
         {/* How it works, brief */}
         <section className="border-t border-paper-border bg-paper-surface py-24">
@@ -184,28 +187,31 @@ export default async function Home() {
           </Container>
         </section>
 
-        {/* Dual CTA */}
-        <section className="bg-paper py-20">
+        {/* Closing - editorial statement + two inline paths, not two boxed
+            CTA cards (the previous card-pair pattern was identified as the
+            weakest, most generic section on the page during Phase 14 audit). */}
+        <section className="border-t border-paper-border bg-paper py-24">
           <Container>
-            <div className="grid gap-6 sm:grid-cols-2">
-              <div className="rounded-2xl bg-ink p-9 text-white">
-                <h3 className="font-display text-xl font-semibold">Looking for BPO support?</h3>
-                <p className="mt-2 text-sm text-white/60">Tell us about your operation and we&apos;ll get back to you.</p>
+            <h2 className="font-display max-w-2xl text-3xl font-semibold tracking-tight text-graphite sm:text-4xl">
+              Ready to operate your conversations differently?
+            </h2>
+            <div className="mt-10 flex flex-col gap-x-12 gap-y-6 sm:flex-row">
+              <div>
+                <p className="text-[13px] font-medium uppercase tracking-[0.1em] text-graphite-muted">Looking for BPO support</p>
                 {bookingUrl ? (
-                  <a href={bookingUrl} target="_blank" rel="noreferrer" className="mt-6 inline-block rounded-lg bg-accent-500 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-600">
-                    Book a Call
+                  <a href={bookingUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block font-display text-lg font-semibold text-ink transition-colors hover:text-accent-600">
+                    Book a Call →
                   </a>
                 ) : (
-                  <Link href="/contact" className="mt-6 inline-block rounded-lg bg-accent-500 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-600">
-                    Contact Us
+                  <Link href="/contact" className="mt-2 inline-block font-display text-lg font-semibold text-ink transition-colors hover:text-accent-600">
+                    Contact Us →
                   </Link>
                 )}
               </div>
-              <div className="rounded-2xl border border-paper-border bg-paper-surface p-9">
-                <h3 className="font-display text-xl font-semibold text-graphite">Want to join GCO?</h3>
-                <p className="mt-2 text-sm text-graphite-secondary">We&apos;re always looking for reliable, skilled operators.</p>
-                <Link href="/careers" className="mt-6 inline-block rounded-lg border border-paper-border px-5 py-2.5 text-sm font-semibold text-graphite transition-colors hover:bg-paper">
-                  View Opportunities
+              <div>
+                <p className="text-[13px] font-medium uppercase tracking-[0.1em] text-graphite-muted">Want to join GCO</p>
+                <Link href="/careers" className="mt-2 inline-block font-display text-lg font-semibold text-ink transition-colors hover:text-accent-600">
+                  View Opportunities →
                 </Link>
               </div>
             </div>
