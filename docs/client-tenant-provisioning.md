@@ -3,60 +3,78 @@
 The exact process for creating a new client environment. **Do not run this to create a real client tenant without an explicit go-ahead** - this document describes the process; it does not authorize running it.
 
 Each step is labeled:
-- **AUTOMATED** - a single existing API call/UI action does this.
+- **AUTOMATED** - a single existing API call does this.
 - **MANUAL** - a person (GCO engineering) has to do this by hand today; no dedicated automation exists yet.
 - **REQUIRES CLIENT** - the client must provide something before this step can happen.
 - **REQUIRES GCO ADMIN** - only a CEO_ADMIN-permissioned person can perform this.
 
-## 1. Client approval
-**REQUIRES GCO ADMIN.** Confirmation (from the sales/discovery process - see `docs/sales-to-engineering-handoff.md`) that the client is approved to move into implementation.
+## 1. Client approved
+**REQUIRES GCO ADMIN.** Confirmation from the sales/discovery process (`docs/sales-to-engineering-handoff.md` complete) that the client is approved to move into implementation.
 
-## 2. Tenant creation
-**AUTOMATED, REQUIRES GCO ADMIN.** `POST /api/v1/admin/tenants` (CEO_ADMIN only) - creates the `Tenant` row with name, slug, pricing/capacity defaults.
+## 2. Client requirements collected
+**REQUIRES CLIENT, MANUAL.** `docs/client-technical-discovery.md` (the live call questionnaire) and `docs/first-client-integration-discovery.md` (the structured written discovery) both completed.
 
-## 3. Client profile
-**MANUAL, REQUIRES CLIENT.** Business details, contacts, escalation contacts recorded per `docs/sales-to-engineering-handoff.md` and `docs/client-technical-discovery.md`. No dedicated "client profile" object exists beyond the `Tenant` row itself and these documents.
+## 3. Provider identified
+**REQUIRES CLIENT.** The specific channel/platform the client wants connected is named explicitly - not assumed from a vague request like "we want WhatsApp."
 
-## 4. Admin/user roles
-**AUTOMATED, REQUIRES GCO ADMIN.** `POST /api/v1/admin/users` per user, with the appropriate role (`MANAGER`, `OPERATOR`, `CLIENT`) and `tenantId`.
+## 4. Provider docs reviewed
+**REQUIRES PROVIDER ACCESS, MANUAL.** Engineering reviews the provider's actual API/webhook documentation (linked in `docs/first-client-integration-discovery.md`) - never assumed or guessed.
 
-## 5. Operators
-**AUTOMATED, REQUIRES GCO ADMIN.** Creating a user with role `OPERATOR` via the same endpoint above also creates the `Operator` profile and a default `OperatorService` row automatically (see `app/api/v1/admin/users/route.ts`).
+## 5. Feasibility completed
+**MANUAL.** `docs/integration-feasibility-template.md` filled in and classified (READY / REQUIRES CONFIGURATION / REQUIRES CLIENT INFORMATION / REQUIRES PROVIDER ACCESS / REQUIRES CODE / BLOCKED) before any commitment is made to the client.
 
-## 6. Integration configuration
+## 6. Tenant created
+**AUTOMATED, REQUIRES GCO ADMIN.** `POST /api/v1/admin/tenants` - creates the `Tenant` row with name, slug, pricing/capacity defaults.
+
+## 7. Integration created through the secure API
 **AUTOMATED, REQUIRES GCO ADMIN.** *(Updated in Phase 11 - this used to require a direct database operation; it no longer does.)*
 
-`POST /api/v1/admin/integrations` (CEO_ADMIN only, same `INTEGRATION_MANAGE` permission the rotation endpoint already used) creates an `Integration` row for a tenant:
+`POST /api/v1/admin/integrations` (CEO_ADMIN only, `INTEGRATION_MANAGE` permission - the same one the rotation endpoint already used) creates the `Integration` row:
 
-- **Who can create one:** CEO_ADMIN only. Manager does not gain access merely because Managers can manage CRM data - this was a deliberate design decision, not an oversight.
-- **Required fields:** `tenantId` (must be an existing tenant), `adapterKey` (must be a *registered* adapter - see `lib/integrations/registry.ts::listAdapterKeys()`; an unregistered/misspelled key is rejected at creation time rather than failing later when a real webhook arrives), `name`.
-- **Optional fields:** `config` (non-secret adapter configuration, defaults to `{}`), `status` (defaults `ACTIVE`; may be created `DISABLED` for staged provisioning - see `docs/first-client-security-gate.md`), `secret` (supply one issued by the client's own platform, or omit it to have GCO generate a strong random one).
-- **Secret handling:** returned exactly once, in the creation response only - identical one-time-disclosure pattern to the existing rotation endpoint. No `GET` (list or otherwise) can ever return it; the route's `SAFE_SELECT` explicitly excludes `webhookSecret`/`secretRef` at the database query level, not just by omitting it from the response object.
-- **Rotation:** unchanged - `PATCH /api/v1/admin/integrations/:id/webhook-secret`, same one-time-disclosure pattern, same CEO_ADMIN-only gate.
-- **Audit:** every creation writes an `integration.create` audit log entry (actor, tenant, integration ID, adapterKey, status - never the secret value).
-- **What this does NOT do:** it does not implement any external provider (WhatsApp, Instagram, Shopify, etc.) - it only removes the manual-database-step bottleneck for creating the `Integration` *record* itself. Building the client-specific channel behind it is still the work described in `docs/integration-feasibility-template.md`. There is also still no dedicated enable/disable route (only creation-time `status`) - documented as a future improvement, not built, since Phase 11 found it wasn't required for safe provisioning.
-- **List/read:** `GET /api/v1/admin/integrations` (optionally `?tenantId=`), same CEO_ADMIN-only gate, safe metadata only (provider, tenant, status, config, created/updated dates - never the secret).
+- **Required fields:** `tenantId` (must exist), `adapterKey` (must be registered - `lib/integrations/registry.ts::listAdapterKeys()` - rejected at creation, not later at first webhook), `name`.
+- **Optional fields:** `config` (non-secret, defaults `{}`), `status` (defaults `ACTIVE`; may be created `DISABLED` for staged provisioning - see step 8), `secret` (supply the client-platform-issued one, or omit to auto-generate).
+- **Manager does not gain access** merely because Managers manage CRM data - CEO_ADMIN only, by design.
+- **List/read:** `GET /api/v1/admin/integrations?tenantId=<id>`, same permission, safe metadata only (`SAFE_SELECT` excludes `webhookSecret`/`secretRef` at the query level).
 
-## 7. Channel configuration
-**MANUAL, REQUIRES CLIENT.** Depends entirely on which channel/adapter is in scope - see the relevant `docs/integration-feasibility-template.md` assessment for that channel.
+## 8. Webhook secret securely configured
+**AUTOMATED, MANUAL handoff.** The secret is generated/returned exactly once at creation (step 7) or via `PATCH /api/v1/admin/integrations/:id/webhook-secret` (rotation). Handing that value to whoever configures the provider's webhook (step 9) is a manual step that must use a secure channel - never chat/Telegram (see `docs/client-onboarding-checklist.md`).
 
-## 8. Routing/assignment
-**AUTOMATED.** The existing assignment engine (`lib/assignment/engine.ts`) handles conversation routing to available operators automatically once operators exist for the tenant - no per-client configuration needed beyond operator capacity (settable per-Operator).
+## 9. Provider webhook configured
+**REQUIRES CLIENT, MANUAL.** The client (or GCO, if given delegated access) registers `https://app.globalconversationoperations.com/api/v1/webhooks/<integrationId>` with the provider, using the secret from step 8 for signing.
 
-## 9. Security configuration
-**MANUAL, REQUIRES GCO ADMIN.** Webhook secret generation/rotation (`PATCH /api/v1/admin/integrations/:id/webhook-secret`) is automated once the integration exists; confirming the client's own API credentials are handled via a secure exchange (never chat/Telegram) is a manual process step, not a system feature.
+## 10. Sandbox/test traffic verified
+**MANUAL.** Send provider sandbox/test events through and confirm they reach GCO correctly - the first three rows of `docs/first-client-integration-acceptance.md`.
 
-## 10. Test data
-**MANUAL, REQUIRES GCO ADMIN.** Use clearly marked test data during acceptance testing (step 11), never real customer data at this stage - see `docs/first-client-security-gate.md` / `docs/real-client-data-gate.md`.
+## 11. Tenant isolation verified
+**MANUAL.** Row 15/19 of `docs/first-client-integration-acceptance.md` - confirm this tenant's data is invisible to any other tenant, for this specific tenant, not just "the mechanism works in general."
 
-## 11. Acceptance testing
-**MANUAL.** Execute `docs/pilot-acceptance-checklist.md` in full before declaring the tenant pilot-ready.
+## 12. Inbound message test
+**MANUAL.** Row 6-7 of `docs/first-client-integration-acceptance.md`.
 
-## 12. Pilot activation
-**REQUIRES GCO ADMIN, REQUIRES CLIENT.** Both sides confirm scope/dates per `docs/7-day-pilot.md`; pilot begins.
+## 13. Outbound message test
+**MANUAL.** Row 10-11 of `docs/first-client-integration-acceptance.md`.
 
-## 13. Pilot completion
-**MANUAL.** Run the Day 7 review in `docs/7-day-pilot-operations.md`, using the metrics defined in `docs/pilot-metrics.md`.
+## 14. Duplicate delivery test
+**MANUAL.** Row 5 of `docs/first-client-integration-acceptance.md`.
 
-## 14. Production continuation
-**REQUIRES GCO ADMIN, REQUIRES CLIENT.** A decision, not an automatic transition - based on the pilot's measured results, agreed explicitly with the client.
+## 15. Failure/retry test
+**MANUAL.** Row 12-13 of `docs/first-client-integration-acceptance.md`.
+
+## 16. Operator assignment test
+**MANUAL.** Row 8 of `docs/first-client-integration-acceptance.md`.
+
+## 17. Realtime test
+**MANUAL.** Row 9 of `docs/first-client-integration-acceptance.md`.
+
+## 18. Security gate
+**MANUAL, REQUIRES GCO ADMIN.** `docs/first-client-security-gate.md` fully checked, not just assumed passing because the platform-wide mechanisms were verified in earlier phases.
+
+## 19. Pilot launch
+**REQUIRES GCO ADMIN, REQUIRES CLIENT.** `docs/real-client-data-gate.md`'s 8-point rule satisfied, then `docs/7-day-pilot-operations.md` Day 1 begins.
+
+## 20. Production monitoring
+**MANUAL** during the pilot (`docs/7-day-pilot-operations.md` Days 2-6); becomes the ongoing operational posture if the client continues past the pilot. External uptime/error monitoring is still not configured platform-wide (see `docs/first-client-security-gate.md`) - during a pilot, monitoring means the daily operational review described in the pilot operations doc, not an automated external alert.
+
+## What this runbook does not cover
+
+Building a client-specific adapter (the actual provider integration code) is not a step in this runbook - it happens between steps 5 and 6, once feasibility confirms what needs to be built, and is scoped/estimated via `docs/client-integration-estimation.md`. This runbook assumes the adapter already exists or requires no code changes; if it doesn't, that work happens first, separately.

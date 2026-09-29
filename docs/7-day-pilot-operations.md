@@ -4,11 +4,15 @@ The day-by-day operating rhythm once a pilot is live. See `docs/7-day-pilot.md` 
 
 ## Before Day 1
 
-- Technical discovery complete (`docs/client-technical-discovery.md`)
+- Technical discovery complete (`docs/client-technical-discovery.md`, `docs/first-client-integration-discovery.md`)
 - Integration feasibility assessed (`docs/integration-feasibility-template.md`)
-- Credentials exchanged securely (never via chat/Telegram)
+- Integration implemented (if `REQUIRES CODE` items were found in feasibility - built and tested, not assumed)
+- Credentials exchanged securely (never via chat/Telegram - see `docs/sales-to-engineering-handoff.md`'s Secure Credential Transfer note on the current gap here)
 - Tenant configured (`docs/client-tenant-provisioning.md`)
-- Testing complete (inbound, outbound, duplicates, failure/retry, tenant isolation)
+- Webhook verified end-to-end (`docs/first-client-integration-acceptance.md` rows 1-9)
+- Testing complete (inbound, outbound, duplicates, failure/retry, tenant isolation - `docs/first-client-integration-acceptance.md` in full)
+- Operators trained on this client's workflow, tone, and escalation path
+- Acceptance criteria agreed with the client in writing
 - Acceptance checklist fully signed off (`docs/pilot-acceptance-checklist.md`)
 
 ## Day 1 - Launch

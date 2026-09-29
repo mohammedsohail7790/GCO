@@ -49,6 +49,25 @@ Status as of Phase 10 (production commit `6af6081`), re-verify per-client at pro
 | API permissions minimized | Per-client - confirm during `docs/integration-feasibility-template.md` |
 | Rate limits understood | Per-client - confirm during technical discovery |
 
+## Messaging
+
+| Item | Status |
+|---|---|
+| Inbound works | Mechanism ✅ VERIFIED (Phase 6/11); re-verify per-client via `docs/first-client-integration-acceptance.md` rows 3, 6-7 |
+| Outbound works | Mechanism ✅ VERIFIED (Phase 6); re-verify per-client via acceptance rows 10-11 |
+| Duplicate event does not duplicate messages | ✅ VERIFIED (Phase 11 live test: 2 identical deliveries → exactly 1 `WebhookEvent` row; `Message` unique on `(tenantId, externalMessageId, direction)`) |
+| Failures visible | ✅ VERIFIED mechanism (dead-letter queue + `SystemEvent` on exhausted retries, `workers/index.ts`) - per-client alerting beyond that is manual (see Operations below) |
+| Operator receives correct conversation | Mechanism ✅ VERIFIED (assignment engine); **known limitation** - if a tenant ever has 2+ simultaneously ACTIVE integrations, outbound delivery picks the tenant's first active integration, not necessarily the one the conversation arrived on (see `docs/first-client-integration-discovery.md` Known Platform Gaps). Not a blocker for a single-channel client. |
+
+## Operations
+
+| Item | Status |
+|---|---|
+| Logs available | ✅ VERIFIED (structured logging via `lib/observability/logger.ts`, container logs, bounded rotation since Phase 8) |
+| Errors visible | ✅ VERIFIED (dead-letter queue, `SystemEvent` records, admin `system-health` endpoint) |
+| Recovery procedure documented | ✅ `docs/recovery-runbook.md` |
+| Rollback/disable procedure documented | ✅ `docs/client-tenant-provisioning.md` step 20 and `docs/first-client-integration-acceptance.md` row 20 |
+
 ## Documentation
 
 | Item | Status |
