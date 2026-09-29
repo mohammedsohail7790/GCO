@@ -1,53 +1,54 @@
 import Link from 'next/link'
+import { MobileMenu } from './MobileMenu'
 
 const NAV_LINKS = [
   { href: '/services', label: 'Services' },
   { href: '/how-it-works', label: 'How It Works' },
   { href: '/about', label: 'About' },
   { href: '/careers', label: 'Careers' },
-  { href: '/contact', label: 'Contact' },
 ]
 
 export function SiteHeader() {
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+    <header className="sticky top-0 z-40 border-b border-paper-border bg-paper/85 backdrop-blur-md">
+      <div className="mx-auto flex h-[72px] max-w-6xl items-center justify-between px-6">
         <Link href="/" className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500">
-            <span className="text-sm font-bold text-white">G</span>
+          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-ink">
+            <span className="font-display text-[13px] font-bold text-paper">G</span>
           </div>
-          <span className="text-base font-semibold tracking-tight text-slate-900">GCO</span>
+          <span className="font-display text-[15px] font-semibold tracking-tight text-graphite">
+            GCO
+          </span>
         </Link>
 
-        <nav className="hidden items-center gap-7 md:flex">
+        <nav className="hidden items-center gap-9 md:flex">
           {NAV_LINKS.map((link) => (
-            <Link key={link.href} href={link.href} className="text-sm font-medium text-slate-600 hover:text-slate-900">
+            <Link
+              key={link.href}
+              href={link.href}
+              className="text-[13.5px] font-medium text-graphite-secondary transition-colors hover:text-graphite"
+            >
               {link.label}
             </Link>
           ))}
         </nav>
 
-        <div className="flex items-center gap-3">
-          <Link href="/login" className="hidden text-sm font-medium text-slate-600 hover:text-slate-900 sm:block">
-            Sign in
+        <div className="flex items-center gap-5">
+          <Link
+            href="/login"
+            className="hidden text-[13.5px] font-medium text-graphite-secondary transition-colors hover:text-graphite sm:block"
+          >
+            Client Login
           </Link>
           <Link
             href="/contact"
-            className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600"
+            className="hidden rounded-lg bg-ink px-5 py-2.5 text-[13.5px] font-semibold text-paper transition-colors hover:bg-ink-700 md:block"
           >
             Book a Call
           </Link>
+          <MobileMenu />
         </div>
       </div>
-
-      {/* Mobile nav - simple wrapped links, no JS menu toggle needed for this size of nav. */}
-      <nav className="flex flex-wrap gap-x-5 gap-y-2 border-t border-slate-100 px-6 py-2 md:hidden">
-        {NAV_LINKS.map((link) => (
-          <Link key={link.href} href={link.href} className="text-xs font-medium text-slate-600 hover:text-slate-900">
-            {link.label}
-          </Link>
-        ))}
-      </nav>
     </header>
   )
 }

@@ -3,6 +3,10 @@ import Link from 'next/link'
 import { tryGetSession } from '@/lib/auth/session'
 import { SiteHeader } from '@/components/marketing/SiteHeader'
 import { SiteFooter } from '@/components/marketing/SiteFooter'
+import { Container } from '@/components/marketing/Container'
+import { Eyebrow, SectionHeader } from '@/components/marketing/SectionHeader'
+import { OperationsFlow } from '@/components/marketing/OperationsFlow'
+import { ServiceCard } from '@/components/marketing/ServiceCard'
 import { getCalendarProvider } from '@/lib/integrations/calendar/provider'
 import { pageMetadata } from '@/lib/config/site'
 
@@ -22,6 +26,23 @@ export const metadata = pageMetadata({
   path: '/',
 })
 
+const CAPABILITIES = ['24/7 coverage', 'Multilingual operators', 'Trained teams', 'Supervision & QA', 'Scalable staffing', 'Managed operations']
+
+const PROBLEMS = [
+  'Message volume grows faster than your team can hire',
+  'Response quality drifts once more than one person is answering',
+  'Conversations get missed outside business hours',
+  'Routing and escalation happen manually, if at all',
+  'There is no real visibility into what is actually happening',
+]
+
+const SERVICES = [
+  { title: 'Chat Operations', body: 'Real-time conversation handling across your channels.' },
+  { title: 'Conversation Engagement', body: 'Keeping conversations active, responsive, and on-brand.' },
+  { title: 'Content & Chat Moderation', body: 'Consistent moderation aligned to your standards.' },
+  { title: 'Customer Support Operations', body: 'Trained operators handling day-to-day support volume.' },
+]
+
 export default async function Home() {
   const session = await tryGetSession()
   if (session) redirect(ROLE_HOME[session.role] ?? '/login')
@@ -30,145 +51,165 @@ export default async function Home() {
 
   return (
     <>
+      <a href="#main-content" className="skip-link">Skip to content</a>
       <SiteHeader />
-      <main>
+      <main id="main-content">
         {/* Hero */}
-        <section className="relative overflow-hidden bg-slate-950 text-white">
+        <section className="relative overflow-hidden bg-ink text-white">
           <div
-            className="pointer-events-none absolute inset-0 opacity-40"
+            className="pointer-events-none absolute inset-0"
             style={{
-              background:
-                'radial-gradient(ellipse at top left, rgba(53,99,233,0.55), transparent 55%), radial-gradient(ellipse at bottom right, rgba(53,99,233,0.35), transparent 50%)',
+              background: 'radial-gradient(ellipse 900px 500px at 15% -10%, rgba(61,63,219,0.28), transparent 60%)',
             }}
           />
-          <div className="relative mx-auto max-w-6xl px-6 py-24 sm:py-28">
-            <p className="text-sm font-semibold uppercase tracking-wide text-brand-200">Managed conversation operations</p>
-            <h1 className="mt-4 max-w-3xl text-4xl font-semibold tracking-tight sm:text-5xl">
-              Human operator teams for chat, engagement, and moderation - trained, supervised, and always on.
-            </h1>
-            <p className="mt-6 max-w-2xl text-lg text-slate-300">
-              GCO builds and manages the human operations layer behind your conversations: real operators, real
-              supervision, and quality control, backed by a platform built for coverage and scale.
-            </p>
-            <div className="mt-10 flex flex-wrap gap-4">
-              {bookingUrl ? (
-                <a href={bookingUrl} target="_blank" rel="noreferrer" className="rounded-lg bg-brand-500 px-6 py-3 text-sm font-semibold text-white hover:bg-brand-600">
-                  Book a Call
-                </a>
-              ) : (
-                <Link href="/contact" className="rounded-lg bg-brand-500 px-6 py-3 text-sm font-semibold text-white hover:bg-brand-600">
-                  Book a Call
+          <Container className="relative grid gap-16 py-24 sm:py-28 lg:grid-cols-[1.1fr_0.9fr] lg:items-center lg:gap-8">
+            <div className="animate-fade-up">
+              <Eyebrow tone="dark">Managed Conversation Operations</Eyebrow>
+              <h1 className="font-display mt-5 max-w-xl text-[2.75rem] font-semibold leading-[1.08] tracking-tight sm:text-5xl">
+                Conversation operations, built for scale.
+              </h1>
+              <p className="mt-6 max-w-lg text-[17px] leading-relaxed text-white/65">
+                GCO combines trained, supervised human operators with AI-assisted workflows to run the conversation
+                operations layer behind your business - chat, engagement, support, and moderation, handled reliably
+                as you grow.
+              </p>
+              <div className="mt-10 flex flex-wrap items-center gap-4">
+                {bookingUrl ? (
+                  <a href={bookingUrl} target="_blank" rel="noreferrer" className="rounded-lg bg-accent-500 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-600">
+                    Book a Call
+                  </a>
+                ) : (
+                  <Link href="/contact" className="rounded-lg bg-accent-500 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-600">
+                    Book a Call
+                  </Link>
+                )}
+                <Link href="/how-it-works" className="text-sm font-semibold text-white/80 transition-colors hover:text-white">
+                  See how it works →
                 </Link>
-              )}
-              <Link href="/services" className="rounded-lg border border-white/20 px-6 py-3 text-sm font-semibold text-white hover:bg-white/10">
-                Explore Services
-              </Link>
+              </div>
             </div>
-          </div>
+
+            <div className="flex animate-fade-in justify-center lg:justify-end" style={{ animationDelay: '0.15s' }}>
+              <OperationsFlow />
+            </div>
+          </Container>
         </section>
 
-        {/* Capability strip */}
-        <section className="border-b border-slate-100 bg-white">
-          <div className="mx-auto grid max-w-6xl grid-cols-2 gap-6 px-6 py-10 sm:grid-cols-3 lg:grid-cols-6">
-            {[
-              '24/7 coverage',
-              'Multilingual operators',
-              'Trained teams',
-              'Supervision & QA',
-              'Scalable staffing',
-              'Managed operations',
-            ].map((item) => (
-              <div key={item} className="text-center text-sm font-medium text-slate-600">
-                {item}
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* How it works, brief */}
-        <section className="mx-auto max-w-6xl px-6 py-20">
-          <h2 className="text-2xl font-semibold tracking-tight text-slate-900">How GCO works</h2>
-          <p className="mt-3 max-w-2xl text-slate-600">
-            We take the time to understand what your conversations actually need, then build and run the human
-            operations behind them - so you get reliable coverage without hiring, training, and managing an in-house
-            team yourself.
-          </p>
-          <div className="mt-10 grid gap-6 sm:grid-cols-3">
-            {[
-              { step: '1', title: 'Onboarding & requirements', body: 'We learn your workflows, tone, tools, and coverage needs.' },
-              { step: '2', title: 'Team setup & training', body: 'Operators are staffed, trained, and equipped for your specific operation.' },
-              { step: '3', title: 'Supervision & reporting', body: 'Ongoing quality control, supervision, and reporting as you scale.' },
-            ].map((s) => (
-              <div key={s.step} className="rounded-xl border border-slate-200 bg-white p-6 shadow-card">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-50 text-sm font-semibold text-brand-600">
-                  {s.step}
-                </div>
-                <h3 className="mt-4 text-base font-semibold text-slate-900">{s.title}</h3>
-                <p className="mt-2 text-sm text-slate-600">{s.body}</p>
-              </div>
-            ))}
-          </div>
-          <Link href="/how-it-works" className="mt-8 inline-block text-sm font-semibold text-brand-600 hover:text-brand-700">
-            See the full process →
-          </Link>
-        </section>
-
-        {/* Services overview */}
-        <section className="border-t border-slate-100 bg-slate-50">
-          <div className="mx-auto max-w-6xl px-6 py-20">
-            <h2 className="text-2xl font-semibold tracking-tight text-slate-900">What we run for you</h2>
-            <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-              {[
-                { title: 'Chat Operations', body: 'Real-time conversation handling across your channels.' },
-                { title: 'Conversation Engagement', body: 'Keeping conversations active, responsive, and on-brand.' },
-                { title: 'Content & Chat Moderation', body: 'Consistent moderation aligned to your standards.' },
-                { title: 'Customer Support Operations', body: 'Trained operators handling day-to-day support volume.' },
-              ].map((s) => (
-                <div key={s.title} className="rounded-xl border border-slate-200 bg-white p-6 shadow-card">
-                  <h3 className="text-base font-semibold text-slate-900">{s.title}</h3>
-                  <p className="mt-2 text-sm text-slate-600">{s.body}</p>
+        {/* Trust / credibility strip - factual capabilities only, no fabricated logos or metrics */}
+        <section className="border-b border-paper-border bg-paper-surface">
+          <Container className="py-8">
+            <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 lg:grid-cols-6">
+              {CAPABILITIES.map((item) => (
+                <div key={item} className="text-center text-[13px] font-medium text-graphite-secondary">
+                  {item}
                 </div>
               ))}
             </div>
-            <Link href="/services" className="mt-8 inline-block text-sm font-semibold text-brand-600 hover:text-brand-700">
+          </Container>
+        </section>
+
+        {/* Problem */}
+        <section className="bg-paper py-24">
+          <Container>
+            <div className="grid gap-12 lg:grid-cols-2 lg:gap-16">
+              <SectionHeader
+                eyebrow="The problem"
+                title="Conversations don't scale themselves."
+                description="Growing message volume, inconsistent response quality, and no operational visibility - the usual result of trying to run conversations without a dedicated operations layer behind them."
+              />
+              <div className="rounded-2xl border border-paper-border bg-paper-surface p-8">
+                <ul className="space-y-4">
+                  {PROBLEMS.map((p) => (
+                    <li key={p} className="flex gap-3 text-[14.5px] text-graphite-secondary">
+                      <span className="mt-2 h-1 w-1 flex-none rounded-full bg-accent-500" />
+                      {p}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </Container>
+        </section>
+
+        {/* How it works, brief */}
+        <section className="border-t border-paper-border bg-paper-surface py-24">
+          <Container>
+            <SectionHeader
+              eyebrow="How GCO works"
+              title="An operations layer, not a headcount"
+              description="We take the time to understand what your conversations actually need, then build and run the human operations behind them - so you get reliable coverage without hiring, training, and managing an in-house team yourself."
+            />
+            <div className="mt-12 grid gap-6 sm:grid-cols-3">
+              {[
+                { step: '01', title: 'Onboarding & requirements', body: 'We learn your workflows, tone, tools, and coverage needs.' },
+                { step: '02', title: 'Team setup & training', body: 'Operators are staffed, trained, and equipped for your specific operation.' },
+                { step: '03', title: 'Supervision & reporting', body: 'Ongoing quality control, supervision, and reporting as you scale.' },
+              ].map((s) => (
+                <div key={s.step} className="rounded-2xl border border-paper-border bg-paper p-6">
+                  <span className="font-display text-xs font-semibold tabular-nums text-graphite-muted">{s.step}</span>
+                  <h3 className="font-display mt-3 text-[15.5px] font-semibold text-graphite">{s.title}</h3>
+                  <p className="mt-2 text-[14px] leading-relaxed text-graphite-secondary">{s.body}</p>
+                </div>
+              ))}
+            </div>
+            <Link href="/how-it-works" className="mt-8 inline-block text-sm font-semibold text-accent-600 transition-colors hover:text-accent-700">
+              See the full process →
+            </Link>
+          </Container>
+        </section>
+
+        {/* Services overview */}
+        <section className="bg-paper py-24">
+          <Container>
+            <SectionHeader eyebrow="What we run" title="Operations, run for you" />
+            <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+              {SERVICES.map((s, i) => (
+                <ServiceCard key={s.title} index={i} title={s.title} body={s.body} />
+              ))}
+            </div>
+            <Link href="/services" className="mt-8 inline-block text-sm font-semibold text-accent-600 transition-colors hover:text-accent-700">
               View all services →
             </Link>
-          </div>
+          </Container>
         </section>
 
         {/* Trust / quality */}
-        <section className="mx-auto max-w-6xl px-6 py-20">
-          <h2 className="text-2xl font-semibold tracking-tight text-slate-900">Built on supervision and quality control</h2>
-          <p className="mt-3 max-w-2xl text-slate-600">
-            Every operator team is supervised, every conversation is subject to quality review, and every operation
-            is set up to scale up or down as your needs change - not a one-size-fits-all outsourcing arrangement.
-          </p>
+        <section className="border-t border-paper-border bg-paper-surface py-24">
+          <Container>
+            <SectionHeader
+              eyebrow="Quality"
+              title="Built on supervision and quality control"
+              description="Every operator team is supervised, every conversation is subject to quality review, and every operation is set up to scale up or down as your needs change - not a one-size-fits-all outsourcing arrangement."
+            />
+          </Container>
         </section>
 
         {/* Dual CTA */}
-        <section className="border-t border-slate-100 bg-white">
-          <div className="mx-auto grid max-w-6xl gap-6 px-6 py-16 sm:grid-cols-2">
-            <div className="rounded-2xl bg-slate-950 p-8 text-white">
-              <h3 className="text-xl font-semibold">Looking for BPO support?</h3>
-              <p className="mt-2 text-sm text-slate-300">Tell us about your operation and we&apos;ll get back to you.</p>
-              {bookingUrl ? (
-                <a href={bookingUrl} target="_blank" rel="noreferrer" className="mt-6 inline-block rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-600">
-                  Book a Call
-                </a>
-              ) : (
-                <Link href="/contact" className="mt-6 inline-block rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-600">
-                  Contact Us
+        <section className="bg-paper py-20">
+          <Container>
+            <div className="grid gap-6 sm:grid-cols-2">
+              <div className="rounded-2xl bg-ink p-9 text-white">
+                <h3 className="font-display text-xl font-semibold">Looking for BPO support?</h3>
+                <p className="mt-2 text-sm text-white/60">Tell us about your operation and we&apos;ll get back to you.</p>
+                {bookingUrl ? (
+                  <a href={bookingUrl} target="_blank" rel="noreferrer" className="mt-6 inline-block rounded-lg bg-accent-500 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-600">
+                    Book a Call
+                  </a>
+                ) : (
+                  <Link href="/contact" className="mt-6 inline-block rounded-lg bg-accent-500 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-600">
+                    Contact Us
+                  </Link>
+                )}
+              </div>
+              <div className="rounded-2xl border border-paper-border bg-paper-surface p-9">
+                <h3 className="font-display text-xl font-semibold text-graphite">Want to join GCO?</h3>
+                <p className="mt-2 text-sm text-graphite-secondary">We&apos;re always looking for reliable, skilled operators.</p>
+                <Link href="/careers" className="mt-6 inline-block rounded-lg border border-paper-border px-5 py-2.5 text-sm font-semibold text-graphite transition-colors hover:bg-paper">
+                  View Opportunities
                 </Link>
-              )}
+              </div>
             </div>
-            <div className="rounded-2xl border border-slate-200 p-8">
-              <h3 className="text-xl font-semibold text-slate-900">Want to join GCO?</h3>
-              <p className="mt-2 text-sm text-slate-600">We&apos;re always looking for reliable, skilled operators.</p>
-              <Link href="/careers" className="mt-6 inline-block rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-900 hover:bg-slate-50">
-                View Opportunities
-              </Link>
-            </div>
-          </div>
+          </Container>
         </section>
       </main>
       <SiteFooter />

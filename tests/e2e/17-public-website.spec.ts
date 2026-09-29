@@ -9,7 +9,7 @@ import { db } from '@/lib/db/client'
 // against the running app, same as the rest of this suite.
 test.describe('Public website - pages', () => {
   const PAGES: Array<{ path: string; heading: string }> = [
-    { path: '/services', heading: 'managed operations layer' },
+    { path: '/services', heading: 'operations behind every conversation' },
     { path: '/how-it-works', heading: 'straightforward path' },
     { path: '/about', heading: 'managed human operations company' },
     { path: '/careers', heading: 'reliable operators' },

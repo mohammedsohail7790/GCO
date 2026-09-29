@@ -1,6 +1,9 @@
 import Link from 'next/link'
 import { SiteHeader } from '@/components/marketing/SiteHeader'
 import { SiteFooter } from '@/components/marketing/SiteFooter'
+import { Container } from '@/components/marketing/Container'
+import { Eyebrow } from '@/components/marketing/SectionHeader'
+import { ServiceCard } from '@/components/marketing/ServiceCard'
 import { pageMetadata } from '@/lib/config/site'
 
 export const metadata = pageMetadata({
@@ -10,38 +13,22 @@ export const metadata = pageMetadata({
   path: '/services',
 })
 
+// `status` is only set when the capability is genuinely integration-ready
+// rather than already running - never marked "implemented" for something
+// that requires a client-specific connector that hasn't been built yet.
 const SERVICES = [
+  { title: 'Chat Operations', body: 'Real-time, human-handled conversation management across the channels your business already uses.' },
+  { title: 'Conversation Engagement', body: 'Operators keep conversations active, timely, and consistent with your tone and goals.' },
+  { title: 'Content & Chat Moderation', body: 'Consistent moderation against clearly defined standards, with supervision on top.' },
+  { title: 'Customer Support Operations', body: 'Trained operators handling day-to-day support conversations at the volume you need.' },
+  { title: 'Multilingual Operator Teams', body: 'Teams staffed for the languages your users actually speak, not just your headquarters.' },
+  { title: '24/7 Coverage', body: 'Shift-based staffing so conversations get a response regardless of time zone.' },
+  { title: 'Quality Assurance & Supervision', body: 'Ongoing review of conversations against your standards, with feedback built into the operation.' },
+  { title: 'Managed BPO Teams', body: 'A fully managed human operations layer - staffing, training, supervision, and reporting - run for you.' },
   {
-    title: 'Chat Operations',
-    body: 'Real-time, human-handled conversation management across the channels your business already uses.',
-  },
-  {
-    title: 'Conversation Engagement',
-    body: 'Operators keep conversations active, timely, and consistent with your tone and goals.',
-  },
-  {
-    title: 'Content & Chat Moderation',
-    body: 'Consistent moderation against clearly defined standards, with supervision on top.',
-  },
-  {
-    title: 'Customer Support Operations',
-    body: 'Trained operators handling day-to-day support conversations at the volume you need.',
-  },
-  {
-    title: 'Multilingual Operator Teams',
-    body: 'Teams staffed for the languages your users actually speak, not just your headquarters.',
-  },
-  {
-    title: '24/7 Coverage',
-    body: 'Shift-based staffing so conversations get a response regardless of time zone.',
-  },
-  {
-    title: 'Quality Assurance & Supervision',
-    body: 'Ongoing review of conversations against your standards, with feedback built into the operation.',
-  },
-  {
-    title: 'Managed BPO Teams',
-    body: 'A fully managed human operations layer - staffing, training, supervision, and reporting - run for you.',
+    title: 'Workflow & Integration',
+    body: 'Connect the channels and client systems your operation needs - built on a proven ingestion pipeline, configured per client.',
+    status: 'integration-ready' as const,
   },
 ]
 
@@ -50,38 +37,37 @@ export default function ServicesPage() {
     <>
       <SiteHeader />
       <main>
-        <section className="border-b border-slate-100 bg-slate-50">
-          <div className="mx-auto max-w-6xl px-6 py-16">
-            <p className="text-sm font-semibold uppercase tracking-wide text-brand-600">Services</p>
-            <h1 className="mt-3 max-w-2xl text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
-              A managed operations layer for your conversations
+        <section className="border-b border-paper-border bg-ink text-white">
+          <Container className="py-20">
+            <Eyebrow tone="dark">Services</Eyebrow>
+            <h1 className="font-display mt-4 max-w-2xl text-3xl font-semibold tracking-tight sm:text-4xl">
+              Operations behind every conversation.
             </h1>
-            <p className="mt-4 max-w-2xl text-slate-600">
+            <p className="mt-4 max-w-2xl text-[15.5px] leading-relaxed text-white/65">
               GCO staffs, trains, and supervises the human teams behind your conversations, so your product and
               support experience stays consistent as you grow.
             </p>
-          </div>
+          </Container>
         </section>
 
-        <section className="mx-auto max-w-6xl px-6 py-16">
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {SERVICES.map((s) => (
-              <div key={s.title} className="rounded-xl border border-slate-200 bg-white p-6 shadow-card">
-                <h2 className="text-base font-semibold text-slate-900">{s.title}</h2>
-                <p className="mt-2 text-sm text-slate-600">{s.body}</p>
-              </div>
-            ))}
-          </div>
+        <section className="bg-paper py-20">
+          <Container>
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {SERVICES.map((s, i) => (
+                <ServiceCard key={s.title} index={i} title={s.title} body={s.body} status={s.status} />
+              ))}
+            </div>
 
-          <div className="mt-14 rounded-2xl border border-slate-200 bg-slate-950 p-8 text-white sm:p-10">
-            <h2 className="text-xl font-semibold">Not sure which service fits your operation?</h2>
-            <p className="mt-2 max-w-xl text-sm text-slate-300">
-              Tell us about your conversations and coverage needs and we&apos;ll help you figure out the right setup.
-            </p>
-            <Link href="/contact" className="mt-6 inline-block rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-600">
-              Talk to Us
-            </Link>
-          </div>
+            <div className="mt-16 overflow-hidden rounded-2xl bg-ink p-9 text-white sm:p-12">
+              <h2 className="font-display text-xl font-semibold sm:text-2xl">Not sure which service fits your operation?</h2>
+              <p className="mt-3 max-w-xl text-[14.5px] leading-relaxed text-white/60">
+                Tell us about your conversations and coverage needs and we&apos;ll help you figure out the right setup.
+              </p>
+              <Link href="/contact" className="mt-7 inline-block rounded-lg bg-accent-500 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-600">
+                Talk to Us
+              </Link>
+            </div>
+          </Container>
         </section>
       </main>
       <SiteFooter />

@@ -22,8 +22,8 @@ export default function OpengraphImage() {
           alignItems: 'flex-start',
           justifyContent: 'center',
           padding: '80px',
-          backgroundColor: '#0f172a',
-          backgroundImage: 'radial-gradient(circle at 15% 20%, rgba(53,99,233,0.55), transparent 55%)',
+          backgroundColor: '#0B0D12',
+          backgroundImage: 'radial-gradient(circle at 15% 20%, rgba(61,63,219,0.35), transparent 55%)',
         }}
       >
         <div
@@ -34,14 +34,14 @@ export default function OpengraphImage() {
             width: 72,
             height: 72,
             borderRadius: 16,
-            backgroundColor: '#3563e9',
+            backgroundColor: '#3D3FDB',
             marginBottom: 40,
           }}
         >
           <span style={{ color: 'white', fontSize: 36, fontWeight: 700 }}>G</span>
         </div>
         <div style={{ display: 'flex', fontSize: 64, fontWeight: 700, color: 'white', maxWidth: 900 }}>{SITE_NAME}</div>
-        <div style={{ display: 'flex', fontSize: 32, color: '#cbd5e1', marginTop: 20, maxWidth: 900 }}>{SITE_TAGLINE}</div>
+        <div style={{ display: 'flex', fontSize: 32, color: '#a3a4ad', marginTop: 20, maxWidth: 900 }}>{SITE_TAGLINE}</div>
       </div>
     ),
     { ...size },

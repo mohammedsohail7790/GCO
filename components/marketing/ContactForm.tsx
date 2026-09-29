@@ -2,8 +2,8 @@
 
 import { useState } from 'react'
 
-const inputClass = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500'
-const labelClass = 'block text-sm font-medium text-slate-700'
+const inputClass = 'w-full rounded-lg border border-paper-border bg-white px-3.5 py-2.5 text-sm text-graphite transition-colors focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500'
+const labelClass = 'block text-sm font-medium text-graphite'
 
 export function ContactForm() {
   const [form, setForm] = useState({
@@ -45,7 +45,7 @@ export function ContactForm() {
 
   if (status === 'sent') {
     return (
-      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-6 text-sm text-emerald-800">
+      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-6 text-sm text-emerald-800" role="status">
         Thanks - we&apos;ve received your message and will be in touch shortly.
       </div>
     )
@@ -102,12 +102,12 @@ export function ContactForm() {
         <textarea id="message" rows={4} maxLength={4000} className={inputClass} value={form.message} onChange={(e) => update('message', e.target.value)} />
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
 
       <button
         type="submit"
         disabled={status === 'submitting'}
-        className="rounded-lg bg-brand-500 px-6 py-2.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
+        className="rounded-lg bg-ink px-6 py-3 text-sm font-semibold text-paper transition-colors hover:bg-ink-700 disabled:opacity-60"
       >
         {status === 'submitting' ? 'Sending…' : 'Send Message'}
       </button>

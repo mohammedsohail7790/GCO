@@ -13,7 +13,53 @@ html {
 
 body {
   @apply bg-slate-50 text-slate-900 antialiased;
-  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-family: var(--font-body), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* Visible on every interactive element by default (buttons, links, inputs) -
+   the previous styling relied entirely on each browser's own default focus
+   ring, which is inconsistent and easy to lose against a dark hero section.
+   Uses :focus-visible (keyboard/AT focus only, not mouse clicks) so it never
+   adds a ring to a mouse click. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid #3D3FDB;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Skip-to-content link - visually hidden until keyboard-focused, then
+   appears at the top-left. Every marketing page's <main> carries
+   id="main-content" for this to target. */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  background: #0B0D12;
+  color: #FAFAF8;
+  padding: 0.75rem 1.25rem;
+  border-radius: 0 0 8px 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.skip-link:focus {
+  left: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 * {

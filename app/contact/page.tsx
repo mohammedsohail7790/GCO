@@ -1,5 +1,7 @@
 import { SiteHeader } from '@/components/marketing/SiteHeader'
 import { SiteFooter } from '@/components/marketing/SiteFooter'
+import { Container } from '@/components/marketing/Container'
+import { Eyebrow } from '@/components/marketing/SectionHeader'
 import { ContactForm } from '@/components/marketing/ContactForm'
 import { pageMetadata } from '@/lib/config/site'
 
@@ -14,22 +16,25 @@ export default function ContactPage() {
     <>
       <SiteHeader />
       <main>
-        <section className="border-b border-slate-100 bg-slate-50">
-          <div className="mx-auto max-w-6xl px-6 py-16">
-            <p className="text-sm font-semibold uppercase tracking-wide text-brand-600">Contact</p>
-            <h1 className="mt-3 max-w-2xl text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
-              Tell us about your operation
+        <section className="border-b border-paper-border bg-ink text-white">
+          <Container className="py-20">
+            <Eyebrow tone="dark">Contact</Eyebrow>
+            <h1 className="font-display mt-4 max-w-2xl text-3xl font-semibold tracking-tight sm:text-4xl">
+              Tell us about your operation.
             </h1>
-            <p className="mt-4 max-w-2xl text-slate-600">
+            <p className="mt-5 max-w-2xl text-[15.5px] leading-relaxed text-white/65">
               Share a few details and we&apos;ll get back to you about how GCO can support your conversations.
+              Expect a reply within one business day.
             </p>
-          </div>
+          </Container>
         </section>
 
-        <section className="mx-auto max-w-2xl px-6 py-16">
-          <div className="relative rounded-2xl border border-slate-200 bg-white p-8 shadow-card">
-            <ContactForm />
-          </div>
+        <section className="bg-paper py-20">
+          <Container className="max-w-2xl">
+            <div className="rounded-2xl border border-paper-border bg-paper-surface p-8 shadow-card sm:p-10">
+              <ContactForm />
+            </div>
+          </Container>
         </section>
       </main>
       <SiteFooter />
