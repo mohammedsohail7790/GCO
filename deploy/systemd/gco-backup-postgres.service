@@ -6,4 +6,8 @@ Requires=docker.service
 [Service]
 Type=oneshot
 User=gco
+# B2 credentials (root:root 0600, created by scripts/setup-b2-credentials.sh).
+# Leading "-" = optional file; the script treats a missing credential as an
+# offsite failure (exit 2) rather than silently skipping the offsite copy.
+EnvironmentFile=-/etc/gco-backup-b2.env
 ExecStart=/opt/gco/scripts/backup-postgres.sh

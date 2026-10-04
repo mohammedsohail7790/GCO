@@ -132,7 +132,16 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    env_file: .env
+    # .env.ai (mode 0600, git- and docker-ignored) holds OPENAI_API_KEY and is
+    # attached to the WORKER ONLY: the AI provider is called solely from the
+    # worker's processors, so the internet-facing web service and realtime never
+    # receive the key. Later files override earlier ones (.env has the empty
+    # placeholder). required:false keeps `docker compose up` working if the
+    # file is absent (AI_PROVIDER=mock needs no key).
+    env_file:
+      - .env
+      - path: .env.ai
+        required: false
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-gco}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-gco}?schema=public
       REDIS_URL: redis://redis:6379

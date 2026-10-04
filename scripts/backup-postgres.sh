@@ -54,10 +54,29 @@ fi
 chmod 600 "$DEST"
 log "backup succeeded: $DEST ($(du -h "$DEST" | cut -f1))"
 
+# Offsite copy to Backblaze B2 (see scripts/b2-upload.py). Credentials arrive
+# only via the environment (systemd EnvironmentFile=/etc/gco-backup-b2.env) -
+# never as arguments, never logged. The local dump is never touched or deleted
+# by this step; a failure here must not be reported as a successful backup, so
+# it is recorded and turned into exit code 2 at the end (1 stays "local backup
+# itself failed"). Retention below still runs either way.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+OFFSITE_RC=0
+python3 "${SCRIPT_DIR}/b2-upload.py" "$DEST" gco-postgres || OFFSITE_RC=$?
+if [ "$OFFSITE_RC" -eq 0 ]; then
+  log "offsite upload to B2 verified"
+else
+  log "FAILED: offsite upload to B2 failed (exit ${OFFSITE_RC}); local backup kept intact at $DEST"
+fi
+
 # Retention: delete backups older than RETENTION_DAYS. Never touches
 # anything outside $BACKUP_DIR, never touches non-matching filenames.
 find "$BACKUP_DIR" -maxdepth 1 -name 'gco-postgres-*.dump' -mtime "+${RETENTION_DAYS}" -print -delete | while read -r removed; do
   log "removed old backup (older than ${RETENTION_DAYS}d): $removed"
 done
 
+if [ "$OFFSITE_RC" -ne 0 ]; then
+  log "finished WITH ERRORS: local backup OK, offsite copy FAILED"
+  exit 2
+fi
 log "done"

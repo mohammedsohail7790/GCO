@@ -15,3 +15,11 @@ playwright-report/
 test-results/
 *.tsbuildinfo
 .env.*.local
+
+# Backup credential files must never be committed (the real one lives in /etc on the server)
+gco-backup-b2.env
+*.b2.env
+
+# Any .env.<name> secret file (e.g. .env.ai = worker-only OpenAI key); template stays tracked
+.env.*
+!.env.example

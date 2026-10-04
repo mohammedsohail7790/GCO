@@ -6,6 +6,10 @@
 .env
 .env.local
 .env.*.local
+# Any other .env.<name> secret file (e.g. .env.ai, the worker-only OpenAI key).
+# The committed template stays buildable.
+.env.*
+!.env.example
 
 node_modules
 .next
