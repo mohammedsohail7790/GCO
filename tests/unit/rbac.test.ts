@@ -33,4 +33,20 @@ describe('RBAC permission matrix', () => {
       expect((err as any).status).toBe(403)
     }
   })
+
+  it('escalation: only operators raise; supervisors and management handle; clients only view client-facing items', () => {
+    expect(can('OPERATOR', 'ESCALATION_CREATE')).toBe(true)
+    for (const r of ['MANAGER', 'ASSISTANT', 'CEO_ADMIN', 'CLIENT', 'HUNTER'] as const) expect(can(r, 'ESCALATION_CREATE')).toBe(false)
+
+    for (const r of ['MANAGER', 'ASSISTANT', 'CEO_ADMIN'] as const) expect(can(r, 'ESCALATION_HANDLE')).toBe(true)
+    for (const r of ['OPERATOR', 'CLIENT', 'HUNTER'] as const) expect(can(r, 'ESCALATION_HANDLE')).toBe(false)
+
+    // Client-decision level is GCO management only: a tenant MANAGER (supervisor) cannot resolve it.
+    expect(can('CEO_ADMIN', 'ESCALATION_MANAGE_CLIENT_DECISION')).toBe(true)
+    expect(can('ASSISTANT', 'ESCALATION_MANAGE_CLIENT_DECISION')).toBe(true)
+    expect(can('MANAGER', 'ESCALATION_MANAGE_CLIENT_DECISION')).toBe(false)
+
+    expect(can('CLIENT', 'ESCALATION_VIEW_CLIENT')).toBe(true)
+    expect(can('OPERATOR', 'ESCALATION_VIEW_CLIENT')).toBe(false)
+  })
 })

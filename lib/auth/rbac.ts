@@ -28,6 +28,15 @@ export const PERMISSIONS = {
   QUEUE_RECOVER: ['CEO_ADMIN', 'ASSISTANT'],
   EMERGENCY_ACTIONS: ['CEO_ADMIN', 'ASSISTANT'],
 
+  // Operational escalation (Operator -> Supervisor/Team Lead -> GCO Management / Client contact)
+  ESCALATION_CREATE: ['OPERATOR'],
+  // Supervisor / team-lead level: view queue, claim, internal notes, resolve, escalate to client decision.
+  ESCALATION_HANDLE: ['MANAGER', 'ASSISTANT', 'CEO_ADMIN'],
+  // GCO management / client-contact level: handle CLIENT_DECISION escalations.
+  ESCALATION_MANAGE_CLIENT_DECISION: ['CEO_ADMIN', 'ASSISTANT'],
+  // Clients see only client-facing information on escalations awaiting their decision.
+  ESCALATION_VIEW_CLIENT: ['CLIENT'],
+
   // Tickets
   TICKET_CREATE: ['CLIENT'],
   TICKET_MANAGE: ['CEO_ADMIN', 'MANAGER', 'ASSISTANT'],

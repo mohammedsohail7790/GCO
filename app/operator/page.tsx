@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { apiFetch } from '@/lib/api/client'
 import { useRealtime } from '@/lib/realtime/useRealtime'
+import { OperatorEscalate, type ActiveEscalation } from '@/components/escalation/OperatorEscalate'
 
 interface Message {
   id: string
@@ -23,6 +24,7 @@ interface ConversationItem {
     messages: Message[]
     notes: { id: string; body: string; createdAt: string }[]
     aiMemories: { id: string; type: string; value: string; confidence: number }[]
+    escalations?: ActiveEscalation[]
   }
 }
 
@@ -284,7 +286,10 @@ export default function OperatorPage() {
                     <p className="text-xs text-slate-500">{active.conversation.state}</p>
                   </div>
                 </div>
-                <Timer respondsBy={active.respondsBy} />
+                <div className="flex items-center gap-2">
+                  <OperatorEscalate conversationId={active.conversation.id} active={active.conversation.escalations?.[0] ?? null} onDone={load} />
+                  <Timer respondsBy={active.respondsBy} />
+                </div>
               </div>
 
               <div className="flex-1 space-y-3 overflow-y-auto p-6">

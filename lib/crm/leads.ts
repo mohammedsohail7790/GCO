@@ -211,3 +211,64 @@ export async function changeStage(leadId: string, actorUserId: string, toStage: 
     metadata: { from: lead.pipelineStage, to: toStage },
   })
 }
+
+const MAX_NOTES_CHARS = 20_000
+
+/**
+ * A public-website visitor whose email already belongs to a lead submits the form again.
+ * The lead stays exactly as it is (still ONE lead; owner, stage and ownership timers are
+ * never touched) but the new request is NOT dropped: it is appended to the lead's history
+ * as a timestamped entry (full submission preserved in metadata) and to its notes, and
+ * only EMPTY safe fields (website, country) are filled in. Existing values are never
+ * overwritten. Returns null if no lead has this email (caller should create one).
+ *
+ * Intentionally NOT used by createLead(): Hunter/CRM creation keeps its hard duplicate block.
+ */
+export async function recordRepeatInquiry(params: {
+  email: string
+  kind: 'pilot' | 'contact'
+  submittedCompany: string
+  fields: Record<string, string | undefined>
+  website?: string
+  country?: string
+  notesText?: string
+}) {
+  const lead = await db.lead.findUnique({ where: { email: params.email } })
+  if (!lead) return null
+
+  const now = new Date()
+  const label = params.kind === 'pilot' ? '7-day pilot request' : 'contact request'
+  const entry = `[${now.toISOString()}] Repeat ${label} received from the website (company on form: ${params.submittedCompany})${params.notesText ? `:\n${params.notesText}` : ''}`
+  let notes = lead.notes ? `${lead.notes}\n\n${entry}` : entry
+  if (notes.length > MAX_NOTES_CHARS) notes = notes.slice(notes.length - MAX_NOTES_CHARS) // keep the newest
+
+  const data: { notes: string; website?: string; domain?: string; country?: string } = { notes }
+  if (!lead.website && params.website) {
+    data.website = params.website
+    if (!lead.domain) {
+      const d = extractDomain(params.website, null)
+      if (d) data.domain = d
+    }
+  }
+  if (!lead.country && params.country) data.country = params.country
+
+  await db.$transaction([
+    db.lead.update({ where: { id: lead.id }, data }),
+    db.leadHistoryEntry.create({
+      data: {
+        leadId: lead.id,
+        actorUserId: null,
+        action: params.kind === 'pilot' ? 'pilot_request_received' : 'contact_request_received',
+        metadata: { receivedAt: now.toISOString(), submittedCompany: params.submittedCompany, fields: params.fields } as any,
+      },
+    }),
+  ])
+  await writeAuditLog({
+    actorUserId: null,
+    action: 'lead.repeat_inquiry',
+    resource: 'lead',
+    resourceId: lead.id,
+    metadata: { kind: params.kind },
+  })
+  return { leadId: lead.id }
+}

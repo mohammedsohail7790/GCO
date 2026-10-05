@@ -25,6 +25,8 @@ export async function GET(req: NextRequest) {
             messages: { orderBy: { createdAt: 'desc' }, take: 30 },
             notes: { orderBy: { createdAt: 'desc' }, take: 20 },
             aiMemories: { where: { isDeleted: false }, orderBy: { createdAt: 'desc' }, take: 20 },
+            // Operator-safe view only: no internal notes/summary/claimant.
+            escalations: { where: { status: { not: 'RESOLVED' } }, select: { id: true, level: true, status: true, reason: true, createdAt: true }, take: 1 },
           },
         },
       },

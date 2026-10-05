@@ -5,6 +5,7 @@ import { apiFetch } from '@/lib/api/client'
 import { useRealtime } from '@/lib/realtime/useRealtime'
 import { StatCard } from '@/components/ui/StatCard'
 import { StatusPill } from '@/components/ui/StatusPill'
+import { EscalationQueue } from '@/components/escalation/EscalationQueue'
 
 interface Overview {
   operators: { available: number; busy: number; offline: number; paused: number }
@@ -112,6 +113,10 @@ export default function ManagerPage() {
           />
         </div>
       )}
+
+      <div className="mb-8">
+        <EscalationQueue mode="supervisor" />
+      </div>
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-card">
         <div className="border-b border-slate-200 px-4 py-3">

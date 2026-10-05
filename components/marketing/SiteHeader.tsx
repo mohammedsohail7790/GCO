@@ -13,7 +13,7 @@ export function SiteHeader() {
     <header className="sticky top-0 z-40 border-b border-paper-border bg-paper/90 backdrop-blur-md">
       {/* Compact on mobile (56px), roomier from md up. */}
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6 md:h-[68px]">
-        <Link href="/" aria-label="GCO home" className="flex items-center">
+        <Link href="/" aria-label="GCO home" className="flex min-h-11 items-center">
           <GCOLockup size="md" />
         </Link>
 

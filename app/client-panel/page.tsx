@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { apiFetch } from '@/lib/api/client'
+import { ClientDecisions } from '@/components/escalation/ClientDecisions'
 
 interface Usage {
   messageCount: number
@@ -71,6 +72,8 @@ export default function ClientPanelPage() {
           {error}
         </div>
       )}
+
+      <ClientDecisions />
 
       <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-3">
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-card">

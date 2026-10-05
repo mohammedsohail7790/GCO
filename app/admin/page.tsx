@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { apiFetch } from '@/lib/api/client'
+import { EscalationQueue } from '@/components/escalation/EscalationQueue'
 import { StatCard } from '@/components/ui/StatCard'
 import { StatusPill } from '@/components/ui/StatusPill'
 
@@ -123,6 +124,10 @@ export default function AdminPage() {
           <span className="text-xs font-bold text-white">G</span>
         </div>
         <h1 className="text-lg font-semibold tracking-tight text-slate-900">Executive dashboard</h1>
+      </div>
+
+      <div className="mb-8">
+        <EscalationQueue mode="management" />
       </div>
 
       {error && <div className="mb-4 rounded-lg bg-red-50 px-4 py-2.5 text-sm text-red-700">{error}</div>}

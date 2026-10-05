@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { created, fail, handleRouteError } from '@/lib/api/response'
 import { isRateLimited, RATE_LIMITS } from '@/lib/api/rateLimit'
 import { getClientIp } from '@/lib/api/clientIp'
-import { createLead, LeadDuplicateError } from '@/lib/crm/leads'
+import { createLead, recordRepeatInquiry, LeadDuplicateError } from '@/lib/crm/leads'
 
 // Public, unauthenticated endpoint (the /contact page's form). Reuses the
 // existing CRM Lead model rather than inventing a parallel "inquiry" table -
@@ -83,10 +83,29 @@ export async function POST(req: NextRequest) {
         actorUserId: null,
       })
     } catch (err) {
-      // A duplicate email is a real, expected case here (a visitor resubmits,
-      // or already has an open lead) - respond as a normal success rather
-      // than surfacing an internal de-dup error to a public visitor.
-      if (!(err instanceof LeadDuplicateError)) throw err
+      // An existing lead with this email is a real, expected case (a visitor resubmits,
+      // or is already in the CRM). The lead is NOT duplicated and its owner is untouched,
+      // but the new request is recorded on it (history + notes) instead of being dropped.
+      // The visitor sees the same success response either way.
+      if (!(err instanceof LeadDuplicateError) || err.field !== 'email') throw err
+      await recordRepeatInquiry({
+        email: body.email,
+        kind: isPilot ? 'pilot' : 'contact',
+        submittedCompany: body.company,
+        fields: {
+          service: body.service,
+          volume: body.volume,
+          languages: body.languages,
+          coverage: body.coverage,
+          companyWebsite: body.companyWebsite,
+          operationType: body.operationType,
+          teamSize: body.teamSize,
+          message: body.message,
+        },
+        website: body.companyWebsite || undefined,
+        country: body.country,
+        notesText: notesParts.join('\n') || undefined,
+      })
     }
 
     return created({ received: true })

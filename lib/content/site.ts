@@ -13,21 +13,32 @@ export type ClaimKey =
   | 'qaProcess' // a formal conversation QA/review process
   | 'escalationProcess' // a defined escalation process
   | 'freePilot' // the pilot is free of charge
+  | 'noSetupFee' // no setup fee for the pilot
   | 'noCommitment' // the pilot carries no long-term commitment
 
 /**
- * Business confirmation gates. Set to true ONLY after Cristian/the business
- * confirms the claim is currently deliverable.
- * Status at time of writing: none confirmed (see docs/website-v2-claims.md).
+ * Business confirmation gates. Set to true ONLY when the business has confirmed the claim.
+ * Status: all six approved by Cristian (Website V2 Phase B), each with the qualifier below.
+ * Approved wording rules (see docs/website-v2-claims.md):
+ *  - 24/7 is a capability subject to project staffing - never implied to be automatic for every client.
+ *  - Languages are listed, and staffing is confirmed per project before go-live.
+ *  - QA is "Supervision & QA" - no QA department, statistics or certifications are claimed.
+ *  - Escalation is exactly Operator -> Supervisor / Team Lead -> GCO Management / Client Contact.
  */
 export const CLAIMS: Record<ClaimKey, boolean> = {
-  aroundTheClock: false,
-  multilingual: false,
-  qaProcess: false,
-  escalationProcess: false,
-  freePilot: false,
-  noCommitment: false,
+  aroundTheClock: true,
+  multilingual: true,
+  qaProcess: true,
+  escalationProcess: true,
+  freePilot: true,
+  noSetupFee: true,
+  noCommitment: true,
 }
+
+/** Approved initial languages (staffing is confirmed per project before go-live). */
+export const LANGUAGES = ['English', 'Italian', 'French', 'German', 'Spanish', 'Swedish'] as const
+export const LANGUAGES_TEXT = 'English, Italian, French, German, Spanish and Swedish'
+export const STAFFING_NOTE = 'Coverage hours and languages are confirmed per project, based on staffing, before go-live.'
 
 // ---- CTA labels -----------------------------------------------------------
 
@@ -47,8 +58,8 @@ export const HERO = {
   eyebrow: 'Global Conversation Operations',
   headlineLead: CLAIMS.aroundTheClock ? '24/7 Human Conversation Operations.' : 'Human Conversation Operations.',
   headlineTail: 'Built to Scale.',
-  body: 'GCO runs the conversation operations behind your business: trained human operators, supported by AI-assisted workflows and an operations platform, under active supervision.',
-  note: 'Pilot scope, volume and coverage hours are agreed with you before Day 1.',
+  body: 'GCO runs chat operations for modern platforms: trained human operators, supervised by team leads, supported by an operations platform and AI-assisted workflows.',
+  note: 'Hours and languages are confirmed per project, based on staffing, before go-live.',
 } as const
 
 export const PILLARS = [
@@ -65,8 +76,8 @@ export const PILLARS = [
     body: 'AI drafts suggested replies for the operator to review and edit. A human always sends.',
   },
   {
-    label: 'Supervision',
-    body: 'Managers oversee queues, assignments and response timers through the operations dashboard.',
+    label: 'Supervision & QA',
+    body: 'Team leads supervise live work and review conversations, with a defined escalation path when a human decision is needed.',
   },
 ] as const
 
@@ -121,8 +132,18 @@ export const PILOT_IS_NOT = [
 
 /** Commercial terms lines - only present once the business has confirmed them. */
 export const PILOT_TERMS: readonly string[] = [
-  ...(CLAIMS.freePilot ? ['The 7-day pilot is free of charge.'] : []),
-  ...(CLAIMS.noCommitment ? ['No long-term commitment is required to run the pilot.'] : []),
+  ...(CLAIMS.freePilot ? ['The 7-day pilot is free.'] : []),
+  ...(CLAIMS.noSetupFee ? ['No setup fee.'] : []),
+  ...(CLAIMS.noCommitment ? ['No long-term commitment.'] : []),
+  ...(CLAIMS.freePilot || CLAIMS.noCommitment ? ['After the pilot, you decide whether to continue, under agreed commercial terms.'] : []),
+]
+
+/** Short bullet form used in pilot callouts. */
+export const PILOT_PROMISES: readonly string[] = [
+  ...(CLAIMS.freePilot ? ['Free 7-day pilot'] : ['7-day pilot']),
+  ...(CLAIMS.noSetupFee ? ['No setup fee'] : []),
+  ...(CLAIMS.noCommitment ? ['No long-term commitment'] : []),
+  'Continue after the pilot only if you choose',
 ]
 
 export const FINAL_CTA = {
@@ -130,43 +151,19 @@ export const FINAL_CTA = {
   body: 'Start a 7-day pilot and evaluate the operation with your real workflow.',
 } as const
 
-// ---- Capability wording that depends on unconfirmed claims ----------------
+// ---- Capability wording --------------------------------------------------
 
 export const CAPABILITY_STRIP: readonly string[] = [
   'Trained human operators',
-  CLAIMS.aroundTheClock ? '24/7 coverage' : 'Coverage hours agreed per operation',
-  CLAIMS.multilingual ? 'Multilingual operators' : 'Languages agreed per operation',
-  'Supervision & oversight',
+  CLAIMS.aroundTheClock ? '24/7 coverage, per project staffing' : 'Coverage hours agreed per operation',
+  CLAIMS.multilingual ? 'Multilingual operations' : 'Languages agreed per operation',
+  CLAIMS.qaProcess ? 'Supervision & QA' : 'Supervision & oversight',
+  CLAIMS.escalationProcess ? 'Defined escalation path' : 'AI-assisted workflows',
   'AI-assisted workflows',
-  'Built to scale',
 ]
 
-export const COVERAGE_SERVICE = CLAIMS.aroundTheClock
-  ? { title: '24/7 Coverage', body: 'Shift-based staffing so conversations get a response regardless of time zone.' }
-  : {
-      title: 'Coverage Planning',
-      body: 'Operating hours and shift coverage are defined with you during discovery, matched to when your conversations actually happen.',
-    }
-
-export const LANGUAGE_SERVICE = CLAIMS.multilingual
-  ? { title: 'Multilingual Operator Teams', body: 'Teams staffed for the languages your users actually speak, not just your headquarters.' }
-  : {
-      title: 'Language Coverage',
-      body: 'The languages your operation needs are defined during discovery and confirmed before a pilot starts.',
-    }
-
-export const SUPERVISION_SERVICE = CLAIMS.qaProcess
-  ? { title: 'Quality Assurance & Supervision', body: 'Ongoing review of conversations against your standards, with feedback built into the operation.' }
-  : {
-      title: 'Supervision & Oversight',
-      body: 'Managers monitor queues, assignments and response timers through the operations dashboard, so the operation is visible as well as staffed.',
-    }
-
 export const DESCRIPTIONS = {
-  home: 'GCO provides trained human operator teams for chat operations, conversation engagement and support, supported by AI-assisted workflows and an operations platform, with active supervision.',
-  services: CLAIMS.aroundTheClock && CLAIMS.multilingual
-    ? 'Chat operations, conversation engagement, moderation, customer support, and multilingual, 24/7 managed operator teams from GCO.'
-    : 'Chat operations, conversation engagement, moderation and customer support, run by trained human operator teams from GCO.',
+  home: 'GCO provides trained human operator teams for chat operations - live chat support, moderation and multilingual coverage - with supervision, QA and AI-assisted workflows. Start with a free 7-day pilot.',
 } as const
 
 // ---- Navigation -----------------------------------------------------------
@@ -180,8 +177,8 @@ export interface NavItem {
 
 export const NAV_ITEMS: readonly NavItem[] = [
   { href: '/services', label: 'Services', enabled: true },
-  { href: '/industries', label: 'Industries', enabled: false },
-  { href: '/platform', label: 'Platform', enabled: false },
+  { href: '/industries', label: 'Industries', enabled: true },
+  { href: '/platform', label: 'Platform', enabled: true },
   { href: '/how-it-works', label: 'How It Works', enabled: true },
   { href: '/resources', label: 'Resources', enabled: false },
   { href: '/about', label: 'About', enabled: true },
@@ -196,10 +193,12 @@ export function getNavItems(): NavItem[] {
 // ---- Pilot form options (requirements the VISITOR describes; not GCO claims) ----
 
 export const SERVICE_OPTIONS = [
-  'Chat operations',
-  'Conversation engagement',
-  'Content & chat moderation',
-  'Customer support operations',
+  'Live Chat / Customer Support',
+  'Chat Moderation',
+  'Community Moderation',
+  'Multilingual Chat Operations',
+  '24/7 Chat Coverage',
+  'Dedicated / Outsourced Chat Teams',
   'Not sure yet',
 ] as const
 

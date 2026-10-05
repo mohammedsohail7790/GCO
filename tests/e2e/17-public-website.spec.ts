@@ -10,6 +10,19 @@ import { db } from '@/lib/db/client'
 test.describe('Public website - pages', () => {
   const PAGES: Array<{ path: string; heading: string }> = [
     { path: '/services', heading: 'operations behind every conversation' },
+    { path: '/services/live-chat-customer-support', heading: 'Live Chat / Customer Support' },
+    { path: '/services/chat-moderation', heading: 'Chat Moderation' },
+    { path: '/services/community-moderation', heading: 'Community Moderation' },
+    { path: '/services/multilingual-chat-operations', heading: 'Multilingual Chat Operations' },
+    { path: '/services/24-7-chat-coverage', heading: '24/7 Chat Coverage' },
+    { path: '/services/dedicated-outsourced-chat-teams', heading: 'Dedicated / Outsourced Chat Teams' },
+    { path: '/industries', heading: 'businesses that live in conversation' },
+    { path: '/industries/dating-social', heading: 'Dating &amp; Social' },
+    { path: '/industries/online-communities', heading: 'Online Communities' },
+    { path: '/industries/saas', heading: 'SaaS' },
+    { path: '/industries/ecommerce', heading: 'E-commerce' },
+    { path: '/industries/apps-digital-platforms', heading: 'Apps &amp; Digital Platforms' },
+    { path: '/platform', heading: 'operations platform behind the workforce' },
     { path: '/how-it-works', heading: 'through a 7-day pilot' },
     { path: '/pilot', heading: 'Test GCO with your real workflow' },
     { path: '/about', heading: 'managed human operations company' },
@@ -55,7 +68,7 @@ test.describe('Public website - pages', () => {
     const res = await anon.get('/sitemap.xml')
     expect(res.status()).toBe(200)
     const body = await res.text()
-    for (const path of ['/pilot', '/services', '/how-it-works', '/about', '/careers', '/contact']) {
+    for (const path of ['/pilot', '/services', '/services/chat-moderation', '/industries', '/industries/saas', '/platform', '/how-it-works', '/about', '/careers', '/contact']) {
       expect(body).toContain(`<loc>`)
       expect(body).toContain(path)
     }

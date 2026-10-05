@@ -4,6 +4,7 @@ import { Container } from '@/components/marketing/Container'
 import { Eyebrow } from '@/components/marketing/SectionHeader'
 import { PilotTimeline } from '@/components/marketing/PilotTimeline'
 import { FinalCta } from '@/components/marketing/FinalCta'
+import { SupervisionEscalation } from '@/components/marketing/Blocks'
 import { pageMetadata } from '@/lib/config/site'
 import { PILOT_IS, PILOT_IS_NOT, PILOT_TERMS } from '@/lib/content/site'
 
@@ -65,6 +66,7 @@ export default function HowItWorksPage() {
           </Container>
         </section>
 
+        <SupervisionEscalation />
         <FinalCta />
       </main>
       <SiteFooter />

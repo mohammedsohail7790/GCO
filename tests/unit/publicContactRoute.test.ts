@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-const state = vi.hoisted(() => ({ createLead: vi.fn(), limited: false }))
+const state = vi.hoisted(() => ({ createLead: vi.fn(), recordRepeat: vi.fn(), limited: false }))
 
 vi.mock('@/lib/observability/logger', () => ({ logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn() } }))
 vi.mock('@/lib/api/rateLimit', () => ({
@@ -10,8 +10,9 @@ vi.mock('@/lib/api/rateLimit', () => ({
 vi.mock('@/lib/crm/leads', () => {
   class LeadDuplicateError extends Error {
     status = 409
+    field = 'email'
   }
-  return { createLead: state.createLead, LeadDuplicateError }
+  return { createLead: state.createLead, recordRepeatInquiry: state.recordRepeat, LeadDuplicateError }
 })
 
 import { POST } from '@/app/api/v1/public/contact/route'
@@ -26,6 +27,7 @@ function req(body: unknown, headers: Record<string, string> = {}) {
 
 beforeEach(() => {
   state.createLead.mockReset().mockResolvedValue({})
+  state.recordRepeat.mockReset().mockResolvedValue({ leadId: 'lead-1' })
   state.limited = false
 })
 
@@ -96,10 +98,32 @@ describe('public contact endpoint (contact + 7-day pilot)', () => {
     expect(state.createLead).not.toHaveBeenCalled()
   })
 
-  it('a duplicate email is a graceful success (not an internal error)', async () => {
+  it('a duplicate email is a graceful success AND the new pilot request is recorded on the existing lead', async () => {
     const { LeadDuplicateError } = await import('@/lib/crm/leads')
     state.createLead.mockRejectedValueOnce(new (LeadDuplicateError as any)())
-    const res = await POST(req({ intent: 'pilot', email: 'dup@acme.test', company: 'Acme' }))
+    const res = await POST(
+      req({ intent: 'pilot', email: 'dup@acme.test', company: 'Acme 2', companyWebsite: 'acme.test', service: 'Chat operations', volume: '1,000 – 10,000', languages: 'Italian', coverage: 'Extended hours', message: 'second' }),
+    )
     expect(res.status).toBe(201)
+    expect(state.recordRepeat).toHaveBeenCalledTimes(1)
+    const arg = state.recordRepeat.mock.calls[0]![0]
+    expect(arg).toMatchObject({ email: 'dup@acme.test', kind: 'pilot', submittedCompany: 'Acme 2', website: 'acme.test' })
+    expect(arg.fields).toMatchObject({ service: 'Chat operations', languages: 'Italian', coverage: 'Extended hours', message: 'second' })
+    expect(arg.notesText).toContain('Request: 7-day pilot')
+  })
+
+  it('a repeat from the plain contact form is recorded as a contact request', async () => {
+    const { LeadDuplicateError } = await import('@/lib/crm/leads')
+    state.createLead.mockRejectedValueOnce(new (LeadDuplicateError as any)())
+    expect((await POST(req({ name: 'Priya', company: 'Acme', email: 'dup@acme.test', message: 'again' }))).status).toBe(201)
+    expect(state.recordRepeat.mock.calls[0]![0]).toMatchObject({ kind: 'contact' })
+  })
+
+  it('a non-duplicate failure is NOT swallowed (500, no leak)', async () => {
+    state.createLead.mockRejectedValueOnce(new Error('db exploded: secret detail'))
+    const res = await POST(req({ intent: 'pilot', email: 'x@acme.test', company: 'Acme' }))
+    expect(res.status).toBe(500)
+    expect(JSON.stringify(await res.json())).not.toContain('secret detail')
+    expect(state.recordRepeat).not.toHaveBeenCalled()
   })
 })

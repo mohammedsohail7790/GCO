@@ -56,6 +56,7 @@ model Tenant {
   revenueRecords   RevenueRecord[]
   fulfillmentCosts FulfillmentCost[]
   bpoHandoffs      BpoHandoff[]
+  escalations      Escalation[]
 
   @@index([status])
 }
@@ -201,6 +202,7 @@ model Conversation {
   currentAssignment Assignment?  @relation("CurrentAssignment", fields: [currentAssignmentId], references: [id])
   aiMemories        AiMemory[]
   notes             Note[]
+  escalations       Escalation[]
 
   @@index([tenantId, state])
   @@index([tenantId, externalUserId])
@@ -828,4 +830,77 @@ model CareerApplication {
   createdAt DateTime @default(now())
 
   @@index([createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Operational escalation: Operator -> Supervisor/Team Lead -> GCO Management /
+// Client contact. One row per escalation (current state); every transition and
+// note is an EscalationEvent (the timeline), and each transition is also written
+// to AuditLog. User ids are plain strings (no FK), matching Note.authorUserId.
+// At most one non-RESOLVED escalation per conversation (enforced in
+// lib/escalation/service.ts under an advisory lock - no partial index, to keep
+// the schema free of constructs Prisma cannot model).
+// ---------------------------------------------------------------------------
+enum EscalationLevel {
+  SUPERVISOR
+  CLIENT_DECISION
+}
+
+enum EscalationStatus {
+  OPEN
+  CLAIMED
+  RESOLVED
+}
+
+enum EscalationReason {
+  DECISION_NEEDED
+  CLIENT_APPROVAL_NEEDED
+  SENSITIVE_SITUATION
+  CANNOT_RESOLVE_SAFELY
+}
+
+enum EscalationEventVisibility {
+  INTERNAL
+  CLIENT
+}
+
+model Escalation {
+  id                  String           @id @default(cuid())
+  tenantId            String
+  conversationId      String
+  level               EscalationLevel  @default(SUPERVISOR)
+  status              EscalationStatus @default(OPEN)
+  reason              EscalationReason
+  summary             String           @db.Text // the operator's note - internal only
+  raisedByUserId      String
+  claimedByUserId     String?
+  resolvedByUserId    String?
+  resolution          String?          @db.Text
+  createdAt           DateTime         @default(now())
+  claimedAt           DateTime?
+  escalatedToClientAt DateTime?
+  resolvedAt          DateTime?
+  updatedAt           DateTime         @updatedAt
+
+  tenant       Tenant            @relation(fields: [tenantId], references: [id])
+  conversation Conversation      @relation(fields: [conversationId], references: [id])
+  events       EscalationEvent[]
+
+  @@index([tenantId, status, level])
+  @@index([conversationId])
+}
+
+model EscalationEvent {
+  id           String                    @id @default(cuid())
+  escalationId String
+  tenantId     String
+  actorUserId  String
+  action       String // raised | claimed | note | escalated_to_client | decision | resolved
+  visibility   EscalationEventVisibility @default(INTERNAL)
+  body         String?                   @db.Text
+  createdAt    DateTime                  @default(now())
+
+  escalation Escalation @relation(fields: [escalationId], references: [id])
+
+  @@index([escalationId])
 }

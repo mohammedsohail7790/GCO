@@ -226,6 +226,8 @@ export async function cleanupTenant(tenantId: string) {
   await db.aiGeneration.deleteMany({ where: { tenantId } })
   await db.aiMemory.deleteMany({ where: { tenantId } })
   await db.note.deleteMany({ where: { tenantId } })
+  await db.escalationEvent.deleteMany({ where: { tenantId } })
+  await db.escalation.deleteMany({ where: { tenantId } })
   await db.assignmentHistoryEntry.deleteMany({ where: { assignment: { tenantId } } })
   await db.conversation.updateMany({ where: { tenantId }, data: { currentAssignmentId: null } })
   await db.assignment.deleteMany({ where: { tenantId } })

@@ -4,14 +4,16 @@ import { SiteFooter } from '@/components/marketing/SiteFooter'
 import { Container } from '@/components/marketing/Container'
 import { Eyebrow, SectionHeader } from '@/components/marketing/SectionHeader'
 import { OperationsFlow } from '@/components/marketing/OperationsFlow'
-import { ServiceCard } from '@/components/marketing/ServiceCard'
+import { LinkCards, SupervisionEscalation } from '@/components/marketing/Blocks'
+import { SERVICES } from '@/lib/content/services'
+import { INDUSTRIES } from '@/lib/content/industries'
 import { HumanAiInfrastructure } from '@/components/marketing/HumanAiInfrastructure'
 import { PilotTimeline } from '@/components/marketing/PilotTimeline'
 import { FinalCta } from '@/components/marketing/FinalCta'
 import { PilotCtaLink, BookCallLink } from '@/components/marketing/CtaLinks'
 import { Reveal } from '@/components/marketing/Reveal'
 import { pageMetadata } from '@/lib/config/site'
-import { CAPABILITY_STRIP, DESCRIPTIONS, HERO, PILOT_TERMS } from '@/lib/content/site'
+import { CAPABILITY_STRIP, DESCRIPTIONS, HERO, PILOT_PROMISES } from '@/lib/content/site'
 
 // Fully static public page: it no longer reads the login session (authenticated
 // users are routed by /home after login). `revalidate` lets the Book-a-Call
@@ -30,21 +32,6 @@ const PROBLEMS = [
   'Conversations get missed outside the hours your team works',
   'Routing and escalation happen manually, if at all',
   'There is no real visibility into what is actually happening',
-]
-
-const SERVICES = [
-  { title: 'Chat Operations', body: 'Real-time conversation handling across your channels.' },
-  { title: 'Conversation Engagement', body: 'Keeping conversations active, responsive, and on-brand.' },
-  { title: 'Content & Chat Moderation', body: 'Consistent moderation aligned to your standards.' },
-  { title: 'Customer Support Operations', body: 'Trained operators handling day-to-day support volume.' },
-]
-
-// Only capabilities that exist in the operations platform today.
-const VISIBILITY = [
-  { title: 'Queues & assignment', body: 'Incoming conversations are queued and assigned to available operators, with race-safe assignment.' },
-  { title: 'Response timers', body: 'Every assignment carries a response deadline that the system tracks and enforces.' },
-  { title: 'Reassignment', body: 'Work can be reassigned manually, and expired assignments are released back to the queue.' },
-  { title: 'Operator status & workload', body: 'Operator availability and capacity are visible to the managers overseeing the operation.' },
 ]
 
 export default function Home() {
@@ -71,10 +58,15 @@ export default function Home() {
                 <PilotCtaLink location="hero" />
                 <BookCallLink location="hero" />
               </div>
-              <p className="mt-5 max-w-lg text-[13px] leading-relaxed text-white/45">
-                {PILOT_TERMS.length > 0 ? `${PILOT_TERMS.join(' ')} ` : ''}
-                {HERO.note}
-              </p>
+              <ul className="mt-6 flex flex-wrap gap-x-5 gap-y-1 text-[13px] text-white/55">
+                {PILOT_PROMISES.map((p) => (
+                  <li key={p} className="flex items-center gap-1.5">
+                    <span className="h-1 w-1 rounded-full bg-accent-400" aria-hidden="true" />
+                    {p}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-3 max-w-lg text-[13px] leading-relaxed text-white/40">{HERO.note}</p>
             </div>
 
             <div className="flex animate-fade-in justify-center lg:justify-end" style={{ animationDelay: '0.15s' }}>
@@ -137,7 +129,7 @@ export default function Home() {
                 />
                 <div className="mt-8 flex flex-col gap-3 sm:flex-row lg:flex-col lg:items-start">
                   <PilotCtaLink location="pilot-section" />
-                  <Link href="/how-it-works" className="py-2 text-sm font-semibold text-accent-600 transition-colors hover:text-accent-700">
+                  <Link href="/how-it-works" className="inline-flex min-h-11 items-center text-sm font-semibold text-accent-600 transition-colors hover:text-accent-700">
                     See the full process →
                   </Link>
                 </div>
@@ -147,40 +139,40 @@ export default function Home() {
           </Container>
         </section>
 
-        {/* What we run */}
+        {/* Services */}
         <section className="bg-paper py-20 sm:py-24">
           <Container>
-            <SectionHeader eyebrow="What we run" title="Operations, run for you" />
-            <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-              {SERVICES.map((s, i) => (
-                <Reveal key={s.title} delay={i * 60}>
-                  <ServiceCard index={i} title={s.title} body={s.body} />
-                </Reveal>
-              ))}
+            <SectionHeader eyebrow="What we run" title="Six services, one supervised operating model" />
+            <div className="mt-12">
+              <LinkCards items={SERVICES.map((s) => ({ href: `/services/${s.slug}`, title: s.name, body: s.short }))} />
             </div>
-            <Link href="/services" className="mt-8 inline-block py-2 text-sm font-semibold text-accent-600 transition-colors hover:text-accent-700">
-              View all services →
-            </Link>
           </Container>
         </section>
 
-        {/* Supervision & visibility - verified platform capabilities only */}
+        <SupervisionEscalation />
+
+        {/* Industries + platform */}
         <section className="border-t border-paper-border bg-paper-surface py-20 sm:py-24">
           <Container>
-            <SectionHeader
-              eyebrow="Supervision & visibility"
-              title="An operation you can see, not just staff."
-              description="The operations platform gives managers live visibility and control over the work, so supervision is part of how the operation runs."
-            />
-            <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-              {VISIBILITY.map((v, i) => (
-                <Reveal key={v.title} delay={i * 60}>
-                  <div className="h-full rounded-2xl border border-paper-border bg-paper p-6 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-panel">
-                    <h3 className="font-display text-[15.5px] font-semibold text-graphite">{v.title}</h3>
-                    <p className="mt-2 text-[14px] leading-relaxed text-graphite-secondary">{v.body}</p>
-                  </div>
-                </Reveal>
-              ))}
+            <div className="grid gap-12 lg:grid-cols-2 lg:gap-16">
+              <div>
+                <SectionHeader eyebrow="Industries" title="Chat operations for businesses that live in conversation." description="Dating & Social is our strongest initial specialisation; the same model serves communities, SaaS, e-commerce and digital platforms." />
+                <ul className="mt-6 space-y-2">
+                  {INDUSTRIES.map((i) => (
+                    <li key={i.slug}>
+                      <Link href={`/industries/${i.slug}`} className="inline-flex min-h-11 items-center text-[15px] font-semibold text-graphite transition-colors hover:text-accent-600">
+                        {i.name} <span aria-hidden="true" className="ml-2 text-accent-600">→</span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <SectionHeader eyebrow="Platform" title="A real operations platform behind the workforce." description="Live queues, assignment, response timers, supervisor visibility, escalation and reporting - with AI assisting the operator, and a human sending every reply." />
+                <Link href="/platform" className="mt-6 inline-flex min-h-11 items-center text-sm font-semibold text-accent-600 transition-colors hover:text-accent-700">
+                  Explore the platform <span aria-hidden="true" className="ml-2">→</span>
+                </Link>
+              </div>
             </div>
           </Container>
         </section>
