@@ -29,13 +29,13 @@ export function MobileMenu({
     openButtonRef.current?.focus()
   }, [])
 
-  // Scroll lock while open, applied as a CSS class scoped to below md: if the
+  // Scroll lock while open, applied as a CSS class scoped to below lg: if the
   // viewport grows past the breakpoint (rotation/resize) the lock releases by
   // itself - no JS event required. Closing on navigation happens in each Link's
   // onClick (no route-change effect, which would setState inside an effect).
   useEffect(() => {
-    document.documentElement.classList.toggle('max-md:overflow-hidden', open)
-    return () => document.documentElement.classList.remove('max-md:overflow-hidden')
+    document.documentElement.classList.toggle('max-lg:overflow-hidden', open)
+    return () => document.documentElement.classList.remove('max-lg:overflow-hidden')
   }, [open])
 
   // Move focus into the dialog on open; Escape closes; Tab is trapped inside.
@@ -67,11 +67,11 @@ export function MobileMenu({
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [open, close])
 
-  // The open button is hidden from md up; make sure the overlay never outlives it
+  // The open button is hidden from lg up; make sure the overlay never outlives it
   // (e.g. rotating a tablet or resizing a window while the menu is open).
   useEffect(() => {
     if (!open) return
-    const mq = window.matchMedia('(min-width: 768px)')
+    const mq = window.matchMedia('(min-width: 1024px)')
     const onChange = (e: MediaQueryListEvent) => {
       if (e.matches) setOpen(false)
     }
@@ -83,7 +83,7 @@ export function MobileMenu({
     'flex min-h-12 items-center border-b border-white/10 py-3 font-display text-xl font-medium text-white/90 transition-colors hover:text-white'
 
   return (
-    <div className="md:hidden">
+    <div className="lg:hidden">
       <button
         ref={openButtonRef}
         type="button"
@@ -115,7 +115,7 @@ export function MobileMenu({
             role="dialog"
             aria-modal="true"
             aria-label="Main menu"
-            className="fixed inset-0 z-50 animate-fade-in overflow-y-auto bg-ink/95 backdrop-blur-md md:hidden"
+            className="fixed inset-0 z-50 animate-fade-in overflow-y-auto bg-ink/95 backdrop-blur-md lg:hidden"
           >
             {/* Same height/gutter as the header so the close button lands exactly where the open button was. */}
             <div className="mx-auto flex h-14 max-w-6xl items-center justify-end px-4">

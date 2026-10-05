@@ -12,12 +12,12 @@ export function SiteHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-paper-border bg-paper/90 backdrop-blur-md">
       {/* Compact on mobile (56px), roomier from md up. */}
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6 md:h-[68px]">
+      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6 lg:h-[68px]">
         <Link href="/" aria-label="GCO home" className="flex min-h-11 items-center">
           <GCOLockup size="md" />
         </Link>
 
-        <nav aria-label="Main" className="hidden items-center gap-7 md:flex">
+        <nav aria-label="Main" className="hidden items-center gap-6 whitespace-nowrap xl:gap-7 lg:flex">
           {navItems.map((link) => (
             <Link
               key={link.href}
@@ -32,7 +32,7 @@ export function SiteHeader() {
         <div className="flex items-center gap-4">
           <Link
             href="/login"
-            className="hidden text-[13.5px] font-medium text-graphite-secondary transition-colors hover:text-graphite lg:block"
+            className="hidden text-[13.5px] font-medium text-graphite-secondary transition-colors hover:text-graphite xl:block"
           >
             Client Login
           </Link>
@@ -40,7 +40,7 @@ export function SiteHeader() {
             variant="ink"
             label={CTA.pilotShort}
             location="header"
-            className="hidden !min-h-10 !px-5 !py-2.5 text-[13.5px] md:inline-flex"
+            className="hidden !min-h-10 !px-5 !py-2.5 text-[13.5px] whitespace-nowrap lg:inline-flex"
           />
           <MobileMenu navItems={navItems} pilotLabel={CTA.pilotShort} bookCall={bookCall} bookCallLabel={CTA.bookCall} />
         </div>
