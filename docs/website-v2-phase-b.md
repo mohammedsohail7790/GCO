@@ -62,3 +62,19 @@ CEO dashboard; optional notification channel for new escalations if required.
 
 ## Known observations (pre-existing, unchanged)
 - A tenant-scoped MANAGER holds `LEAD_VIEW_TEAM` and can read GCO's sales leads.
+
+## Deployment record (2026-10-05/06)
+- Commits: `28b9a5b` (Phase B: website, escalation workflow, repeat pilot history, migration) and `4b56d0f`
+  (header breakpoint fix: full desktop nav from 1024px). Both pushed to `origin/main`.
+- Order: fresh Postgres backup (local dump + verified B2 offsite upload) -> rsync -> web image rebuild ->
+  `prisma migrate deploy` with the new image (additive: `20261005211102_add_escalations`) -> recreate `web` only.
+  Worker, realtime, Postgres and Redis were not restarted.
+- Rollback images on the server: `gco-web:pre-header-fix`, `gco-web:pre-phase-b`, `gco-web:pre-ratelimit-fix`,
+  `gco-web:pre-website-v2-phase-a`. The migration is additive, so any previous web image still runs against the
+  migrated database.
+- Production verification: all 24 public routes 200 (unknown slugs 404), sitemap 20 URLs, WebSocket 101, health 200;
+  live claim audit (approved claims present with qualifiers, no forbidden terms); new escalation API returns 401
+  when anonymous; public form validation/honeypot/rate limit/size limit active; mobile menu, 768px and 1440px
+  layouts verified in a real browser. No test leads or escalations were created in production.
+- NOT verified on production (needs credentials): a real login and the authenticated escalation UI/flows. These were
+  verified end-to-end on the real local stack (142 E2E tests plus a manual UI run of operator -> supervisor -> management).
