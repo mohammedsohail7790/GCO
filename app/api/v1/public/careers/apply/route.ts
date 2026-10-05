@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { db } from '@/lib/db/client'
 import { created, fail, handleRouteError } from '@/lib/api/response'
 import { isRateLimited, RATE_LIMITS } from '@/lib/api/rateLimit'
+import { getClientIp } from '@/lib/api/clientIp'
 
 // Public, unauthenticated endpoint (the /careers page's application form).
 const MAX_BODY_BYTES = 20_000
@@ -24,7 +25,8 @@ export async function POST(req: NextRequest) {
     const contentLength = Number(req.headers.get('content-length') ?? '0')
     if (contentLength > MAX_BODY_BYTES) return fail('Request too large', 413)
 
-    const ip = req.headers.get('x-forwarded-for') ?? 'unknown'
+    // Real client address (Cloudflare-aware, spoof-resistant) - see lib/api/clientIp.ts.
+    const ip = getClientIp(req.headers)
     if (await isRateLimited(`public-careers:${ip}`, RATE_LIMITS.PUBLIC_FORM.max, RATE_LIMITS.PUBLIC_FORM.windowSeconds)) {
       return fail('Too many submissions. Please try again later.', 429)
     }

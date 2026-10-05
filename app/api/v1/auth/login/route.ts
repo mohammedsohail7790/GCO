@@ -8,6 +8,7 @@ import { ok, fail, handleRouteError } from '@/lib/api/response'
 import { ACCESS_COOKIE } from '@/lib/auth/session'
 import { writeAuditLog } from '@/lib/audit/log'
 import { isRateLimited, RATE_LIMITS } from '@/lib/api/rateLimit'
+import { getClientIp } from '@/lib/api/clientIp'
 import { isTenantActive } from '@/lib/tenant/activity'
 
 const LoginSchema = z.object({
@@ -17,7 +18,8 @@ const LoginSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
-    const ip = req.headers.get('x-forwarded-for') ?? 'unknown'
+    // Real client address (Cloudflare-aware, spoof-resistant) - see lib/api/clientIp.ts.
+    const ip = getClientIp(req.headers)
     const body = LoginSchema.parse(await req.json())
 
     // Redis-backed (not per-process in-memory) so this actually holds up
