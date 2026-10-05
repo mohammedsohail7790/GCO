@@ -1,42 +1,36 @@
 import { Container } from './Container'
 import { Eyebrow } from './SectionHeader'
+import { Reveal } from './Reveal'
+import { PILLARS } from '@/lib/content/site'
 
-const PILLARS = [
-  { label: 'Human judgment', body: 'Trained, supervised operators handle what requires real judgment, tone, and accountability.' },
-  { label: 'AI assistance', body: 'AI-assisted workflows support operators - drafting, routing, and surfacing context - without replacing them.' },
-  { label: 'Operational infrastructure', body: 'Routing, CRM, integrations, and monitoring - the systems that make consistent execution possible at volume.' },
-]
-
-// The core GCO brand concept the rest of the site should feel like an
-// instance of: not "software" and not "an outsourced headcount," but the
-// combination of the three. Deliberately typography-led rather than a card
-// grid - an equation, not a feature list - per the Phase 14 brief's request
-// to make this a recognizable, repeatable concept rather than one line of
-// hero copy.
+// The core GCO concept the rest of the site is an instance of: people do the
+// conversation work; AI assists them; infrastructure and supervision keep it
+// consistent at volume. Typography-led rather than a card grid. Copy lives in
+// lib/content/site.ts (PILLARS) so it stays consistent with the hero.
 export function HumanAiInfrastructure() {
   return (
-    <section className="bg-ink py-24 text-white">
+    <section className="bg-ink py-20 text-white sm:py-24">
       <Container>
         <Eyebrow tone="dark">What GCO actually is</Eyebrow>
-        <div className="mt-6 flex flex-col items-start gap-3 sm:flex-row sm:flex-wrap sm:items-baseline sm:gap-4">
-          {PILLARS.map((p, i) => (
-            <span key={p.label} className="flex items-baseline gap-4">
-              <span className="font-display text-2xl font-semibold sm:text-3xl">{p.label}</span>
-              {i < PILLARS.length - 1 && <span className="font-display text-2xl text-accent-400 sm:text-3xl">+</span>}
-            </span>
-          ))}
-          <span className="flex items-baseline gap-4">
-            <span className="font-display text-2xl text-white/30 sm:text-3xl">=</span>
-            <span className="font-display text-2xl font-semibold text-accent-300 sm:text-3xl">Conversation Operations</span>
-          </span>
-        </div>
+        <Reveal>
+          <h2 className="font-display mt-5 max-w-3xl text-2xl font-semibold leading-snug sm:text-3xl">
+            Human-led conversation operations, with technology doing the supporting work.
+          </h2>
+          <p className="mt-4 max-w-2xl text-[15.5px] leading-relaxed text-white/60">
+            People hold your conversations. AI helps them work faster and more consistently, but it never sends a
+            message: a human operator reviews and sends every reply.
+          </p>
+        </Reveal>
 
-        <div className="mt-14 grid gap-10 border-t border-white/10 pt-10 sm:grid-cols-3 sm:gap-8">
-          {PILLARS.map((p) => (
-            <div key={p.label}>
-              <h3 className="font-display text-[15px] font-semibold text-white/90">{p.label}</h3>
-              <p className="mt-2.5 text-[14px] leading-relaxed text-white/55">{p.body}</p>
-            </div>
+        <div className="mt-12 grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 sm:grid-cols-2 lg:grid-cols-4">
+          {PILLARS.map((p, i) => (
+            <Reveal key={p.label} delay={i * 70} className="bg-ink">
+              <div className="h-full p-6 transition-colors duration-300 hover:bg-ink-800">
+                <span className="font-display text-xs font-semibold tabular-nums text-accent-400">{String(i + 1).padStart(2, '0')}</span>
+                <h3 className="font-display mt-3 text-[15.5px] font-semibold text-white/95">{p.label}</h3>
+                <p className="mt-2 text-[14px] leading-relaxed text-white/55">{p.body}</p>
+              </div>
+            </Reveal>
           ))}
         </div>
       </Container>

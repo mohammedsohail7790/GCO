@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next'
 import { SITE_URL } from '@/lib/config/site'
 
-const PUBLIC_PAGES = ['', '/services', '/how-it-works', '/about', '/careers', '/contact']
+const PUBLIC_PAGES = ['', '/pilot', '/services', '/how-it-works', '/about', '/careers', '/contact']
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return PUBLIC_PAGES.map((path) => ({

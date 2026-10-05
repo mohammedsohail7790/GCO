@@ -33,6 +33,8 @@ const BELIEFS = [
   },
 ]
 
+export const revalidate = 600
+
 export default function AboutPage() {
   return (
     <>
@@ -47,8 +49,12 @@ export default function AboutPage() {
             <p className="mt-6 max-w-2xl text-[16px] leading-relaxed text-white/70">
               GCO builds and runs the human operations layer behind chat, conversation engagement, and moderation for
               businesses that need reliable coverage without building and managing an in-house team themselves. We
-              handle staffing, training, supervision, and quality control so your conversations get consistent,
-              on-brand attention.
+              handle staffing, training, and supervision so your conversations get consistent, on-brand attention.
+            </p>
+            <p className="mt-4 max-w-2xl text-[16px] leading-relaxed text-white/70">
+              GCO is a new, ambitious, technology-enabled BPO built for modern conversation operations. We would
+              rather prove ourselves on your real workflow, through a scoped pilot, than ask you to take our size on
+              trust.
             </p>
           </Container>
         </section>

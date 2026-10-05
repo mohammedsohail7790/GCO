@@ -10,7 +10,8 @@ import { db } from '@/lib/db/client'
 test.describe('Public website - pages', () => {
   const PAGES: Array<{ path: string; heading: string }> = [
     { path: '/services', heading: 'operations behind every conversation' },
-    { path: '/how-it-works', heading: 'straightforward path' },
+    { path: '/how-it-works', heading: 'through a 7-day pilot' },
+    { path: '/pilot', heading: 'Test GCO with your real workflow' },
     { path: '/about', heading: 'managed human operations company' },
     { path: '/careers', heading: 'reliable operators' },
     { path: '/contact', heading: 'Tell us about your operation' },
@@ -54,7 +55,7 @@ test.describe('Public website - pages', () => {
     const res = await anon.get('/sitemap.xml')
     expect(res.status()).toBe(200)
     const body = await res.text()
-    for (const path of ['/services', '/how-it-works', '/about', '/careers', '/contact']) {
+    for (const path of ['/pilot', '/services', '/how-it-works', '/about', '/careers', '/contact']) {
       expect(body).toContain(`<loc>`)
       expect(body).toContain(path)
     }
@@ -102,6 +103,35 @@ test.describe('Public website - contact form', () => {
     expect(lead!.source).toBe('website_contact_form')
     expect(lead!.ownerId).toBeNull()
     expect(lead!.notes).toContain('Customer Support Operations')
+
+    await db.leadHistoryEntry.deleteMany({ where: { leadId: lead!.id } })
+    await db.lead.delete({ where: { id: lead!.id } })
+  })
+
+  test('a 7-day pilot request (no name) creates a lead with source=website_pilot_form and the pilot details', async () => {
+    const anon = await anonymousContext()
+    const email = `pilot-e2e-${Date.now()}@e2e.gco`
+    const res = await anon.post('/api/v1/public/contact', {
+      data: {
+        intent: 'pilot',
+        email,
+        company: 'Pilot Co',
+        companyWebsite: 'pilot.example',
+        service: 'Chat operations',
+        volume: '1,000 – 10,000',
+        languages: 'English',
+        coverage: 'Business hours',
+      },
+      headers: { 'x-forwarded-for': `test-pilot-valid-${Date.now()}` },
+    })
+    expect(res.status()).toBe(201)
+
+    const lead = await db.lead.findUnique({ where: { email } })
+    expect(lead).toBeTruthy()
+    expect(lead!.source).toBe('website_pilot_form')
+    expect(lead!.ownerId).toBeNull()
+    expect(lead!.notes).toContain('Request: 7-day pilot')
+    expect(lead!.notes).toContain('Chat operations')
 
     await db.leadHistoryEntry.deleteMany({ where: { leadId: lead!.id } })
     await db.lead.delete({ where: { id: lead!.id } })

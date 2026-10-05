@@ -35,7 +35,8 @@ export async function middleware(req: NextRequest) {
     }
     const role = payload.role as string
     if (!ROLE_PREFIXES[protectedPrefix]!.includes(role)) {
-      return NextResponse.redirect(new URL('/', req.url))
+      // /home routes to the user's own dashboard (the public homepage no longer does).
+      return NextResponse.redirect(new URL('/home', req.url))
     }
   } catch {
     return NextResponse.redirect(new URL('/login', req.url))

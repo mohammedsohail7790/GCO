@@ -4,12 +4,16 @@ import { Container } from '@/components/marketing/Container'
 import { Eyebrow } from '@/components/marketing/SectionHeader'
 import { ContactForm } from '@/components/marketing/ContactForm'
 import { pageMetadata } from '@/lib/config/site'
+import { PilotCtaLink } from '@/components/marketing/CtaLinks'
+import { PUBLIC_EMAIL } from '@/lib/content/site'
 
 export const metadata = pageMetadata({
   title: 'Contact',
   description: 'Tell GCO about your conversation operations needs - chat operations, moderation, support, or multilingual coverage.',
   path: '/contact',
 })
+
+export const revalidate = 600
 
 export default function ContactPage() {
   return (
@@ -33,6 +37,15 @@ export default function ContactPage() {
           <Container className="max-w-2xl">
             <div className="rounded-2xl border border-paper-border bg-paper-surface p-8 shadow-card sm:p-10">
               <ContactForm />
+            </div>
+            <div className="mt-8 flex flex-col gap-4 text-sm text-graphite-secondary sm:flex-row sm:items-center sm:justify-between">
+              <p>
+                Prefer email? Write to{' '}
+                <a className="font-medium text-accent-600 underline-offset-2 hover:underline" href={`mailto:${PUBLIC_EMAIL}`}>
+                  {PUBLIC_EMAIL}
+                </a>
+              </p>
+              <PilotCtaLink variant="ghostLight" location="contact" />
             </div>
           </Container>
         </section>

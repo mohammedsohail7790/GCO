@@ -1,16 +1,15 @@
-import Link from 'next/link'
 import { SiteHeader } from '@/components/marketing/SiteHeader'
 import { SiteFooter } from '@/components/marketing/SiteFooter'
 import { Container } from '@/components/marketing/Container'
 import { Eyebrow } from '@/components/marketing/SectionHeader'
 import { ServiceCard } from '@/components/marketing/ServiceCard'
-import { getCalendarProvider } from '@/lib/integrations/calendar/provider'
 import { pageMetadata } from '@/lib/config/site'
+import { COVERAGE_SERVICE, DESCRIPTIONS, LANGUAGE_SERVICE, SUPERVISION_SERVICE } from '@/lib/content/site'
+import { PilotCtaLink, BookCallLink } from '@/components/marketing/CtaLinks'
 
 export const metadata = pageMetadata({
   title: 'Services',
-  description:
-    'Chat operations, conversation engagement, moderation, customer support, and multilingual, 24/7 managed operator teams from GCO.',
+  description: DESCRIPTIONS.services,
   path: '/services',
 })
 
@@ -22,9 +21,9 @@ const SERVICES = [
   { title: 'Conversation Engagement', body: 'GCO keeps conversations active, timely, and on-brand - because an unanswered conversation is a lost one, at any scale.' },
   { title: 'Content & Chat Moderation', body: 'GCO enforces your standards consistently, conversation after conversation - so quality doesn’t depend on which operator is on shift.' },
   { title: 'Customer Support Operations', body: 'GCO handles day-to-day support volume with trained operators - freeing your team to work on what actually needs their attention.' },
-  { title: 'Multilingual Operator Teams', body: 'Teams staffed for the languages your users actually speak, not just your headquarters.' },
-  { title: '24/7 Coverage', body: 'Shift-based staffing so conversations get a response regardless of time zone.' },
-  { title: 'Quality Assurance & Supervision', body: 'Ongoing review of conversations against your standards, with feedback built into the operation.' },
+  { ...LANGUAGE_SERVICE },
+  { ...COVERAGE_SERVICE },
+  { ...SUPERVISION_SERVICE },
   { title: 'Managed BPO Teams', body: 'A fully managed human operations layer - staffing, training, supervision, and reporting - run for you.' },
   {
     title: 'Workflow & Integration',
@@ -33,8 +32,9 @@ const SERVICES = [
   },
 ]
 
+export const revalidate = 600
+
 export default function ServicesPage() {
-  const bookingUrl = getCalendarProvider().getBookingUrl()
 
   return (
     <>
@@ -66,15 +66,10 @@ export default function ServicesPage() {
               <p className="mt-3 max-w-xl text-[14.5px] leading-relaxed text-white/60">
                 Tell us about your conversations and coverage needs and we&apos;ll help you figure out the right setup.
               </p>
-              {bookingUrl ? (
-                <a href={bookingUrl} target="_blank" rel="noreferrer" className="mt-7 inline-block rounded-lg bg-accent-500 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-600">
-                  Book a Call
-                </a>
-              ) : (
-                <Link href="/contact" className="mt-7 inline-block rounded-lg bg-accent-500 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-600">
-                  Book a Call
-                </Link>
-              )}
+              <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+                <PilotCtaLink location="services" />
+                <BookCallLink location="services" />
+              </div>
             </div>
           </Container>
         </section>

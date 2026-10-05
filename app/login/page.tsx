@@ -23,7 +23,8 @@ export default function LoginPage() {
       })
       const json = await res.json()
       if (!res.ok || !json.ok) throw new Error(json?.error?.message ?? 'Login failed')
-      router.push('/')
+      // /home routes by role (the public homepage no longer does).
+      router.push('/home')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed')
     } finally {

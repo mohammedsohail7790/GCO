@@ -20,6 +20,8 @@ const WHAT_WE_LOOK_FOR = [
   'Comfort working in a supervised, feedback-driven environment',
 ]
 
+export const revalidate = 600
+
 export default function CareersPage() {
   return (
     <>
