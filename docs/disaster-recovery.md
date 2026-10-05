@@ -194,3 +194,26 @@ External uptime monitoring uses UptimeRobot (owner account). Intended monitors: 
 - No alert on backup failure beyond the failed systemd unit.
 - Remote backup retention and client-side encryption undecided; the B2 key is over-privileged (can delete and change bucket settings). **Accepted risk (owner decision, 2026-10-04): keep the current key for now.** To reduce it later, Cristian creates a `writeFiles`-only key with the B2 CLI (`b2 key create --bucket gco-postgres-backups --name-prefix gco-postgres/ <name> writeFiles`), it is entered with `scripts/setup-b2-credentials.sh`, verified with one real backup, and only then are the two older keys (IDs ending 0001 and 0002) deleted in the B2 console.
 - Leftover from testing: two extra local dumps (created by the failure test) age out under the 14-day retention; they were never uploaded.
+
+## Addendum: OpenAI activation and AI hardening (2026-10-05)
+
+**Status.** OpenAI is active for the **worker only**. Provider `openai`, model `gpt-4o-mini` (`OPENAI_MODEL` in `/opt/gco/.env`).
+
+**Secret architecture.** `AI_PROVIDER=openai` and `OPENAI_API_KEY` both live in `/opt/gco/.env.ai` (mode 0600, `gco:gco`; git-ignored via `.env.*` and docker-ignored). Compose attaches that file to the `worker` service only, after `.env`, so it overrides the shared `AI_PROVIDER=mock`. `web` and `realtime` never receive the key. The key is never in Git, images, logs, `NEXT_PUBLIC_*`, or API responses.
+
+**Data flow (what leaves the server).** Only the worker calls OpenAI, per inbound message, at most two calls:
+- Suggestion: system prompt + the last 12 messages of that conversation (customer = `user`, operator = `assistant`).
+- Memory extraction: extraction prompt + a labelled transcript of the last 20 messages (`[CUSTOMER id=..]` / `[OPERATOR id=..]`). Facts are only accepted if they cite a real customer message id.
+- Not sent: tenant id, conversation id, user ids, names (unless a customer wrote them in a message), or any other database content. Per-message text is truncated to 4000 characters in the request only; stored messages are never altered.
+
+**Limits.** Suggestion: 8 s deadline (`AI_REQUEST_TIMEOUT_MS`), max 400 output tokens. Extraction: 18 s deadline (`AI_EXTRACTION_TIMEOUT_MS`), max 600 output tokens. Deadlines cover SDK retries. The OpenAI SDK default of 2 retries and BullMQ's 5 attempts are unchanged (provider errors are swallowed, so BullMQ only retries on database errors). Extraction inserts are idempotent (advisory lock + existence check; no schema change).
+
+**Failure visibility.** Provider failures log a content-free `warn` (provider, model, operation, tenant, conversation, latency, category, HTTP status, request id). Suggestion failures also write a `failed` AiGeneration row (category only); extraction failures write a content-free `SystemEvent` (category `ai`). Prompts, customer text, raw provider errors and keys are never logged.
+
+**Rollback to mock.** Delete the `AI_PROVIDER=openai` line from `/opt/gco/.env.ai`, then `docker compose up -d --no-deps worker`.
+
+**Rebuilding the server.** `.env.ai` is a secret and is not in Git: restore it from the password manager (or run `scripts/setup-openai-key.sh`) and re-add the `AI_PROVIDER=openai` line.
+
+**Unchanged by this work:** Cloudflare, DNS, Caddy, UptimeRobot (not configured), Backblaze B2 (key and retention), PostgreSQL, Redis.
+
+**Open owner decisions:** OpenAI privacy / DPA / data-retention review and a privacy-notice update (customer message text is sent to OpenAI); OpenAI dashboard spending limit (the app has no per-tenant cap beyond `Tenant.messageCap`); B2 least-privilege key replacement and 30-day retention; second SSH key; UptimeRobot.

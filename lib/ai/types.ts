@@ -32,7 +32,7 @@ export interface ConversationContext {
   conversationId: string
   tenantId: string
   language?: string | null
-  recentMessages: Array<{ direction: 'INBOUND' | 'OUTBOUND'; content: string; createdAt: Date }>
+  recentMessages: Array<{ id?: string; direction: 'INBOUND' | 'OUTBOUND'; content: string; createdAt: Date }>
   summary?: string | null
   extractedFacts: Array<{ type: string; value: string }>
   clientInstructions?: string | null
