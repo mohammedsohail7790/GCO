@@ -44,7 +44,11 @@ Status: implemented and verified locally (unit, integration, API-level E2E, prod
 - `tsc`, `eslint`, `next build` clean. Browser QA: no horizontal overflow at 375/768/1024/1440 on the checked pages; nav fits on one row at 1024 with eight items.
 
 ## G. Deployment
-Web container only; no migrations. See the deployment record appended below after release.
+Deployed 2026-10-06, commit `014fe10` (pushed to `origin/main`, no force).
+- Web container only: rsync -> `docker compose build web` -> `up -d --no-deps web`. No migrations. Postgres, Redis, worker and realtime were not restarted (0 restarts on all containers).
+- New web image `c9c9f75b2bf1`. Rollback: retag `gco-web:pre-phase-c` (= `4ae3d11a4423`, the previous image) as `latest` and `docker compose up -d --no-deps web`. No schema change, so rollback is safe.
+- Production verification: all 27 sitemap URLs return 200 with a single canonical equal to the sitemap URL, OG/Twitter tags, correct JSON-LD (Article only on articles); `/resources`, five articles, `/security`, `/favicon.ico`, `/icon.svg`, `/apple-icon.png`, `/opengraph-image`, `robots.txt` (does not block resources/security) OK; unknown article -> 404; `/api/v1/health` 200 on both hosts; WebSocket upgrade on `app.` host returns 101.
+- Production browser QA: 375, 768, 1024 (nav on one row, 8 items) and desktop - no horizontal overflow. No leads or events were created in production.
 
 ## H. Remaining business inputs
 1. Calendly scheduling URL (`CALENDLY_SCHEDULING_URL`).
