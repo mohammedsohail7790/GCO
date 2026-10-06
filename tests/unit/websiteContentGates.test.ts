@@ -112,12 +112,23 @@ describe('claim safety (nothing outside the approved truth)', () => {
 })
 
 describe('platform positioning and assets', () => {
-  it('only describes capabilities that exist; no fabricated screenshots are shipped', () => {
+  it('only describes capabilities that exist; only approved real screenshots are published', () => {
     expect(PLATFORM_CAPABILITIES.map((c) => c.title)).toEqual(
       expect.arrayContaining(['Live conversation queues', 'Automatic and manual assignment', 'Response timers', 'Reassignment', 'Escalation workflow', 'AI-assisted workflows']),
     )
-    // Screenshots must be real, sanitized assets: none supplied yet => none rendered.
-    expect(PLATFORM_SCREENSHOTS).toHaveLength(0)
+    // Only the three screenshots Cristian approved are published. CRM pipeline and client panel are NOT approved.
+    expect(PLATFORM_SCREENSHOTS.map((s) => s.id)).toEqual(['operator-workspace', 'supervisor-operations', 'escalation-workflow'])
+    for (const s of PLATFORM_SCREENSHOTS) {
+      expect(s.src).toMatch(/^\/platform\/[a-z-]+\.webp$/)
+      expect(s.src).not.toMatch(/crm|client|hunter|audit/i)
+      expect(s.alt.length, s.id).toBeGreaterThan(40)
+      expect(s.alt, s.id).not.toMatch(/^(screenshot|platform screenshot|dashboard image)/i)
+      expect(s.width / s.height).toBeCloseTo(s.width / s.height, 5)
+    }
+    // Captions/body must not over-claim: no autonomous AI, no guaranteed service levels.
+    const copy = JSON.stringify(PLATFORM_SCREENSHOTS)
+    expect(copy).not.toMatch(/autonomous|fully automated|guarantee(?!d service level)/i)
+    expect(copy).toMatch(/human operator remains responsible for every reply/)
   })
 })
 

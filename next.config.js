@@ -8,6 +8,8 @@ const nextConfig = {
   // docs/production-readiness-audit.md.
   output: 'standalone',
   serverExternalPackages: ['@prisma/client', 'bullmq', 'ioredis'],
+  // 90 is used for platform screenshots so small UI text stays crisp after optimisation.
+  images: { qualities: [75, 90] },
   async headers() {
     return [
       {

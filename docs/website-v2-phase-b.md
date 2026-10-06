@@ -46,10 +46,12 @@ nothing is overwritten. Hunter/CRM creation keeps its hard duplicate block. Lead
 tenant data); history is visible to the owning hunter and to MANAGER/CEO_ADMIN (existing `LEAD_VIEW_TEAM`).
 
 ## Assets and legal status
-- **Screenshots:** none supplied. `PlatformPreview` renders real, sanitized screenshots from
-  `lib/content/platformAssets.ts` and renders NOTHING while that list is empty (no mock-ups presented as the product).
-  Needed: sanitized screenshots from demo data (queue, assignment/timers, manager dashboard, escalation queue),
-  reviewed for PII, optimised and placed in `public/platform/`.
+- **Screenshots:** three Cristian-approved, sanitized screenshots of the real platform are published on `/platform`
+  (operator workspace, supervisor operations, escalation workflow), registered in `lib/content/platformAssets.ts`
+  (optimised WebP in `public/platform/`, no metadata). Captured from the real UI against an isolated local database with
+  generic demo data only. **Not approved / not published:** CRM pipeline (internal sales tool) and client panel.
+  The AI-draft badge in the operator UI previously read a hardcoded "mock provider"; it now reads "Review before
+  sending" under an "AI-assisted draft" title (the suggestion API does not expose the provider).
 - **People imagery:** none (no approved team photos). Not faked.
 - **Legal:** no approved Privacy Policy / Terms / Cookie wording exists, and none was invented. `/privacy`, `/terms`
   and `/cookies` still do not exist - pending company/legal text.

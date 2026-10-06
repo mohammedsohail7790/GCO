@@ -4,10 +4,11 @@ import { SiteFooter } from '@/components/marketing/SiteFooter'
 import { FinalCta } from '@/components/marketing/FinalCta'
 import { PageHero } from '@/components/marketing/PageHero'
 import { CardGrid, SectionBlock, Steps, SupervisionEscalation } from '@/components/marketing/Blocks'
-import { PlatformPreview } from '@/components/marketing/PlatformPreview'
+import { PlatformShowcase } from '@/components/marketing/PlatformPreview'
 import { HumanAiInfrastructure } from '@/components/marketing/HumanAiInfrastructure'
 import { pageMetadata } from '@/lib/config/site'
 import { PLATFORM_CAPABILITIES, PLATFORM_FLOW } from '@/lib/content/platform'
+import { Bullets } from '@/components/marketing/Blocks'
 
 export const metadata = pageMetadata({
   title: 'Platform',
@@ -34,10 +35,18 @@ export default function PlatformPage() {
           </div>
         </SectionBlock>
         <HumanAiInfrastructure />
+        <PlatformShowcase />
+        <SectionBlock eyebrow="AI-assisted human workflow" title="AI assists the operator. The operator replies." description="GCO combines human operators with operational infrastructure and AI-assisted workflows. AI is a drafting aid inside the operator's workspace.">
+          <div className="max-w-2xl">
+            <Steps items={['AI can draft a suggested reply for the conversation', 'The human operator reviews and edits the draft', 'The operator decides, and sends the reply', 'Nothing is sent automatically by AI']} />
+          </div>
+        </SectionBlock>
         <SectionBlock tone="surface" eyebrow="Capabilities" title="What the platform does">
           <CardGrid items={PLATFORM_CAPABILITIES} />
         </SectionBlock>
-        <PlatformPreview />
+        <SectionBlock eyebrow="Client visibility" title="Clients see what is relevant to their operation" description="Client users see the information and decisions relevant to their own operation. Internal operator and supervisor notes are never shown to clients, and each client only ever sees its own data.">
+          <Bullets items={['Escalations awaiting a client decision, with a client-facing summary', 'Client-visible messages from GCO management', 'Operational usage and support requests for their own operation']} />
+        </SectionBlock>
         <SupervisionEscalation />
         <SectionBlock eyebrow="Explore" title="See it applied">
           <p className="max-w-2xl text-[14.5px] leading-relaxed text-graphite-secondary">
