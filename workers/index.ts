@@ -89,14 +89,8 @@ const sweepTimer = setInterval(async () => {
 const LEAD_SWEEP_INTERVAL_MS = 60 * 60 * 1000
 const leadSweepTimer = setInterval(async () => {
   try {
-    const { releaseLead } = await import('@/lib/crm/leads')
-    const expired = await db.lead.findMany({
-      where: { ownerId: { not: null }, ownershipExpiresAt: { lt: new Date() } },
-      take: 100,
-    })
-    for (const lead of expired) {
-      await releaseLead(lead.id, null, 'auto_released')
-    }
+    const { releaseExpiredLeads } = await import('@/lib/crm/leads')
+    await releaseExpiredLeads()
   } catch (err) {
     logger.error({ component: 'worker:lead-sweep', err: err instanceof Error ? err.message : err }, 'lead sweep error')
   }

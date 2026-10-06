@@ -77,16 +77,16 @@ export async function decideApproval(
     throw new ApprovalError('You cannot approve or reject your own submission', 403)
   }
 
-  const claimed = await db.approval.updateMany({
-    where: { id: approvalId, status: 'PENDING' },
-    data: { status: decision, reviewedByUserId: reviewerUserId, reviewNotes, reviewedAt: new Date() },
-  })
-  if (claimed.count === 0) {
-    throw new ApprovalError('This approval has already been decided', 409)
-  }
+  const decidedData = { status: decision, reviewedByUserId: reviewerUserId, reviewNotes, reviewedAt: new Date() }
 
   if (decision === 'REJECTED') {
-    await changeStage(approval.leadId, reviewerUserId, 'PROPOSAL')
+    const claimed = await db.approval.updateMany({ where: { id: approvalId, status: 'PENDING' }, data: decidedData })
+    if (claimed.count === 0) throw new ApprovalError('This approval has already been decided', 409)
+
+    // A stale submission (the Hunter already walked the lead back) is still closed out, but the lead
+    // is only reverted if it is actually waiting on this approval.
+    const current = await db.lead.findUniqueOrThrow({ where: { id: approval.leadId }, select: { pipelineStage: true } })
+    if (current.pipelineStage === 'PENDING_APPROVAL') await changeStage(approval.leadId, reviewerUserId, 'PROPOSAL')
     await db.leadHistoryEntry.create({
       data: { leadId: approval.leadId, actorUserId: reviewerUserId, action: 'rejected', metadata: { approvalId, reviewNotes } },
     })
@@ -101,18 +101,46 @@ export async function decideApproval(
   }
 
   // APPROVED - Closed Won + client onboarding (BPO handoff). No commission yet.
-  // PENDING_APPROVAL -> CLOSED_WON is deliberately NOT in changeStage()'s
-  // generic transition map - this approval path is the only code that may
-  // perform it, so the update + history entry are written directly here
-  // rather than widening the generic (Hunter-reachable) transition table.
-  await db.lead.update({ where: { id: approval.leadId }, data: { pipelineStage: 'CLOSED_WON' } })
-  await db.leadHistoryEntry.create({
-    data: {
-      leadId: approval.leadId,
-      actorUserId: reviewerUserId,
-      action: 'approved',
-      metadata: { approvalId, reviewNotes, from: 'PENDING_APPROVAL', to: 'CLOSED_WON' },
-    },
+  // PENDING_APPROVAL -> CLOSED_WON is deliberately NOT in changeStage()'s generic transition map - this
+  // approval path is the only code that may perform it.
+  //
+  // One transaction: the approval decision, the stage change, history and the handoff record commit
+  // together or not at all (previously a failure midway left an APPROVED approval on a lead that never
+  // became Closed Won, with no way to re-decide). The stage update is conditional on PENDING_APPROVAL, so
+  // a stale approval (lead walked back / closed lost / already won) can never resurrect or re-win a lead.
+  await db.$transaction(async (tx) => {
+    const claimed = await tx.approval.updateMany({ where: { id: approvalId, status: 'PENDING' }, data: decidedData })
+    if (claimed.count === 0) throw new ApprovalError('This approval has already been decided', 409)
+
+    const moved = await tx.lead.updateMany({
+      where: { id: approval.leadId, pipelineStage: 'PENDING_APPROVAL' },
+      data: { pipelineStage: 'CLOSED_WON' },
+    })
+    if (moved.count === 0) throw new ApprovalError('This lead is no longer awaiting approval - the submission is stale', 409)
+
+    await tx.leadHistoryEntry.create({
+      data: {
+        leadId: approval.leadId,
+        actorUserId: reviewerUserId,
+        action: 'approved',
+        metadata: { approvalId, reviewNotes, from: 'PENDING_APPROVAL', to: 'CLOSED_WON' },
+      },
+    })
+    // Idempotent on leadId: a duplicate decide can never create a second handoff record.
+    await tx.bpoHandoff.upsert({
+      where: { leadId: approval.leadId },
+      update: {},
+      create: {
+        leadId: approval.leadId,
+        eventId: `handoff-${approval.leadId}`,
+        payload: {
+          leadId: approval.leadId,
+          companyName: approval.lead.companyName,
+          contactName: approval.lead.contactName,
+          contactEmail: approval.lead.email,
+        },
+      },
+    })
   })
   await writeAuditLog({
     actorUserId: reviewerUserId,
@@ -121,25 +149,23 @@ export async function decideApproval(
     resourceId: approvalId,
     metadata: { leadId: approval.leadId },
   })
-
-  // Idempotent on leadId: a retried/duplicate decide-approval call can never
-  // create a second handoff record or double-enqueue the job - upsert is a
-  // no-op if one already exists for this lead.
-  await db.bpoHandoff.upsert({
-    where: { leadId: approval.leadId },
-    update: {},
-    create: {
-      leadId: approval.leadId,
-      eventId: `handoff-${approval.leadId}`,
-      payload: {
-        leadId: approval.leadId,
-        companyName: approval.lead.companyName,
-        contactName: approval.lead.contactName,
-        contactEmail: approval.lead.email,
-      },
-    },
-  })
-  await enqueueBpoHandoff(approval.leadId)
+  // Enqueued after commit. The decision itself has succeeded, so a queue outage must not turn it into a
+  // 500 the Manager cannot retry (a second decide is a 409). The PENDING handoff row remains, a SystemEvent
+  // makes the problem visible, and POST /crm/bpo-handoffs/:id/retry recovers it once the queue is back.
+  try {
+    await enqueueBpoHandoff(approval.leadId)
+  } catch (err) {
+    await db.systemEvent
+      .create({
+        data: {
+          category: 'queue',
+          severity: 'error',
+          message: 'BPO handoff could not be enqueued after approval - retry from the CRM',
+          metadata: { leadId: approval.leadId, approvalId, error: err instanceof Error ? err.message.slice(0, 200) : 'unknown' },
+        },
+      })
+      .catch(() => null)
+  }
 
   return { approval }
 }
@@ -203,19 +229,41 @@ export async function confirmFirstPayment(leadId: string, actorUserId: string, a
   // future, explicit business decision reintroduces per-Hunter rates.
   const percentage = V1_COMMISSION_PERCENTAGE
 
+  // Commission, revenue record and history commit atomically. Previously these were three separate
+  // writes: a failure after the commission insert left a commission with no RevenueRecord, and the retry
+  // then hit "already confirmed" - permanently inconsistent. The Commission.leadId unique constraint is
+  // still the race-safe backstop: of two concurrent confirmations one commits, the other gets P2002.
+  const now = new Date()
+  const periodEnd = new Date(now)
+  periodEnd.setMonth(periodEnd.getMonth() + 1)
   let commission
+  let revenueRecord
   try {
-    commission = await db.commission.create({
-      data: {
-        leadId,
-        hunterId: lead.ownerId,
-        tenantId: handoff.tenantId,
-        percentage,
-        revenueBasisEurCents: amountEurCents,
-        // Server-calculated, always - the client never supplies this figure.
-        amountEurCents: Math.round((amountEurCents * Number(percentage)) / 100),
-      },
-    })
+    ;({ commission, revenueRecord } = await db.$transaction(async (tx) => {
+      const commission = await tx.commission.create({
+        data: {
+          leadId,
+          hunterId: lead.ownerId!,
+          tenantId: handoff.tenantId!,
+          percentage,
+          revenueBasisEurCents: amountEurCents,
+          // Server-calculated, always - the client never supplies this figure.
+          amountEurCents: Math.round((amountEurCents * Number(percentage)) / 100),
+        },
+      })
+      const revenueRecord = await tx.revenueRecord.create({
+        data: { tenantId: handoff.tenantId!, leadId, amountEurCents, periodStart: now, periodEnd, source: 'DEAL_CLOSED' },
+      })
+      await tx.leadHistoryEntry.create({
+        data: {
+          leadId,
+          actorUserId,
+          action: 'first_payment_confirmed',
+          metadata: { amountEurCents, commissionId: commission.id, revenueRecordId: revenueRecord.id },
+        },
+      })
+      return { commission, revenueRecord }
+    }))
   } catch (err: any) {
     if (err?.code === 'P2002') {
       throw new PaymentConfirmationError('First payment has already been confirmed for this lead', 409)
@@ -223,28 +271,6 @@ export async function confirmFirstPayment(leadId: string, actorUserId: string, a
     throw err
   }
 
-  const now = new Date()
-  const periodEnd = new Date(now)
-  periodEnd.setMonth(periodEnd.getMonth() + 1)
-  const revenueRecord = await db.revenueRecord.create({
-    data: {
-      tenantId: handoff.tenantId,
-      leadId,
-      amountEurCents,
-      periodStart: now,
-      periodEnd,
-      source: 'DEAL_CLOSED',
-    },
-  })
-
-  await db.leadHistoryEntry.create({
-    data: {
-      leadId,
-      actorUserId,
-      action: 'first_payment_confirmed',
-      metadata: { amountEurCents, commissionId: commission.id, revenueRecordId: revenueRecord.id },
-    },
-  })
   await writeAuditLog({
     tenantId: handoff.tenantId,
     actorUserId,

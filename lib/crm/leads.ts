@@ -16,6 +16,16 @@ export class LeadDuplicateError extends Error {
   }
 }
 
+/** Emails are matched case-insensitively (Jane@Acme.com and jane@acme.com are one person); stored lower-case. */
+export function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase()
+}
+
+/** VAT/tax IDs are compared ignoring case, spaces, dots and dashes ("it 123.456" == "IT123456"). */
+export function normalizeVatId(vatId: string): string {
+  return vatId.replace(/[\s.\-]/g, '').toUpperCase()
+}
+
 function extractDomain(website?: string | null, email?: string | null): string | null {
   if (website) {
     try {
@@ -54,11 +64,13 @@ export async function createLead(params: {
   // support a null actor for exactly this case.
   actorUserId: string | null
 }) {
-  const domain = extractDomain(params.website, params.email)
+  const email = normalizeEmail(params.email)
+  const vatId = params.vatId ? normalizeVatId(params.vatId) || undefined : undefined
+  const domain = extractDomain(params.website, email)
 
   const [existingEmail, existingVat] = await Promise.all([
-    db.lead.findUnique({ where: { email: params.email } }),
-    params.vatId ? db.lead.findUnique({ where: { vatId: params.vatId } }) : Promise.resolve(null),
+    db.lead.findFirst({ where: { email: { equals: email, mode: 'insensitive' } }, select: { id: true } }),
+    vatId ? db.lead.findFirst({ where: { vatId: { equals: vatId, mode: 'insensitive' } }, select: { id: true } }) : Promise.resolve(null),
   ])
   if (existingEmail) throw new LeadDuplicateError('email')
   if (existingVat) throw new LeadDuplicateError('vatId')
@@ -81,11 +93,11 @@ export async function createLead(params: {
       data: {
         companyName: params.companyName,
         contactName: params.contactName,
-        email: params.email,
+        email,
         phone: params.phone,
         website: params.website,
         domain,
-        vatId: params.vatId || null,
+        vatId: vatId ?? null,
         industry: params.industry,
         country: params.country,
         source: params.source,
@@ -146,7 +158,15 @@ export async function claimLead(leadId: string, hunterUserId: string) {
   return db.lead.findUniqueOrThrow({ where: { id: leadId } })
 }
 
+/** Stages in which the owning Hunter must stay attached: an approval is pending, or the deal is won and
+ *  the Hunter's first-payment commission still depends on `ownerId` (see confirmFirstPayment). */
+export const RELEASE_PROTECTED_STAGES = ['PENDING_APPROVAL', 'CLOSED_WON'] as const
+
 export async function releaseLead(leadId: string, actorUserId: string | null, reason: 'released' | 'auto_released') {
+  const current = await db.lead.findUnique({ where: { id: leadId }, select: { pipelineStage: true } })
+  if (current && (RELEASE_PROTECTED_STAGES as readonly string[]).includes(current.pipelineStage)) {
+    throw new LeadConflictError(`A lead in ${current.pipelineStage} cannot be released`)
+  }
   await db.lead.update({
     where: { id: leadId },
     data: { ownerId: null, ownershipStartedAt: null, ownershipExpiresAt: null },
@@ -155,6 +175,29 @@ export async function releaseLead(leadId: string, actorUserId: string | null, re
     data: { leadId, actorUserId, action: reason },
   })
   await writeAuditLog({ actorUserId, action: `lead.${reason}`, resource: 'lead', resourceId: leadId })
+}
+
+/**
+ * Lead-lock sweep (worker, hourly): releases leads whose 30-day lock expired with no qualifying activity.
+ * Leads awaiting approval or already Closed Won are never released - releasing a won lead would strip the
+ * owner and make the first-payment commission impossible to generate.
+ */
+export async function releaseExpiredLeads(now = new Date(), batch = 100): Promise<number> {
+  const expired = await db.lead.findMany({
+    where: { ownerId: { not: null }, ownershipExpiresAt: { lt: now }, pipelineStage: { notIn: [...RELEASE_PROTECTED_STAGES] } },
+    select: { id: true },
+    take: batch,
+  })
+  let released = 0
+  for (const lead of expired) {
+    try {
+      await releaseLead(lead.id, null, 'auto_released')
+      released++
+    } catch {
+      /* stage changed between query and release - leave it */
+    }
+  }
+  return released
 }
 
 /** Qualifying activity extends the 30-day lock, per the business rule "if the Hunter remains active, lock remains." */
@@ -199,7 +242,10 @@ export async function changeStage(leadId: string, actorUserId: string, toStage: 
     throw new InvalidStageTransitionError(`Cannot move from ${lead.pipelineStage} to ${toStage}`)
   }
 
-  await db.lead.update({ where: { id: leadId }, data: { pipelineStage: toStage as any } })
+  // Conditional on the stage we validated against: two concurrent changes (or a double submit-for-approval)
+  // cannot both succeed from the same starting stage.
+  const moved = await db.lead.updateMany({ where: { id: leadId, pipelineStage: lead.pipelineStage }, data: { pipelineStage: toStage as any } })
+  if (moved.count === 0) throw new InvalidStageTransitionError('Lead stage changed concurrently - reload and retry')
   await db.leadHistoryEntry.create({
     data: { leadId, actorUserId, action: 'stage_changed', metadata: { from: lead.pipelineStage, to: toStage } },
   })
@@ -233,7 +279,7 @@ export async function recordRepeatInquiry(params: {
   country?: string
   notesText?: string
 }) {
-  const lead = await db.lead.findUnique({ where: { email: params.email } })
+  const lead = await db.lead.findFirst({ where: { email: { equals: normalizeEmail(params.email), mode: 'insensitive' } } })
   if (!lead) return null
 
   const now = new Date()
