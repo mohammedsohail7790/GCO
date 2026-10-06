@@ -73,7 +73,9 @@ Verified by E2E 05 (conversations/messages), 11 (realtime), 12, 19, 20 (escalati
 Unit 217 (was 215), integration 39 (was 17; +21 `crmOperationalChain`, +1 `bpoEnqueueFailure`), E2E 167 (was 155; +12 `23-operational-chain`). `tsc`, `eslint`, `next build` clean.
 
 ## 20. Production status
-See the deployment record below.
+Deployed 2026-10-06, commit `50bf4b6` (pushed to `origin/main`, no force). Production code changed (`lib/crm`, `workers/index.ts`), so **web and worker** were rebuilt and recreated; Postgres, Redis and realtime were not touched (0 restarts on all five containers). No migration, no schema change, no data written.
+- Images: web `de7643cd81cc` (rollback `gco-web:pre-phase-d` = `c9c9f75b2bf1`), worker `762af9d7d127` (rollback `gco-worker:pre-phase-d` = `d04649886861`). Rollback: retag the `pre-phase-d` images as `latest` and `docker compose up -d --no-deps web worker`.
+- Verified read-only: `/api/v1/health` 200 on both hosts, all 27 sitemap pages 200, CRM endpoints 401 anonymously, WebSocket upgrade 101, containers healthy. No leads, payments, commissions or clients were created in production.
 
 ## 21. Known limitations
 No scheduled follow-ups or outbound email; client login/integration provisioning is manual; no stuck-escalation reminders; QA is manual review; no invoicing; dashboards load rows in memory; `confirm-payment` accepts any positive amount (no upper bound or currency field - EUR cents only); month-2+ revenue is entered manually.
