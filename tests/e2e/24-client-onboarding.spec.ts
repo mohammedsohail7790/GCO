@@ -4,6 +4,9 @@ import { db } from '@/lib/db/client'
 
 // Phase E: Closed Won -> BPO handoff -> client onboarding (user, invitation, checklist, go-live) -> first payment
 // (EUR contract) -> commission, through the real API and worker. One client, one flow, one final state.
+// NOTE: the only registered adapter is the dev-mock, which production go-live rejects; run the web server with
+// ALLOW_DEV_ADAPTERS=true (local/CI only) so this spec can exercise go-live. The default behaviour is covered in
+// tests/integration/clientOnboarding.test.ts.
 test.describe.configure({ mode: 'serial' })
 test.describe('client onboarding: handoff -> invitation -> checklist -> go-live; payment contract', () => {
   const email = `onb-${Date.now()}@e2e.gco`

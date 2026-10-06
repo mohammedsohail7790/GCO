@@ -1,4 +1,4 @@
-import { describe, it, expect, afterAll, beforeAll } from 'vitest'
+import { describe, it, expect, afterAll, afterEach, beforeAll } from 'vitest'
 import bcrypt from 'bcryptjs'
 import { db } from '@/lib/db/client'
 import { createLead } from '@/lib/crm/leads'
@@ -167,7 +167,51 @@ describe('client onboarding', () => {
   })
 
   describe('checklist and go-live', () => {
+    afterEach(() => {
+      delete process.env.ALLOW_DEV_ADAPTERS
+    })
+
+    it('PRODUCTION SAFETY: the dev-mock adapter never satisfies the checklist or gets activated (default / production behaviour)', async () => {
+      delete process.env.ALLOW_DEV_ADAPTERS
+      const { lead, tenant } = await setup('devmock')
+      const ob = await provisionOnboarding(lead.id)
+      await acceptInvitation((await issueInvitation(ob.id, admin)).setupUrl.split('#token=')[1]!, 'a-long-enough-password')
+      const integ = await db.integration.create({ data: { tenantId: tenant.id, adapterKey: 'dev-mock', name: 'Dev', status: 'DISABLED', config: {}, webhookSecret: 'z'.repeat(40) } })
+      const opUser = await db.user.create({ data: { email: `${base}-op2@test.gco`, passwordHash: 'x', role: 'OPERATOR', tenantId: tenant.id, displayName: 'op' } })
+      await db.operator.create({ data: { userId: opUser.id, tenantId: tenant.id, capacity: 2 } })
+      for (const item of ['languages', 'coverage', 'supervisor'] as const) await confirmItem(ob.id, item, admin)
+
+      const { items, ready } = await computeChecklist(ob.id)
+      expect(ready).toBe(false)
+      expect(items.filter((i) => !i.done).map((i) => i.key)).toEqual(['integration_configured', 'webhook_secret_issued'])
+      await expect(goLive(ob.id, admin)).rejects.toMatchObject({ status: 409, code: 'CHECKLIST_INCOMPLETE' })
+      expect((await db.clientOnboarding.findUniqueOrThrow({ where: { id: ob.id } })).status).toBe('SETUP')
+      expect((await db.integration.findUniqueOrThrow({ where: { id: integ.id } })).status).toBe('DISABLED') // never activated
+    })
+
+    it('with the test-only flag, go-live activates only staged integrations of THIS tenant and ignores other tenants', async () => {
+      process.env.ALLOW_DEV_ADAPTERS = 'true'
+      const a = await setup('scopeA')
+      const b = await setup('scopeB')
+      const obA = await provisionOnboarding(a.lead.id)
+      await provisionOnboarding(b.lead.id)
+      const integA = await db.integration.create({ data: { tenantId: a.tenant.id, adapterKey: 'dev-mock', name: 'A', status: 'DISABLED', config: {}, webhookSecret: 'a'.repeat(40) } })
+      const integB = await db.integration.create({ data: { tenantId: b.tenant.id, adapterKey: 'dev-mock', name: 'B', status: 'DISABLED', config: {}, webhookSecret: 'b'.repeat(40) } })
+      const already = await db.integration.create({ data: { tenantId: a.tenant.id, adapterKey: 'dev-mock', name: 'A-disabled-by-admin', status: 'DEGRADED', config: {}, webhookSecret: 'c'.repeat(40) } })
+      await acceptInvitation((await issueInvitation(obA.id, admin)).setupUrl.split('#token=')[1]!, 'a-long-enough-password')
+      const opUser = await db.user.create({ data: { email: `${base}-op3@test.gco`, passwordHash: 'x', role: 'OPERATOR', tenantId: a.tenant.id, displayName: 'op' } })
+      await db.operator.create({ data: { userId: opUser.id, tenantId: a.tenant.id, capacity: 2 } })
+      for (const item of ['languages', 'coverage', 'supervisor'] as const) await confirmItem(obA.id, item, admin)
+      const r = await goLive(obA.id, admin)
+      expect(r.activatedIntegrations).toBe(1)
+      expect((await db.integration.findUniqueOrThrow({ where: { id: integA.id } })).status).toBe('ACTIVE')
+      expect((await db.integration.findUniqueOrThrow({ where: { id: integB.id } })).status).toBe('DISABLED') // other tenant untouched
+      expect((await db.integration.findUniqueOrThrow({ where: { id: already.id } })).status).toBe('DEGRADED') // only DISABLED ones are staged
+      expect(JSON.stringify(r)).not.toMatch(/a{40}|c{40}|webhookSecret/) // no secret in the result
+    })
+
     it('go-live is blocked until every required item is true, then activates staged integrations exactly once', async () => {
+      process.env.ALLOW_DEV_ADAPTERS = 'true' // dev-mock stands in for a real adapter here
       const { lead, tenant } = await setup('golive')
       const ob = await provisionOnboarding(lead.id)
       await expect(goLive(ob.id, admin)).rejects.toMatchObject({ status: 409, code: 'CHECKLIST_INCOMPLETE' })

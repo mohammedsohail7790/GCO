@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs'
 import { db } from '@/lib/db/client'
 import { writeAuditLog } from '@/lib/audit/log'
 import { normalizeEmail } from '@/lib/crm/leads'
-import { listAdapterKeys } from '@/lib/integrations/registry'
+import { listProductionAdapterKeys } from '@/lib/integrations/registry'
 import { SITE_URL } from '@/lib/config/site'
 import { extractRequestedProfile } from './profile'
 
@@ -168,18 +168,20 @@ export async function recordOnboardingFailure(leadId: string, err: unknown) {
 export async function computeChecklist(onboardingId: string) {
   const ob = await db.clientOnboarding.findUniqueOrThrow({ where: { id: onboardingId } })
   const confirmations = (ob.confirmations ?? {}) as Confirmations
+  // Only integrations on a production-capable adapter count (see lib/integrations/registry.ts) - a development
+  // mock must never make a client look ready, or be activated, in production.
+  const prodKeys = listProductionAdapterKeys()
   const [user, integrations, withSecret, operators] = await Promise.all([
     ob.clientUserId ? db.user.findUnique({ where: { id: ob.clientUserId }, select: { isActive: true } }) : Promise.resolve(null),
-    db.integration.findMany({ where: { tenantId: ob.tenantId }, select: { adapterKey: true } }),
-    db.integration.count({ where: { tenantId: ob.tenantId, webhookSecret: { not: null } } }), // presence only - the secret is never selected
+    db.integration.count({ where: { tenantId: ob.tenantId, adapterKey: { in: prodKeys } } }),
+    db.integration.count({ where: { tenantId: ob.tenantId, adapterKey: { in: prodKeys }, webhookSecret: { not: null } } }), // presence only - the secret is never selected
     db.operator.count({ where: { tenantId: ob.tenantId, user: { isActive: true } } }),
   ])
-  const known = new Set(listAdapterKeys())
   const items: ChecklistItem[] = [
     { key: 'tenant_created', label: 'Client account created', done: true, source: 'system', clientVisible: true },
     { key: 'client_user_created', label: 'Client user created', done: !!ob.clientUserId, source: 'system', clientVisible: false },
     { key: 'invitation_accepted', label: 'Client has set up their login', done: !!user?.isActive, source: 'system', clientVisible: true },
-    { key: 'integration_configured', label: 'Integration configured', done: integrations.some((i) => known.has(i.adapterKey)), source: 'system', clientVisible: true },
+    { key: 'integration_configured', label: 'Production integration configured', done: integrations > 0, source: 'system', clientVisible: true },
     { key: 'webhook_secret_issued', label: 'Webhook secret issued', done: withSecret > 0, source: 'system', clientVisible: false },
     { key: 'operator_assigned', label: 'Operator assigned', done: operators > 0, source: 'system', clientVisible: false },
     { key: 'supervisor_confirmed', label: 'Supervisor / team lead confirmed', done: !!confirmations.supervisor, source: 'manual', clientVisible: false },
@@ -290,7 +292,11 @@ export async function goLive(onboardingId: string, actorUserId: string) {
       data: { status: 'LIVE', liveAt: new Date(), liveByUserId: actorUserId },
     })
     if (claimed.count === 0) return { activated: 0, already: true }
-    const activated = await tx.integration.updateMany({ where: { tenantId: onboarding.tenantId, status: 'DISABLED' }, data: { status: 'ACTIVE' } })
+    // Only this client's staged integrations on a production-capable adapter - never a development mock.
+    const activated = await tx.integration.updateMany({
+      where: { tenantId: onboarding.tenantId, status: 'DISABLED', adapterKey: { in: listProductionAdapterKeys() } },
+      data: { status: 'ACTIVE' },
+    })
     return { activated: activated.count, already: false }
   })
   if (!result.already) {
