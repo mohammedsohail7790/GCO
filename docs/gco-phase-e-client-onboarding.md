@@ -1,6 +1,6 @@
 # Phase E - client onboarding automation + payment contract hardening
 
-Status: implemented and verified locally (unit 234, integration 51, E2E 180, `tsc`/`eslint`/`next build` clean, real-browser QA). **Not yet deployed** - the release needs one additive database migration, which is held for explicit approval (section 17).
+Status: **deployed and verified in production on 2026-10-06** (commit `ef51c63`). Local verification before release: unit 236, integration 53, E2E 180, `tsc`/`eslint`/`next build` clean, real-browser QA.
 
 ## 1. Executive summary
 Before: after Closed Won the BPO handoff created a Tenant and stopped. Everything else - the client's login, readiness tracking, go-live - was manual and untracked, and the payment endpoint accepted any positive number with no currency.
@@ -80,8 +80,14 @@ Reused. `onboarding` jobs run on the existing BPO queue (5 attempts, backoff) wi
 | Payment: duplicate, 6-way race, bad amount, bad currency | one commission/revenue; 400 on invalid | E2E, integration |
 Not simulated with real process kills: worker-crash cases are covered by seeding the exact partial states the idempotent steps must recover from.
 
-## 17. Production deployment (pending approval)
-Required, in this order: (1) database backup; (2) `prisma migrate deploy` (additive: new enum + table); (3) rebuild and recreate **web and worker** only. Postgres, Redis, realtime untouched. Rollback: retag `gco-web:pre-phase-e` / `gco-worker:pre-phase-e`; the new table is harmless to old code and can stay (or be dropped: `DROP TABLE "ClientOnboarding"; DROP TYPE "OnboardingStatus";`). Clients already Closed Won before the release have no onboarding row (production has none today); the handoff job re-delivery path or a manual enqueue would create it.
+## 17. Production deployment (done)
+- **Order executed:** fresh backup (local dump + `pg_restore --list` integrity check + B2 offsite upload verified, object `gco-postgres/gco-postgres-20261006T090449Z.dump`, 777,451 bytes) -> rollback tags -> rsync (server HEAD `ef51c63`) -> `docker compose build web worker` -> `prisma migrate deploy` from a one-off container -> `docker compose up -d --no-deps web worker`.
+- **Migration:** `20261006084144_add_client_onboarding` applied (previous: `20261005211102_add_escalations`); `ClientOnboarding` and enum `OnboardingStatus` exist; 0 rows. Additive only.
+- **Images:** web `9020e1890527`, worker `324450996f2e`. Rollback: `gco-web:pre-phase-e` = `de7643cd81cc`, `gco-worker:pre-phase-e` = `762af9d7d127` (retag as `latest`, `docker compose up -d --no-deps web worker`; optional table drop documented below).
+- **Restarted:** web and worker only. Postgres, Redis, realtime untouched (0 restarts, original start times).
+- **Verified read-only:** health 200 (apex and app host); all 27 sitemap URLs and key pages 200; unknown slug 404; every CRM, onboarding, go-live, client-status and integration endpoint returns 401 anonymously; a bogus invitation token returns a generic 400; WebSocket 101; web and worker logs clean (the single `NoFallbackError` line is Next's internal log for a 404 probe of an unknown article slug); production row counts unchanged before/after (Lead 2, Tenant 1, User 5, Integration 1, Commission 0, RevenueRecord 0, BpoHandoff 0, Message 1, SystemEvent 3; AuditLog +2 recurring `assignment.expired` rows from an existing assignment, unrelated).
+- **dev-mock safety in production:** `ALLOW_DEV_ADAPTERS` is unset in the server env file, compose file and both running containers; the deployed bundle contains the gate; with no production adapter registered, go-live cannot be satisfied or activate anything. Go-live was deliberately **not** exercised in production (it would require creating production data).
+- **Rollback of the schema (optional, not needed for a code rollback):** `DROP TABLE "ClientOnboarding"; DROP TYPE "OnboardingStatus";` then `prisma migrate resolve --rolled-back 20261006084144_add_client_onboarding` before any re-apply. Rehearsed on a local copy in a rolled-back transaction.
 
 ## 18. Known limitations
 No email delivery (links are copied by the admin); no production integration adapter, so integration setup stays a CEO step; supervisor assignment is a manual confirmation (supervisors are not tenant-modelled); the console is a compact admin panel, not a full client-success tool; EUR-only; `RevenueRecord` has no currency or invoice reference; pre-existing handoffs are not back-filled.
