@@ -7,6 +7,7 @@ import { CardGrid, SectionBlock, Steps, SupervisionEscalation } from '@/componen
 import { PlatformShowcase } from '@/components/marketing/PlatformPreview'
 import { HumanAiInfrastructure } from '@/components/marketing/HumanAiInfrastructure'
 import { pageMetadata } from '@/lib/config/site'
+import { TrackView } from '@/components/analytics/TrackView'
 import { PLATFORM_CAPABILITIES, PLATFORM_FLOW } from '@/lib/content/platform'
 import { Bullets } from '@/components/marketing/Blocks'
 
@@ -23,6 +24,7 @@ export default function PlatformPage() {
     <>
       <a href="#main-content" className="skip-link">Skip to content</a>
       <SiteHeader />
+      <TrackView event="platform_view" />
       <main id="main-content">
         <PageHero
           eyebrow="Platform"
@@ -53,7 +55,7 @@ export default function PlatformPage() {
             The platform runs every GCO service, from <Link className="font-medium text-accent-600 hover:underline" href="/services/live-chat-customer-support">live chat support</Link> and{' '}
             <Link className="font-medium text-accent-600 hover:underline" href="/services/chat-moderation">chat moderation</Link> to{' '}
             <Link className="font-medium text-accent-600 hover:underline" href="/services/dedicated-outsourced-chat-teams">dedicated teams</Link>, across{' '}
-            <Link className="font-medium text-accent-600 hover:underline" href="/industries">our industries</Link>.
+            <Link className="font-medium text-accent-600 hover:underline" href="/industries">our industries</Link>. Read the <Link className="font-medium text-accent-600 hover:underline" href="/security">security overview</Link> or the guide to the <Link className="font-medium text-accent-600 hover:underline" href="/resources/how-a-human-ai-conversation-operations-model-works">human + AI operating model</Link>.
           </p>
         </SectionBlock>
         <FinalCta />

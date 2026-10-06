@@ -180,7 +180,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { href: '/industries', label: 'Industries', enabled: true },
   { href: '/platform', label: 'Platform', enabled: true },
   { href: '/how-it-works', label: 'How It Works', enabled: true },
-  { href: '/resources', label: 'Resources', enabled: false },
+  { href: '/resources', label: 'Resources', enabled: true },
   { href: '/about', label: 'About', enabled: true },
   { href: '/careers', label: 'Careers', enabled: true },
   { href: CONTACT_PATH, label: 'Contact', enabled: true },

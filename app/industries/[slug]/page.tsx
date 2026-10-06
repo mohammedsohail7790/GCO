@@ -7,6 +7,10 @@ import { Bullets, LinkCards, PilotCallout, SectionBlock, SupervisionEscalation }
 import { pageMetadata } from '@/lib/config/site'
 import { INDUSTRIES, getIndustry } from '@/lib/content/industries'
 import { SERVICES } from '@/lib/content/services'
+import { articlesForIndustry } from '@/lib/content/resources'
+import { JsonLd } from '@/components/seo/JsonLd'
+import { TrackView } from '@/components/analytics/TrackView'
+import { breadcrumbJsonLd } from '@/lib/seo/jsonld'
 
 export const revalidate = 600
 export const dynamicParams = false
@@ -24,12 +28,15 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 export default async function IndustryPage({ params }: { params: Promise<{ slug: string }> }) {
   const i = getIndustry((await params).slug)
   if (!i) notFound()
+  const guides = articlesForIndustry(i.slug)
   const services = SERVICES.filter((s) => i.services.includes(s.slug))
 
   return (
     <>
       <a href="#main-content" className="skip-link">Skip to content</a>
       <SiteHeader />
+      <JsonLd data={breadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: 'Industries', path: '/industries' }, { name: i.name, path: `/industries/${i.slug}` }])} />
+      <TrackView event="industry_view" slug={i.slug} />
       <main id="main-content">
         <PageHero eyebrow={i.name} title={i.name} lead={i.heroLead} crumbs={[{ href: '/industries', label: 'Industries' }]} />
 
@@ -72,6 +79,11 @@ export default async function IndustryPage({ params }: { params: Promise<{ slug:
         <SectionBlock eyebrow="Relevant services" title="Services for this industry">
           <LinkCards items={services.map((s) => ({ href: `/services/${s.slug}`, title: s.name, body: s.short }))} />
         </SectionBlock>
+        {guides.length > 0 && (
+          <SectionBlock tone="surface" eyebrow="Resources" title="Guides for this industry">
+            <LinkCards items={guides.map((g) => ({ href: `/resources/${g.slug}`, title: g.title, body: g.description }))} />
+          </SectionBlock>
+        )}
         <FinalCta />
       </main>
       <SiteFooter />

@@ -2,6 +2,7 @@ import { SiteHeader } from '@/components/marketing/SiteHeader'
 import { SiteFooter } from '@/components/marketing/SiteFooter'
 import { Container } from '@/components/marketing/Container'
 import { Eyebrow } from '@/components/marketing/SectionHeader'
+import Link from 'next/link'
 import { pageMetadata } from '@/lib/config/site'
 
 export const metadata = pageMetadata({
@@ -87,6 +88,14 @@ export default function AboutPage() {
                 execution possible at real volume. That combination - not one replacing the other - is what GCO runs.
               </p>
             </div>
+
+            <p className="mt-10 max-w-2xl text-[14.5px] leading-relaxed text-graphite-secondary">
+              To see how this works in practice, explore our <Link className="font-medium text-accent-600 hover:underline" href="/services">services</Link>, the{' '}
+              <Link className="font-medium text-accent-600 hover:underline" href="/platform">platform</Link>, our{' '}
+              <Link className="font-medium text-accent-600 hover:underline" href="/security">security overview</Link> and{' '}
+              <Link className="font-medium text-accent-600 hover:underline" href="/resources">resources</Link>, or{' '}
+              <Link className="font-medium text-accent-600 hover:underline" href="/pilot">start a free 7-day pilot</Link>.
+            </p>
           </Container>
         </section>
       </main>

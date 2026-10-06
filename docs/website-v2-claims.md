@@ -28,5 +28,6 @@ studies, voice / call-centre services, autonomous AI ("AI replaces operators").
 - `lib/config/scheduling.ts` - "Book a Call": a valid https Calendly URL from `CALENDLY_SCHEDULING_URL`,
   otherwise `/contact`. **No Calendly URL exists yet.**
 - `lib/content/services.ts`, `industries.ts`, `platform.ts`, `escalation.ts`, `platformAssets.ts` - page content.
-- `NAV_ITEMS` - `Resources` stays disabled until the route exists.
+- `NAV_ITEMS` - all items enabled (Phase C added `/resources`).
+- `lib/content/resources.ts` (articles) and `lib/content/security.ts` (security controls) - both covered by the forbidden-claims scan in `websiteContentGates.test.ts` and their own suites.
 - `PILOT_STEPS` - the pilot process, mirroring `docs/7-day-pilot.md` (discovery before Day 1).

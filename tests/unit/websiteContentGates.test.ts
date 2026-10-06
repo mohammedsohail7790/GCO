@@ -5,6 +5,8 @@ import { INDUSTRIES } from '@/lib/content/industries'
 import { PLATFORM_CAPABILITIES, PLATFORM_FLOW } from '@/lib/content/platform'
 import { ESCALATION_STEPS, ESCALATION_WHEN, ESCALATION_RECORDED, SUPERVISION_QA } from '@/lib/content/escalation'
 import { PLATFORM_SCREENSHOTS } from '@/lib/content/platformAssets'
+import { ARTICLES } from '@/lib/content/resources'
+import { SECURITY_SECTIONS, SECURITY_CLOSING } from '@/lib/content/security'
 
 // Website V2 Phase B: the business approved these claims (with qualifiers). This suite pins the
 // approved truth AND guards against anything outside it (invented numbers, certifications,
@@ -13,6 +15,7 @@ const everything = JSON.stringify([
   content.HERO, content.CTA, content.CAPABILITY_STRIP, content.DESCRIPTIONS, content.PILOT_STEPS, content.PILOT_IS, content.PILOT_IS_NOT,
   content.PILOT_TERMS, content.PILOT_PROMISES, content.FINAL_CTA, content.PILLARS, content.STAFFING_NOTE, content.LANGUAGES_TEXT,
   SERVICES, INDUSTRIES, PLATFORM_CAPABILITIES, PLATFORM_FLOW, ESCALATION_STEPS, ESCALATION_WHEN, ESCALATION_RECORDED, SUPERVISION_QA,
+  ARTICLES, SECURITY_SECTIONS, SECURITY_CLOSING,
 ])
 
 describe('approved business claims (lib/content/site.ts)', () => {
@@ -141,8 +144,8 @@ describe('shared wiring', () => {
     expect(content.PUBLIC_EMAIL).toBe('founder@globalconversationoperations.com')
   })
 
-  it('navigation exposes existing routes only; Resources stays disabled until it exists', () => {
-    expect(content.getNavItems().map((i) => i.href)).toEqual(['/services', '/industries', '/platform', '/how-it-works', '/about', '/careers', '/contact'])
-    expect(content.NAV_ITEMS.filter((i) => !i.enabled).map((i) => i.href)).toEqual(['/resources'])
+  it('navigation exposes existing routes only (Resources now exists and is enabled)', () => {
+    expect(content.getNavItems().map((i) => i.href)).toEqual(['/services', '/industries', '/platform', '/how-it-works', '/resources', '/about', '/careers', '/contact'])
+    expect(content.NAV_ITEMS.filter((i) => !i.enabled)).toEqual([])
   })
 })

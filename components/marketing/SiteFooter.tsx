@@ -21,7 +21,7 @@ export function SiteFooter() {
               <p className="font-display text-[11px] font-semibold uppercase tracking-[0.12em] text-white/35">Company</p>
               <ul className="mt-3">
                 {getNavItems()
-                  .filter((i) => ['/services', '/industries', '/platform', '/how-it-works', '/about'].includes(i.href))
+                  .filter((i) => ['/services', '/industries', '/platform', '/how-it-works', '/resources', '/about'].includes(i.href))
                   .map((i) => (
                     <li key={i.href}><Link href={i.href} className="flex min-h-11 items-center text-sm text-white/60 transition-colors hover:text-white">{i.label}</Link></li>
                   ))}
@@ -31,6 +31,7 @@ export function SiteFooter() {
               <p className="font-display text-[11px] font-semibold uppercase tracking-[0.12em] text-white/35">Get involved</p>
               <ul className="mt-3">
                 <li><Link href={PILOT_PATH} className="flex min-h-11 items-center text-sm text-white/60 transition-colors hover:text-white">{CTA.pilotShort}</Link></li>
+                <li><Link href="/security" className="flex min-h-11 items-center text-sm text-white/60 transition-colors hover:text-white">Security</Link></li>
                 <li><Link href="/careers" className="flex min-h-11 items-center text-sm text-white/60 transition-colors hover:text-white">Careers</Link></li>
                 <li><Link href="/contact" className="flex min-h-11 items-center text-sm text-white/60 transition-colors hover:text-white">Contact</Link></li>
               </ul>

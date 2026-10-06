@@ -15,14 +15,20 @@ export const SITE_TAGLINE = 'Managed conversation operations for growing busines
 import type { Metadata } from 'next'
 
 /** Shared per-page metadata: title, description, canonical URL, Open Graph. */
-export function pageMetadata(opts: { title: string; description: string; path: string }): Metadata {
+export function pageMetadata(opts: {
+  title: string
+  description: string
+  path: string
+  type?: 'website' | 'article'
+  article?: { publishedTime: string; modifiedTime?: string }
+}): Metadata {
   const url = `${SITE_URL}${opts.path}`
   const title = opts.path === '/' ? `${SITE_NAME} - ${SITE_TAGLINE}` : `${opts.title} | ${SITE_NAME}`
   return {
-    // The homepage uses the root layout's own default title verbatim (no
-    // template applied to a bare `undefined`); every other page passes a
-    // plain string, which the root layout's `%s | GCO` template wraps.
-    title: opts.path === '/' ? undefined : opts.title,
+    // The homepage sets its full title explicitly (a bare `undefined` renders no <title>
+    // at all); every other page passes a plain string, which the root layout's
+    // `%s | GCO` template wraps.
+    title: opts.path === '/' ? { absolute: title } : opts.title,
     description: opts.description,
     alternates: { canonical: url },
     openGraph: {
@@ -30,12 +36,16 @@ export function pageMetadata(opts: { title: string; description: string; path: s
       description: opts.description,
       url,
       siteName: SITE_NAME,
-      type: 'website',
+      type: opts.type ?? 'website',
+      // Page-level openGraph replaces the root file-convention image, so the shared card is referenced explicitly.
+      images: [{ url: `${SITE_URL}/opengraph-image`, width: 1200, height: 630, alt: `${SITE_NAME} - ${SITE_TAGLINE}` }],
+      ...(opts.article ? { publishedTime: opts.article.publishedTime, modifiedTime: opts.article.modifiedTime ?? opts.article.publishedTime } : {}),
     },
     twitter: {
-      card: 'summary',
+      card: 'summary_large_image',
       title,
       description: opts.description,
+      images: [`${SITE_URL}/opengraph-image`],
     },
   }
 }

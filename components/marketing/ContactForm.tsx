@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { trackEvent } from '@/lib/analytics/events'
 
 const inputClass = 'w-full rounded-lg border border-paper-border bg-white px-3.5 py-2.5 text-sm text-graphite transition-colors focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500'
 const labelClass = 'block text-sm font-medium text-graphite'
@@ -17,6 +18,7 @@ export function ContactForm() {
     message: '',
     website: '', // honeypot
   })
+  const started = useRef(false) // analytics: contact_form_started once, on first interaction
   const [status, setStatus] = useState<'idle' | 'submitting' | 'sent' | 'error'>('idle')
   const [error, setError] = useState<string | null>(null)
 
@@ -37,6 +39,7 @@ export function ContactForm() {
       const json = await res.json()
       if (!res.ok || !json.ok) throw new Error(json?.error?.message ?? 'Something went wrong. Please try again.')
       setStatus('sent')
+      trackEvent('contact_form_submitted') // behaviour only: never any form content
     } catch (err) {
       setStatus('error')
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
@@ -52,7 +55,16 @@ export function ContactForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <form
+      onSubmit={handleSubmit}
+      onFocusCapture={() => {
+        if (!started.current) {
+          started.current = true
+          trackEvent('contact_form_started')
+        }
+      }}
+      className="space-y-5"
+    >
       {/* Honeypot field - hidden from real visitors via CSS, not display:none (some bots skip those). */}
       <div className="absolute -left-[9999px]" aria-hidden="true">
         <label htmlFor="website">Website</label>

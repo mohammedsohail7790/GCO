@@ -9,6 +9,10 @@ import { pageMetadata } from '@/lib/config/site'
 import { SERVICES, getService } from '@/lib/content/services'
 import { INDUSTRIES } from '@/lib/content/industries'
 import { LANGUAGES_TEXT, STAFFING_NOTE } from '@/lib/content/site'
+import { articlesForService } from '@/lib/content/resources'
+import { JsonLd } from '@/components/seo/JsonLd'
+import { TrackView } from '@/components/analytics/TrackView'
+import { breadcrumbJsonLd } from '@/lib/seo/jsonld'
 
 export const revalidate = 600
 export const dynamicParams = false
@@ -28,12 +32,15 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
   if (!s) notFound()
   const industries = INDUSTRIES.filter((i) => s.industries.includes(i.slug))
   const related = SERVICES.filter((x) => s.related.includes(x.slug))
+  const guides = articlesForService(s.slug)
   const showStaffing = s.slug === 'multilingual-chat-operations' || s.slug === '24-7-chat-coverage'
 
   return (
     <>
       <a href="#main-content" className="skip-link">Skip to content</a>
       <SiteHeader />
+      <JsonLd data={breadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: 'Services', path: '/services' }, { name: s.name, path: `/services/${s.slug}` }])} />
+      <TrackView event="service_view" slug={s.slug} />
       <main id="main-content">
         <PageHero eyebrow={s.name} title={s.name} lead={s.heroLead} crumbs={[{ href: '/services', label: 'Services' }]} />
 
@@ -87,6 +94,12 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
             <FaqList faqs={s.faqs} />
           </div>
         </SectionBlock>
+
+        {guides.length > 0 && (
+          <SectionBlock eyebrow="Resources" title="Guides related to this service">
+            <LinkCards items={guides.map((g) => ({ href: `/resources/${g.slug}`, title: g.title, body: g.description }))} />
+          </SectionBlock>
+        )}
 
         <section className="bg-paper py-14">
           <Container>

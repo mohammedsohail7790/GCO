@@ -13,6 +13,9 @@ import { FinalCta } from '@/components/marketing/FinalCta'
 import { PilotCtaLink, BookCallLink } from '@/components/marketing/CtaLinks'
 import { Reveal } from '@/components/marketing/Reveal'
 import { pageMetadata } from '@/lib/config/site'
+import { JsonLd } from '@/components/seo/JsonLd'
+import { organizationJsonLd, websiteJsonLd } from '@/lib/seo/jsonld'
+import { publishedArticles } from '@/lib/content/resources'
 import { CAPABILITY_STRIP, DESCRIPTIONS, HERO, PILOT_PROMISES } from '@/lib/content/site'
 
 // Fully static public page: it no longer reads the login session (authenticated
@@ -39,6 +42,7 @@ export default function Home() {
     <>
       <a href="#main-content" className="skip-link">Skip to content</a>
       <SiteHeader />
+      <JsonLd data={[organizationJsonLd(), websiteJsonLd()]} />
       <main id="main-content">
         {/* Hero */}
         <section className="relative overflow-hidden bg-ink text-white">
@@ -174,6 +178,19 @@ export default function Home() {
                 </Link>
               </div>
             </div>
+          </Container>
+        </section>
+
+        {/* Resources teaser: three guides, no card wall */}
+        <section className="bg-paper py-20 sm:py-24">
+          <Container>
+            <SectionHeader eyebrow="Resources" title="Practical guides on running conversation operations." />
+            <div className="mt-10">
+              <LinkCards items={publishedArticles().slice(0, 3).map((a) => ({ href: `/resources/${a.slug}`, title: a.title, body: a.description }))} />
+            </div>
+            <Link href="/resources" className="mt-6 inline-flex min-h-11 items-center text-sm font-semibold text-accent-600 transition-colors hover:text-accent-700">
+              All resources <span aria-hidden="true" className="ml-2">→</span>
+            </Link>
           </Container>
         </section>
 

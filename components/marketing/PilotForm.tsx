@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useId, useRef, useState } from 'react'
+import { trackEvent } from '@/lib/analytics/events'
 import { COVERAGE_OPTIONS, SERVICE_OPTIONS, VOLUME_OPTIONS, CTA, PUBLIC_EMAIL } from '@/lib/content/site'
 
 // Submits to the existing public lead endpoint (/api/v1/public/contact) with
@@ -30,6 +31,7 @@ function validate(v: { email: string; company: string; companyWebsite: string })
 export function PilotForm() {
   const uid = useId()
   const id = (k: string) => `${uid}-${k}`
+  const started = useRef(false) // analytics: fire pilot_form_started once, on first interaction
   const submitting = useRef(false) // blocks double-submits even within one render tick
   const summaryRef = useRef<HTMLDivElement>(null)
   const successRef = useRef<HTMLDivElement>(null)
@@ -67,6 +69,7 @@ export function PilotForm() {
     const found = validate(form)
     setErrors(found)
     if (Object.keys(found).length > 0) {
+      trackEvent('pilot_form_error', { error_type: 'validation' })
       // Move focus to the summary so keyboard/screen-reader users hear the problem.
       setTimeout(() => summaryRef.current?.focus(), 0)
       return
@@ -100,6 +103,7 @@ export function PilotForm() {
       if (res.status === 429) throw new Error('Too many submissions from your connection. Please wait a little and try again.')
       if (!res.ok || !json?.ok) throw new Error('We could not send your request. Please check the details and try again.')
       setStatus('sent')
+      trackEvent('pilot_form_submitted') // behaviour only: never any form content
     } catch (err) {
       // Only our own safe, fixed messages are ever shown - never raw server text.
       const safe =
@@ -107,6 +111,7 @@ export function PilotForm() {
           ? err.message
           : 'Something went wrong sending your request. Please try again, or email us directly.'
       setFormError(safe)
+      trackEvent('pilot_form_error', { error_type: safe.startsWith('Too many') ? 'rate_limited' : 'server' })
       setStatus('idle')
       setTimeout(() => summaryRef.current?.focus(), 0)
     } finally {
@@ -134,7 +139,15 @@ export function PilotForm() {
   const errorList = (Object.entries(errors) as [FieldKey, string | undefined][]).filter(([, m]) => m)
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="relative space-y-5" aria-busy={status === 'submitting'}>
+    <form
+      onSubmit={handleSubmit}
+      onFocusCapture={() => {
+        if (!started.current) {
+          started.current = true
+          trackEvent('pilot_form_started')
+        }
+      }}
+      noValidate className="relative space-y-5" aria-busy={status === 'submitting'}>
       {/* Honeypot: off-screen (not display:none, which some bots skip), hidden from assistive tech, not autofillable. */}
       <div className="absolute -left-[9999px]" aria-hidden="true">
         <label htmlFor={id('trap')}>Leave this field empty</label>

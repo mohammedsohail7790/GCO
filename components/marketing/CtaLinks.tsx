@@ -32,18 +32,21 @@ export function PilotCtaLink({
   location,
   className = '',
   onClick,
+  kind = 'pilot',
 }: {
   variant?: Variant
   label?: string
   location: string
   className?: string
   onClick?: () => void
+  /** Analytics kind (data-cta): 'pilot' by default, 'resource' for CTAs inside articles. */
+  kind?: 'pilot' | 'resource'
 }) {
   return (
     <Link
       href={PILOT_PATH}
       onClick={onClick}
-      data-cta="pilot"
+      data-cta={kind}
       data-cta-location={location}
       className={`${base} ${VARIANTS[variant]} ${className}`}
     >
@@ -59,16 +62,18 @@ export function BookCallLink({
   location,
   className = '',
   onClick,
+  kind = 'book-call',
 }: {
   variant?: Variant
   label?: string
   location: string
   className?: string
   onClick?: () => void
+  kind?: 'book-call' | 'resource'
 }) {
   const target = getBookCallTarget()
   const cls = `${base} ${VARIANTS[variant]} ${className}`
-  const data = { 'data-cta': 'book-call', 'data-cta-location': location }
+  const data = { 'data-cta': kind, 'data-cta-location': location }
   if (target.external) {
     return (
       <a href={target.href} target="_blank" rel="noopener noreferrer" onClick={onClick} className={cls} {...data}>
