@@ -60,7 +60,8 @@ Webhook acknowledgement ~6 ms; inbound -> assigned ~210 ms; operator send -> cli
 Unit 301, integration 64, E2E 191, `tsc`/`eslint` clean, build clean (see the final report for the exact run).
 
 ## 16-17. Deployment and rollback
-See the deployment record at the end of this file. No migration. Rollback: `gco-web:pre-phase-f` / `gco-worker:pre-phase-f`.
+Deployed 2026-10-06, commit `521c126` (pushed, no force). **No migration, no backup required** (no schema change). Web `63c232d58042` and worker `4c0dc66d3f10` rebuilt and recreated; Postgres, Redis and realtime untouched (0 restarts). Rollback images: `gco-web:pre-phase-f` = `9020e1890527`, `gco-worker:pre-phase-f` = `324450996f2e` (retag as `latest`, `docker compose up -d --no-deps web worker`).
+Verified read-only: health 200 (both hosts); 27 sitemap URLs + login/accept-invitation 200; every CRM, onboarding, integration (create/list/verify/rotate) and send endpoint 401 anonymously; unknown webhook id 404; WebSocket 101; web and worker logs clean; migration state unchanged (`add_client_onboarding`); production business-data counts identical before/after (Lead 2, Tenant 1, User 5, Integration 1, Message 1, ClientOnboarding 0, Commission 0, SystemEvent 3, WebhookEvent 1); `ALLOW_DEV_ADAPTERS` unset in the env file, compose file and both running containers; deployed bundle contains the explicit `productionCapable` gate; the demo `dev-mock` integration is unchanged. Nothing was created in production.
 
 ## 18. Known limitations
 No real client or provider validated; one adapter only (no multi-provider); at-least-once outbound delivery; the onboarding console has no integration buttons yet (verification is an API call); a permanently failed message needs manual follow-up (no requeue UI); inbound dedup for batch payloads is by body hash (message-level idempotency covers re-grouped retries); an unanswered conversation is re-assigned every SLA interval without a cap (see section 20).
