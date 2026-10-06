@@ -183,7 +183,7 @@ describe('client onboarding', () => {
 
       const { items, ready } = await computeChecklist(ob.id)
       expect(ready).toBe(false)
-      expect(items.filter((i) => !i.done).map((i) => i.key)).toEqual(['integration_configured', 'webhook_secret_issued'])
+      expect(items.filter((i) => !i.done).map((i) => i.key)).toEqual(['integration_configured', 'integration_verified', 'webhook_secret_issued'])
       await expect(goLive(ob.id, admin)).rejects.toMatchObject({ status: 409, code: 'CHECKLIST_INCOMPLETE' })
       expect((await db.clientOnboarding.findUniqueOrThrow({ where: { id: ob.id } })).status).toBe('SETUP')
       expect((await db.integration.findUniqueOrThrow({ where: { id: integ.id } })).status).toBe('DISABLED') // never activated
@@ -248,7 +248,7 @@ describe('client onboarding', () => {
       const { lead, tenant } = await setup('clientview')
       await provisionOnboarding(lead.id)
       const v = await clientView(tenant.id)
-      expect(v!.steps.map((s) => s.key)).toEqual(['tenant_created', 'invitation_accepted', 'integration_configured', 'languages_confirmed', 'coverage_confirmed'])
+      expect(v!.steps.map((s) => s.key)).toEqual(['tenant_created', 'invitation_accepted', 'integration_configured', 'integration_verified', 'languages_confirmed', 'coverage_confirmed'])
       const json = JSON.stringify(v)
       for (const forbidden of ['webhook', 'operator', 'supervisor', 'email', 'leadId', 'lastError', 'commission', 'test.gco']) expect(json).not.toContain(forbidden)
       expect(await clientView('does-not-exist')).toBeNull()

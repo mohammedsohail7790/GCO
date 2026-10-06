@@ -1,6 +1,8 @@
 import { NextRequest } from 'next/server'
 import crypto from 'crypto'
 import { db } from '@/lib/db/client'
+import { recordVerification } from '@/lib/integrations/verification'
+import { writeAuditLog } from '@/lib/audit/log'
 import { getAdapter } from '@/lib/integrations/registry'
 import { enqueueMessageIngest } from '@/lib/queue/jobs'
 import { ok, fail, handleRouteError } from '@/lib/api/response'
@@ -26,7 +28,29 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ int
     }
 
     const integration = await db.integration.findUnique({ where: { id: integrationId } })
-    if (!integration || integration.status !== 'ACTIVE') {
+    if (!integration) return fail('Unknown or inactive integration', 404)
+
+    // A STAGED (DISABLED) integration accepts exactly one thing: a correctly signed connectivity ping, which proves
+    // the client can reach GCO before go-live. Nothing is persisted except the verification timestamp; any other
+    // request to a non-ACTIVE integration is indistinguishable from "unknown".
+    if (integration.status !== 'ACTIVE') {
+      if (integration.status === 'DISABLED' && integration.webhookSecret) {
+        const staged = getAdapter(integration.adapterKey)
+        const body = await req.text()
+        if (staged.isPing && staged.verifyWebhookSignature(body, req.headers, integration.webhookSecret)) {
+          let parsed: unknown = null
+          try {
+            parsed = JSON.parse(body)
+          } catch {
+            /* not a ping */
+          }
+          if (staged.isPing(parsed)) {
+            await recordVerification(integration.id, 'inbound')
+            await writeAuditLog({ tenantId: integration.tenantId, action: 'integration.verified_inbound', resource: 'integration', resourceId: integration.id })
+            return ok({ received: true, ping: true }, 200)
+          }
+        }
+      }
       return fail('Unknown or inactive integration', 404)
     }
 
@@ -67,6 +91,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ int
       payload = JSON.parse(rawBody)
     } catch {
       return fail('Invalid JSON payload', 400)
+    }
+
+    // Signed connectivity test: acknowledged, never persisted or queued.
+    if (adapter.isPing?.(payload)) return ok({ received: true, ping: true }, 200)
+
+    // Structural validation BEFORE persistence (previously a malformed payload was stored and only failed later in the
+    // worker). Messages never echo payload content.
+    try {
+      adapter.validateInbound?.(payload)
+    } catch {
+      return fail('Invalid webhook payload', 400)
     }
 
     // externalEventId dedup key: prefer an explicit event id in the payload,

@@ -4,6 +4,7 @@ import crypto from 'crypto'
 import { requirePermission } from '@/lib/api/guard'
 import { db } from '@/lib/db/client'
 import { ok, fail, handleRouteError } from '@/lib/api/response'
+import { clearVerification } from '@/lib/integrations/verification'
 import { writeAuditLog } from '@/lib/audit/log'
 
 // Rotation is a deliberate, single-value overwrite - the old secret stops
@@ -29,6 +30,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const newSecret = body.secret ?? crypto.randomBytes(32).toString('hex')
 
     await db.integration.update({ where: { id }, data: { webhookSecret: newSecret } })
+    // A new secret invalidates earlier connectivity proof: the integration must be re-verified before go-live.
+    await clearVerification(id)
 
     await writeAuditLog({
       tenantId: existing.tenantId,

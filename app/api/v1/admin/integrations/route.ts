@@ -6,7 +6,7 @@ import { db } from '@/lib/db/client'
 import { ok, created, fail, handleRouteError } from '@/lib/api/response'
 import { writeAuditLog } from '@/lib/audit/log'
 import { isRateLimited, RATE_LIMITS } from '@/lib/api/rateLimit'
-import { listAdapterKeys } from '@/lib/integrations/registry'
+import { listAdapterKeys, getAdapter } from '@/lib/integrations/registry'
 
 // Same permission the existing webhook-secret rotation route already gates
 // on (INTEGRATION_MANAGE: ['CEO_ADMIN']) - no new permission invented, and
@@ -92,6 +92,11 @@ export async function POST(req: NextRequest) {
     if (!knownKeys.includes(body.adapterKey)) {
       return fail(`Unknown adapterKey "${body.adapterKey}" - no adapter registered for it`, 400, 'UNKNOWN_ADAPTER_KEY')
     }
+
+    // Adapter-specific config validation (e.g. gco-webhook: https callbackUrl, no credentials, public host) - fail
+    // closed here rather than at the first outbound send. Config is returned by GET, so it must never hold secrets.
+    const configError = await getAdapter(body.adapterKey).validateConfig?.(body.config as Record<string, unknown>)
+    if (configError) return fail(configError, 400, 'INVALID_CONFIG')
 
     const secret = body.secret ?? crypto.randomBytes(32).toString('hex')
 

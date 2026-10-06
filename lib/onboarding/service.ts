@@ -4,6 +4,7 @@ import { db } from '@/lib/db/client'
 import { writeAuditLog } from '@/lib/audit/log'
 import { normalizeEmail } from '@/lib/crm/leads'
 import { listProductionAdapterKeys } from '@/lib/integrations/registry'
+import { isIntegrationVerified } from '@/lib/integrations/verification'
 import { SITE_URL } from '@/lib/config/site'
 import { extractRequestedProfile } from './profile'
 
@@ -173,7 +174,7 @@ export async function computeChecklist(onboardingId: string) {
   const prodKeys = listProductionAdapterKeys()
   const [user, integrations, withSecret, operators] = await Promise.all([
     ob.clientUserId ? db.user.findUnique({ where: { id: ob.clientUserId }, select: { isActive: true } }) : Promise.resolve(null),
-    db.integration.count({ where: { tenantId: ob.tenantId, adapterKey: { in: prodKeys } } }),
+    db.integration.findMany({ where: { tenantId: ob.tenantId, adapterKey: { in: prodKeys }, status: { in: ['DISABLED', 'ACTIVE'] } }, select: { adapterKey: true, config: true } }),
     db.integration.count({ where: { tenantId: ob.tenantId, adapterKey: { in: prodKeys }, webhookSecret: { not: null } } }), // presence only - the secret is never selected
     db.operator.count({ where: { tenantId: ob.tenantId, user: { isActive: true } } }),
   ])
@@ -181,7 +182,9 @@ export async function computeChecklist(onboardingId: string) {
     { key: 'tenant_created', label: 'Client account created', done: true, source: 'system', clientVisible: true },
     { key: 'client_user_created', label: 'Client user created', done: !!ob.clientUserId, source: 'system', clientVisible: false },
     { key: 'invitation_accepted', label: 'Client has set up their login', done: !!user?.isActive, source: 'system', clientVisible: true },
-    { key: 'integration_configured', label: 'Production integration configured', done: integrations > 0, source: 'system', clientVisible: true },
+    { key: 'integration_configured', label: 'Production integration configured', done: integrations.length > 0, source: 'system', clientVisible: true },
+    // Signed round trip in BOTH directions against the current destination (adapters that cannot be pinged need none).
+    { key: 'integration_verified', label: 'Integration verified (signed test in both directions)', done: integrations.some((i) => isIntegrationVerified(i.adapterKey, i.config)), source: 'system', clientVisible: true },
     { key: 'webhook_secret_issued', label: 'Webhook secret issued', done: withSecret > 0, source: 'system', clientVisible: false },
     { key: 'operator_assigned', label: 'Operator assigned', done: operators > 0, source: 'system', clientVisible: false },
     { key: 'supervisor_confirmed', label: 'Supervisor / team lead confirmed', done: !!confirmations.supervisor, source: 'manual', clientVisible: false },
@@ -293,10 +296,14 @@ export async function goLive(onboardingId: string, actorUserId: string) {
     })
     if (claimed.count === 0) return { activated: 0, already: true }
     // Only this client's staged integrations on a production-capable adapter - never a development mock.
-    const activated = await tx.integration.updateMany({
+    // Only staged integrations that are production-capable AND verified for their current destination. A DEGRADED,
+    // unverified, unknown-adapter or other-tenant integration is never touched.
+    const staged = await tx.integration.findMany({
       where: { tenantId: onboarding.tenantId, status: 'DISABLED', adapterKey: { in: listProductionAdapterKeys() } },
-      data: { status: 'ACTIVE' },
+      select: { id: true, adapterKey: true, config: true },
     })
+    const ids = staged.filter((i) => isIntegrationVerified(i.adapterKey, i.config)).map((i) => i.id)
+    const activated = await tx.integration.updateMany({ where: { id: { in: ids }, tenantId: onboarding.tenantId, status: 'DISABLED' }, data: { status: 'ACTIVE' } })
     return { activated: activated.count, already: false }
   })
   if (!result.already) {

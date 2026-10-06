@@ -7,6 +7,8 @@ import type { IntegrationAdapter, NormalizedInboundMessage, OutboundSendResult }
 // { events: [{ event_id, message_id, user_id, text, lang?, sent_at }] }
 export class DevMockAdapter implements IntegrationAdapter {
   key = 'dev-mock'
+  // Explicitly NOT production-capable: sendOutbound below simulates delivery.
+  productionCapable = false
 
   verifyWebhookSignature(rawBody: string, headers: Headers, secret: string): boolean {
     const signature = headers.get('x-gco-signature')

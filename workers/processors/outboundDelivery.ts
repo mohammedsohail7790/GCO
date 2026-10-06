@@ -17,9 +17,12 @@ export async function outboundDeliveryProcessor(job: Job<{ messageId: string }>)
     {
       externalUserId: conversation.externalUserId,
       content: message.content,
+      // Stable per message: used by adapters as the idempotency key so a retry after an unacknowledged success is
+      // recognisable by the destination.
       externalMessageId: message.externalMessageId ?? message.id,
     },
     integration.config as Record<string, unknown>,
+    { integrationId: integration.id, tenantId: message.tenantId, secret: integration.webhookSecret },
   )
 
   if (result.delivered) {
@@ -28,7 +31,7 @@ export async function outboundDeliveryProcessor(job: Job<{ messageId: string }>)
       data: { status: 'DELIVERED', sentAt: new Date(), deliveredAt: new Date() },
     })
     await db.messageEvent.create({
-      data: { messageId: message.id, type: 'DELIVERY_CONFIRMED', metadata: { externalDeliveryId: result.externalDeliveryId } },
+      data: { messageId: message.id, type: 'DELIVERY_CONFIRMED', metadata: { externalDeliveryId: result.externalDeliveryId, latencyMs: result.latencyMs } },
     })
   } else {
     await db.message.update({
@@ -36,8 +39,27 @@ export async function outboundDeliveryProcessor(job: Job<{ messageId: string }>)
       data: { status: 'FAILED', failedReason: result.error ?? 'unknown' },
     })
     await db.messageEvent.create({
-      data: { messageId: message.id, type: 'DELIVERY_FAILED', metadata: { error: result.error } },
+      data: {
+        messageId: message.id,
+        type: 'DELIVERY_FAILED',
+        metadata: { error: result.error, category: result.failureCategory, retryable: result.retryable !== false, latencyMs: result.latencyMs },
+      },
     })
+    if (result.retryable === false) {
+      // Permanent (e.g. the client's endpoint rejected the request, bad destination, wrong secret): retrying cannot
+      // help. The message stays FAILED - never DELIVERED - and management is told through a SystemEvent (no content).
+      await db.systemEvent
+        .create({
+          data: {
+            category: 'delivery',
+            severity: 'error',
+            message: 'Outbound delivery failed permanently - check the client integration',
+            metadata: { tenantId: message.tenantId, integrationId: integration.id, messageId: message.id, category: result.failureCategory ?? 'unknown' },
+          },
+        })
+        .catch(() => null)
+      return
+    }
     throw new Error(result.error ?? 'Outbound delivery failed') // triggers BullMQ retry/backoff
   }
 
