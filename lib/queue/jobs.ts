@@ -71,3 +71,16 @@ export function enqueueAnalyticsEvent(type: string, payload: Record<string, unkn
 export function enqueueBpoHandoff(leadId: string) {
   return bpoHandoffQueue.add('handoff', { leadId }, { jobId: `bpo-handoff-${leadId}` })
 }
+
+/** Client onboarding (user + checklist) after a successful handoff. Same queue, retry and dead-letter policy as the
+ *  handoff itself. A finished/failed job with the same id is removed first - otherwise BullMQ silently ignores the
+ *  add and a manual retry would do nothing. */
+export async function enqueueClientOnboarding(leadId: string) {
+  const jobId = `client-onboarding-${leadId}`
+  const existing = await bpoHandoffQueue.getJob(jobId)
+  if (existing) {
+    const state = await existing.getState()
+    if (state === 'failed' || state === 'completed') await existing.remove()
+  }
+  return bpoHandoffQueue.add('onboarding', { leadId }, { jobId })
+}

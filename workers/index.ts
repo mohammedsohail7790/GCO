@@ -40,9 +40,17 @@ function makeWorker(name: string, processor: (job: Job) => Promise<void>, concur
         },
       })
       if (name === QUEUE_NAMES.BPO_HANDOFF && (job.data as any)?.leadId) {
-        await db.bpoHandoff
-          .update({ where: { leadId: (job.data as any).leadId }, data: { status: 'DEAD_LETTERED' } })
-          .catch(() => null) // best-effort - the generic dead-letter record above is the authoritative trail either way
+        const leadId = (job.data as any).leadId as string
+        if (job.name === 'onboarding') {
+          // An exhausted onboarding job never touches the (already SUCCEEDED) handoff - only the onboarding record.
+          await db.clientOnboarding
+            .updateMany({ where: { leadId, status: { not: 'LIVE' } }, data: { status: 'FAILED', lastError: 'Onboarding retries exhausted - retry from the onboarding console' } })
+            .catch(() => null)
+        } else {
+          await db.bpoHandoff
+            .updateMany({ where: { leadId, status: { not: 'SUCCEEDED' } }, data: { status: 'DEAD_LETTERED' } })
+            .catch(() => null) // best-effort - the generic dead-letter record above is the authoritative trail either way
+        }
       }
     }
   })

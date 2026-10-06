@@ -57,6 +57,7 @@ model Tenant {
   fulfillmentCosts FulfillmentCost[]
   bpoHandoffs      BpoHandoff[]
   escalations      Escalation[]
+  onboarding       ClientOnboarding?
 
   @@index([status])
 }
@@ -903,4 +904,49 @@ model EscalationEvent {
   escalation Escalation @relation(fields: [escalationId], references: [id])
 
   @@index([escalationId])
+}
+
+// ---------------------------------------------------------------------------
+// Client onboarding (Closed Won -> BPO handoff -> client ready for first conversation)
+// ---------------------------------------------------------------------------
+
+enum OnboardingStatus {
+  PROVISIONING // worker has not finished creating the client user / record
+  FAILED // a provisioning step failed - retryable, never silent (SystemEvent + audit)
+  SETUP // provisioned; required checklist items still outstanding
+  READY_FOR_GO_LIVE // every required item is satisfied; waiting for the explicit go-live action
+  LIVE // CEO executed go-live
+}
+
+// One per client (leadId / tenantId unique) - every provisioning step is idempotent against it.
+// The checklist itself is COMPUTED from real rows (user, integration, operators ...) plus the
+// explicit manual confirmations below; only facts that cannot be derived are stored.
+// Invitation tokens are never stored in plaintext: inviteTokenHash is a SHA-256 of a 256-bit random
+// token that is shown once to the issuing admin, expires, and is single-use (inviteAcceptedAt).
+model ClientOnboarding {
+  id               String           @id @default(cuid())
+  leadId           String           @unique
+  tenantId         String           @unique
+  status           OnboardingStatus @default(PROVISIONING)
+  contactEmail     String
+  contactName      String
+  clientUserId     String?          @unique
+  inviteTokenHash  String?          @unique
+  inviteIssuedAt   DateTime?
+  inviteExpiresAt  DateTime?
+  inviteAcceptedAt DateTime?
+  // Allow-listed, validated pilot answers (services, languages, coverage, volume) - see lib/onboarding/profile.ts
+  requestedProfile Json             @default("{}")
+  // { languages?: {by, at}, coverage?: {by, at}, supervisor?: {by, at} } - explicit human confirmations
+  confirmations    Json             @default("{}")
+  lastError        String?
+  attempts         Int              @default(0)
+  liveAt           DateTime?
+  liveByUserId     String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([status])
 }

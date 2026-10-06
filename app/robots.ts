@@ -10,7 +10,7 @@ export default function robots(): MetadataRoute.Robots {
         // Authenticated app surfaces - nothing here is useful to a crawler,
         // and none of it is reachable without a session anyway (see
         // middleware.ts), but keep crawlers out of it explicitly too.
-        disallow: ['/admin', '/manager', '/operator', '/client-panel', '/hunter', '/home', '/api/'],
+        disallow: ['/admin', '/manager', '/operator', '/client-panel', '/hunter', '/home', '/accept-invitation', '/api/'],
       },
     ],
     sitemap: `${SITE_URL}/sitemap.xml`,

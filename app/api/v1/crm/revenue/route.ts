@@ -3,8 +3,9 @@ import { z } from 'zod'
 import { getSession } from '@/lib/auth/session'
 import { assertCan } from '@/lib/auth/rbac'
 import { db } from '@/lib/db/client'
-import { created, handleRouteError } from '@/lib/api/response'
+import { created, fail, handleRouteError } from '@/lib/api/response'
 import { writeAuditLog } from '@/lib/audit/log'
+import { paymentAmountSchema, currencySchema } from '@/lib/crm/money'
 
 // Manual revenue entry for MVP - no automated billing system exists yet to
 // pull from (see docs/crm.md "Revenue & Net Margin"). CEO/Manager records what
@@ -13,7 +14,8 @@ import { writeAuditLog } from '@/lib/audit/log'
 const Schema = z.object({
   tenantId: z.string(),
   leadId: z.string().optional(),
-  amountEurCents: z.number().int().min(0),
+  amountEurCents: paymentAmountSchema,
+  currency: currencySchema,
   periodStart: z.string().datetime(),
   periodEnd: z.string().datetime(),
 })
@@ -23,6 +25,8 @@ export async function POST(req: NextRequest) {
     const session = await getSession(req)
     assertCan(session.role, 'REVENUE_RECORD')
     const body = Schema.parse(await req.json())
+    if (new Date(body.periodEnd) <= new Date(body.periodStart)) return fail('periodEnd must be after periodStart', 400)
+    if (!(await db.tenant.findUnique({ where: { id: body.tenantId }, select: { id: true } }))) return fail('Tenant not found', 404)
 
     const record = await db.revenueRecord.create({
       data: {

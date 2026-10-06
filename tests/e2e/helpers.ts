@@ -209,7 +209,8 @@ export async function cleanupLead(leadId: string) {
   if (handoff?.tenantId) {
     await db.revenueRecord.deleteMany({ where: { tenantId: handoff.tenantId } })
     await db.fulfillmentCost.deleteMany({ where: { tenantId: handoff.tenantId } })
-    await db.tenant.delete({ where: { id: handoff.tenantId } }).catch(() => null)
+    // Full tenant teardown (onboarding row, client user, integrations, operators, audit rows ...).
+    await cleanupTenant(handoff.tenantId).catch(() => null)
   }
 }
 
@@ -240,6 +241,7 @@ export async function cleanupTenant(tenantId: string) {
   await db.ticket.deleteMany({ where: { tenantId } })
   await db.operatorService.deleteMany({ where: { tenantId } })
   await db.operator.deleteMany({ where: { tenantId } })
+  await db.clientOnboarding.deleteMany({ where: { tenantId } })
   await db.session.deleteMany({ where: { user: { tenantId } } })
   await db.user.deleteMany({ where: { tenantId } })
   await db.auditLog.deleteMany({ where: { tenantId } })

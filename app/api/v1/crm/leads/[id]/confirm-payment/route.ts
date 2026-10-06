@@ -5,13 +5,16 @@ import { assertCan } from '@/lib/auth/rbac'
 import { created, fail, handleRouteError } from '@/lib/api/response'
 import { isRateLimited, RATE_LIMITS } from '@/lib/api/rateLimit'
 import { confirmFirstPayment, PaymentConfirmationError } from '@/lib/crm/approvals'
+import { paymentAmountSchema, currencySchema } from '@/lib/crm/money'
 
 // Confirmed business rule: Closed Won alone never makes a commission
 // payable - only this explicit confirmation that the client's first-month
 // payment was actually received does. Same authority as recording revenue
 // (REVENUE_RECORD: MANAGER, CEO_ADMIN) - this is that same class of action.
+// EUR only, integer cents, bounded (see lib/crm/money.ts). `currency` may be omitted (= EUR); any other value is rejected.
 const Schema = z.object({
-  amountEurCents: z.number().int().positive(),
+  amountEurCents: paymentAmountSchema,
+  currency: currencySchema,
 })
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

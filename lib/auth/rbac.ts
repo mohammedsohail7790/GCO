@@ -62,6 +62,14 @@ export const PERMISSIONS = {
 
   // Sales CRM - BPO handoff recovery
   BPO_HANDOFF_MANAGE: ['CEO_ADMIN', 'ASSISTANT'],
+  // Client onboarding console (provisioning status, invitation links, confirmations). Manager is deliberately
+  // NOT included: onboarding exposes client contact data and issues login links.
+  ONBOARDING_VIEW: ['CEO_ADMIN', 'ASSISTANT'],
+  ONBOARDING_MANAGE: ['CEO_ADMIN', 'ASSISTANT'],
+  // Go-live activates the client's integrations - CEO only.
+  ONBOARDING_GO_LIVE: ['CEO_ADMIN'],
+  // A client's own (client-safe) onboarding progress.
+  ONBOARDING_VIEW_OWN: ['CLIENT'],
 
   // Public website - careers applications
   CAREER_VIEW: ['CEO_ADMIN', 'MANAGER'],
