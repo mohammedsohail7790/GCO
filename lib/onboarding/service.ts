@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs'
 import { db } from '@/lib/db/client'
 import { writeAuditLog } from '@/lib/audit/log'
 import { normalizeEmail } from '@/lib/crm/leads'
-import { listProductionAdapterKeys, supportsVerification } from '@/lib/integrations/registry'
+import { getAdapter, listProductionAdapterKeys, supportsVerification } from '@/lib/integrations/registry'
 import { isIntegrationVerified, readVerification } from '@/lib/integrations/verification'
 import { validateCallbackUrl } from '@/lib/integrations/safeHttp'
 import { SITE_URL } from '@/lib/config/site'
@@ -62,6 +62,43 @@ export interface ChecklistItem {
 // Provisioning (worker)
 // ---------------------------------------------------------------------------
 
+/** Idempotent: guarantees the onboarding has its (inactive) CLIENT user in the right tenant. Never adopts someone else's account. */
+async function ensureClientUser(onboarding: { id: string; tenantId: string; clientUserId: string | null }, email: string, displayName: string) {
+  const tenantId = onboarding.tenantId
+  if (!onboarding.clientUserId) {
+    const existing = await db.user.findUnique({ where: { email } })
+    if (existing && (existing.role !== 'CLIENT' || existing.tenantId !== tenantId)) {
+      // Never adopt (or reveal anything about) an account that belongs to someone else.
+      throw new OnboardingError('The client contact email already belongs to another account', 409, 'EMAIL_IN_USE')
+    }
+    let userId = existing?.id
+    let createdNow = false
+    if (!userId) {
+      const unusable = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12)
+      try {
+        const user = await db.user.create({
+          data: { email, passwordHash: unusable, role: 'CLIENT', tenantId, displayName: displayName.slice(0, 120), isActive: false },
+        })
+        userId = user.id
+        createdNow = true
+      } catch (err: any) {
+        if (err?.code !== 'P2002') throw err
+        const raced = await db.user.findUniqueOrThrow({ where: { email } })
+        if (raced.role !== 'CLIENT' || raced.tenantId !== tenantId) throw new OnboardingError('The client contact email already belongs to another account', 409, 'EMAIL_IN_USE')
+        userId = raced.id
+      }
+    }
+    try {
+      await db.clientOnboarding.update({ where: { id: onboarding.id }, data: { clientUserId: userId } })
+    } catch (err: any) {
+      if (err?.code !== 'P2002') throw err // linked by a concurrent job already
+    }
+    if (createdNow) {
+      await writeAuditLog({ tenantId, action: 'onboarding.user_created', resource: 'user', resourceId: userId, metadata: { role: 'CLIENT' } })
+    }
+  }
+}
+
 /** Idempotent. Requires a SUCCEEDED handoff. Safe to run any number of times, concurrently or after partial failure. */
 export async function provisionOnboarding(leadId: string) {
   const handoff = await db.bpoHandoff.findUnique({ where: { leadId } })
@@ -94,41 +131,113 @@ export async function provisionOnboarding(leadId: string) {
   await db.clientOnboarding.update({ where: { id: onboarding.id }, data: { attempts: { increment: 1 } } })
 
   // 2. CLIENT user - inactive, unusable password until the invitation is accepted
-  if (!onboarding.clientUserId) {
-    const existing = await db.user.findUnique({ where: { email } })
-    if (existing && (existing.role !== 'CLIENT' || existing.tenantId !== tenantId)) {
-      // Never adopt (or reveal anything about) an account that belongs to someone else.
-      throw new OnboardingError('The client contact email already belongs to another account', 409, 'EMAIL_IN_USE')
-    }
-    let userId = existing?.id
-    let createdNow = false
-    if (!userId) {
-      const unusable = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12)
-      try {
-        const user = await db.user.create({
-          data: { email, passwordHash: unusable, role: 'CLIENT', tenantId, displayName: lead.contactName.slice(0, 120), isActive: false },
-        })
-        userId = user.id
-        createdNow = true
-      } catch (err: any) {
-        if (err?.code !== 'P2002') throw err
-        const raced = await db.user.findUniqueOrThrow({ where: { email } })
-        if (raced.role !== 'CLIENT' || raced.tenantId !== tenantId) throw new OnboardingError('The client contact email already belongs to another account', 409, 'EMAIL_IN_USE')
-        userId = raced.id
-      }
-    }
-    try {
-      await db.clientOnboarding.update({ where: { id: onboarding.id }, data: { clientUserId: userId } })
-    } catch (err: any) {
-      if (err?.code !== 'P2002') throw err // linked by a concurrent job already
-    }
-    if (createdNow) {
-      await writeAuditLog({ tenantId, action: 'onboarding.user_created', resource: 'user', resourceId: userId, metadata: { role: 'CLIENT' } })
-    }
-  }
+  await ensureClientUser(onboarding, email, lead.contactName)
 
   await db.clientOnboarding.update({ where: { id: onboarding.id }, data: { lastError: null } })
   return reconcileStatus(onboarding.id)
+}
+
+export const MANUAL_LEAD_PREFIX = 'manual-'
+export const isManualOnboarding = (leadId: string) => leadId.startsWith(MANUAL_LEAD_PREFIX)
+
+/**
+ * CEO/Assistant starts onboarding for a client that did NOT arrive through the CRM pipeline (for example a direct
+ * client). Creates the tenant (standard defaults) and the onboarding record in one transaction, then the inactive CLIENT
+ * user. It is an explicit, audited management action; it creates no lead, no commission and no revenue.
+ */
+export async function startManualOnboarding(p: { name: string; slug: string; contactName: string; contactEmail: string }, actorUserId: string) {
+  const email = normalizeEmail(p.contactEmail)
+  if (await db.user.findUnique({ where: { email }, select: { id: true } })) {
+    throw new OnboardingError('The client contact email already belongs to another account', 409, 'EMAIL_IN_USE')
+  }
+  let onboarding
+  try {
+    onboarding = await db.$transaction(async (tx) => {
+      const tenant = await tx.tenant.create({ data: { name: p.name.trim(), slug: p.slug } })
+      return tx.clientOnboarding.create({
+        data: {
+          leadId: `${MANUAL_LEAD_PREFIX}${tenant.id}`,
+          tenantId: tenant.id,
+          contactEmail: email,
+          contactName: p.contactName.trim(),
+          requestedProfile: { services: [], languages: [], coverage: null, volume: null } as any,
+        },
+      })
+    })
+  } catch (err: any) {
+    if (err?.code === 'P2002') throw new OnboardingError('A client with this slug already exists', 409, 'SLUG_IN_USE')
+    throw err
+  }
+  await writeAuditLog({ tenantId: onboarding.tenantId, actorUserId, action: 'onboarding.started', resource: 'client_onboarding', resourceId: onboarding.id, metadata: { manual: true } })
+  try {
+    await ensureClientUser(onboarding, email, p.contactName)
+  } catch (err) {
+    await recordOnboardingFailure(onboarding.leadId, err)
+    throw err
+  }
+  await db.clientOnboarding.update({ where: { id: onboarding.id }, data: { attempts: { increment: 1 }, lastError: null } })
+  return reconcileStatus(onboarding.id)
+}
+
+/** Re-runs whatever is missing. CRM-originated onboardings go through the queue; manual ones are completed inline. */
+export async function retryOnboarding(onboardingId: string): Promise<{ queued: boolean }> {
+  const ob = await db.clientOnboarding.findUnique({ where: { id: onboardingId } })
+  if (!ob) throw new OnboardingError('Onboarding not found', 404)
+  if (isManualOnboarding(ob.leadId)) {
+    try {
+      await ensureClientUser(ob, ob.contactEmail, ob.contactName)
+      await db.clientOnboarding.update({ where: { id: ob.id }, data: { attempts: { increment: 1 }, lastError: null } })
+    } catch (err) {
+      await recordOnboardingFailure(ob.leadId, err)
+      throw err
+    }
+    await reconcileStatus(ob.id)
+    return { queued: false }
+  }
+  return { queued: true }
+}
+
+// Non-secret client facts a GCO employee records during onboarding. Strict allow-list, short plain text, and a guard
+// that refuses anything that looks like a credential: API keys, passwords, tokens and webhook secrets never belong here
+// (the integration secret mechanism is the only place for those).
+export const CLIENT_PROFILE_FIELDS = {
+  channel: 80,
+  website: 200,
+  operatingHours: 200,
+  technicalContact: 200,
+  escalationContact: 200,
+} as const
+export type ClientProfileField = keyof typeof CLIENT_PROFILE_FIELDS
+
+export function looksLikeSecret(v: string): boolean {
+  return (
+    /[A-Za-z0-9+/_=-]{32,}/.test(v) || // one long unbroken token
+    /\b(sk|pk|rk|whsec|xox[abp])[-_][A-Za-z0-9_-]{8,}/i.test(v) || // vendor key prefixes (sk-live-..., whsec_..., xoxb-...)
+    /\bbearer\s+(?=[A-Za-z0-9._~+/-]*\d)[A-Za-z0-9._~+/-]{6,}/i.test(v) ||
+    /(secret|password|passwd|api[ _-]?key|access[ _-]?token|bearer|private[ _-]?key)\s*[:=]/i.test(v) ||
+    /-----BEGIN/.test(v)
+  )
+}
+
+export async function updateClientProfile(onboardingId: string, input: Partial<Record<ClientProfileField, string>>, actorUserId: string) {
+  const ob = await db.clientOnboarding.findUnique({ where: { id: onboardingId } })
+  if (!ob) throw new OnboardingError('Onboarding not found', 404)
+  const clean: Partial<Record<ClientProfileField, string>> = {}
+  for (const [k, raw] of Object.entries(input)) {
+    if (!(k in CLIENT_PROFILE_FIELDS)) throw new OnboardingError(`Unsupported profile field "${k}"`, 400)
+    const max = CLIENT_PROFILE_FIELDS[k as ClientProfileField]
+    const v = String(raw ?? '').trim()
+    if (v.length > max) throw new OnboardingError(`${k} must be at most ${max} characters`, 400)
+    if (v && looksLikeSecret(v)) throw new OnboardingError(`${k} looks like a credential. Never record API keys, passwords, tokens or secrets here - use the integration secret instead.`, 400, 'LOOKS_LIKE_SECRET')
+    if (v) clean[k as ClientProfileField] = v
+  }
+  const current = ((ob.requestedProfile ?? {}) as { clientProfile?: Record<string, string> }).clientProfile ?? {}
+  const merged: Record<string, string> = { ...current }
+  for (const k of Object.keys(CLIENT_PROFILE_FIELDS)) if (k in input) delete merged[k]
+  Object.assign(merged, clean)
+  await db.clientOnboarding.update({ where: { id: ob.id }, data: { requestedProfile: { ...((ob.requestedProfile ?? {}) as object), clientProfile: merged } as any } })
+  await writeAuditLog({ tenantId: ob.tenantId, actorUserId, action: 'onboarding.profile_updated', resource: 'client_onboarding', resourceId: ob.id, metadata: { fields: Object.keys(input) } }) // field names only
+  return merged
 }
 
 /** Worker entry point: provisions, and on failure records it visibly (status, audit, SystemEvent) before re-throwing so BullMQ retries / dead-letters. */
@@ -367,6 +476,26 @@ export async function adminView(onboardingId: string) {
     select: { id: true, name: true, slug: true, status: true, defaultOperatorCapacity: true, defaultResponseSlaSeconds: true, messageCap: true },
   })
   const user = ob.clientUserId ? await db.user.findUnique({ where: { id: ob.clientUserId }, select: { id: true, email: true, isActive: true } }) : null
+  // Safe, non-secret summaries so one screen shows the whole client (secrets are never selected).
+  const [integrationRows, operatorRows] = await Promise.all([
+    db.integration.findMany({ where: { tenantId: ob.tenantId }, orderBy: { createdAt: 'asc' }, select: { id: true, name: true, adapterKey: true, status: true, config: true } }),
+    db.operator.findMany({ where: { tenantId: ob.tenantId }, select: { id: true, status: true, capacity: true, user: { select: { displayName: true, email: true, isActive: true } } } }),
+  ])
+  const integrations = integrationRows.map((i) => {
+    const v = readVerification(i.config)
+    return {
+      id: i.id,
+      name: i.name,
+      adapter: i.adapterKey,
+      status: i.status,
+      productionCapable: getAdapter(i.adapterKey).productionCapable === true,
+      usableForGoLive: listProductionAdapterKeys().includes(i.adapterKey),
+      callbackUrl: (i.config as { callbackUrl?: string } | null)?.callbackUrl ?? null,
+      webhookPath: `/api/v1/webhooks/${i.id}`,
+      verification: { outboundAt: v.outboundAt ?? null, inboundAt: v.inboundAt ?? null },
+      verified: isIntegrationVerified(i.adapterKey, i.config),
+    }
+  })
   return {
     id: ob.id,
     leadId: ob.leadId,
@@ -376,7 +505,11 @@ export async function adminView(onboardingId: string) {
     contact: { name: ob.contactName, email: ob.contactEmail },
     clientUser: user,
     invitation: { issuedAt: ob.inviteIssuedAt, expiresAt: ob.inviteExpiresAt, pending: !!ob.inviteTokenHash && !!ob.inviteExpiresAt && ob.inviteExpiresAt > new Date(), accepted: !!user?.isActive },
+    manual: isManualOnboarding(ob.leadId),
     requestedProfile: ob.requestedProfile,
+    clientProfile: ((ob.requestedProfile ?? {}) as { clientProfile?: Record<string, string> }).clientProfile ?? {},
+    integrations,
+    operators: operatorRows.map((o) => ({ id: o.id, name: o.user.displayName, email: o.user.email, active: o.user.isActive, status: o.status, capacity: o.capacity })),
     confirmations: ob.confirmations,
     checklist: items,
     lastError: ob.lastError,

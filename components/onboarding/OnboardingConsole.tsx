@@ -8,13 +8,28 @@ interface Detail {
   id: string
   status: string
   ready: boolean
-  tenant: { name: string; defaultOperatorCapacity: number; defaultResponseSlaSeconds: number }
+  tenant: { id: string; name: string; defaultOperatorCapacity: number; defaultResponseSlaSeconds: number }
   contact: { name: string; email: string }
   invitation: { pending: boolean; expiresAt: string | null; accepted: boolean }
   requestedProfile: { services?: string[]; languages?: string[]; coverage?: string | null; volume?: string | null }
   checklist: { key: string; label: string; done: boolean; source: 'system' | 'manual'; state: 'pass' | 'fail' | 'blocked'; detail?: string }[]
   lastError: string | null
+  manual: boolean
+  clientProfile: Record<string, string>
+  integrations: {
+    id: string; name: string; adapter: string; status: string; productionCapable: boolean; usableForGoLive: boolean
+    callbackUrl: string | null; webhookPath: string; verification: { outboundAt: string | null; inboundAt: string | null }; verified: boolean
+  }[]
+  operators: { id: string; name: string; email: string; active: boolean; status: string; capacity: number }[]
 }
+
+const PROFILE_FIELDS: { key: 'channel' | 'website' | 'operatingHours' | 'technicalContact' | 'escalationContact'; label: string; placeholder: string }[] = [
+  { key: 'channel', label: 'Channel', placeholder: 'e.g. the client\'s in-app chat' },
+  { key: 'website', label: 'Website', placeholder: 'client.example.com' },
+  { key: 'operatingHours', label: 'Operating hours', placeholder: 'e.g. Mon-Fri 09:00-18:00 CET' },
+  { key: 'technicalContact', label: 'Technical contact', placeholder: 'name, email' },
+  { key: 'escalationContact', label: 'Escalation contact', placeholder: 'name, email' },
+]
 
 const MANUAL: Record<string, 'languages' | 'coverage' | 'supervisor'> = {
   languages_confirmed: 'languages',
@@ -95,6 +110,79 @@ function ClientPanel({ id, onChanged }: { id: string; onChanged: () => void }) {
           {detail.checklist.some((i) => i.state === 'blocked') && ' Items marked Blocked are waiting on the client.'}
         </div>
       )}
+      <section aria-label="Integrations for this client" className="space-y-2 rounded border border-slate-200 p-3">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Integration</h3>
+        {detail.integrations.length === 0 ? (
+          <p className="text-xs text-slate-500">None yet. Create a staged integration in &quot;Client integrations&quot; below, choosing this client.</p>
+        ) : (
+          detail.integrations.map((i) => (
+            <div key={i.id} className="text-xs text-slate-700">
+              <p><span className="font-medium">{i.name}</span> · {i.adapter} · {i.status} · {i.productionCapable ? 'production-capable' : 'development only (cannot go live)'}</p>
+              <p className="break-all text-slate-500">{i.callbackUrl ? `Callback: ${i.callbackUrl}` : 'No callback URL'} · Outbound test: {i.verification.outboundAt ? 'passed' : 'not run'} · Client ping: {i.verification.inboundAt ? 'received' : 'not received'} · {i.verified ? 'verified' : 'not verified'}</p>
+            </div>
+          ))
+        )}
+      </section>
+
+      <section aria-label="Operators for this client" className="space-y-2 rounded border border-slate-200 p-3">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Operators</h3>
+        {detail.operators.length === 0 ? <p className="text-xs text-slate-500">No operator yet.</p> : detail.operators.map((o) => <p key={o.id} className="text-xs text-slate-700">{o.name} · {o.email} · {o.active ? o.status : 'inactive'}</p>)}
+        <form
+          className="grid gap-2 sm:grid-cols-3"
+          onSubmit={async (e) => {
+            e.preventDefault()
+            const f = new FormData(e.currentTarget)
+            setError(null)
+            try {
+              await apiFetch('/admin/users', {
+                method: 'POST',
+                body: JSON.stringify({ role: 'OPERATOR', tenantId: detail.tenant.id, displayName: String(f.get('name')), email: String(f.get('email')), password: String(f.get('password')) }),
+              })
+              ;(e.target as HTMLFormElement).reset()
+              setMsg('Operator created. Share the one-time password securely; the operator signs in and sets themselves AVAILABLE.')
+              load()
+              onChanged()
+            } catch (err) {
+              setError(err instanceof Error ? err.message : 'Could not create the operator (only the CEO can create logins)')
+            }
+          }}
+        >
+          <input name="name" required maxLength={120} placeholder="Operator name" aria-label="Operator name" className="rounded border border-slate-300 px-2 py-1 text-xs" />
+          <input name="email" type="email" required placeholder="Email" aria-label="Operator email" className="rounded border border-slate-300 px-2 py-1 text-xs" />
+          <input name="password" type="password" required minLength={10} autoComplete="new-password" placeholder="One-time password (10+)" aria-label="One-time password" className="rounded border border-slate-300 px-2 py-1 text-xs" />
+          <button className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 sm:col-span-3 sm:justify-self-start">Add operator (CEO)</button>
+        </form>
+      </section>
+
+      <section aria-label="Client profile" className="space-y-2 rounded border border-slate-200 p-3">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Client profile (non-secret)</h3>
+        <p className="text-[11px] text-slate-500">Never enter API keys, passwords, tokens or secrets here - they are refused. Secrets go through the integration secret only.</p>
+        <form
+          key={JSON.stringify(detail.clientProfile)}
+          className="grid gap-2 sm:grid-cols-2"
+          onSubmit={async (e) => {
+            e.preventDefault()
+            const f = new FormData(e.currentTarget)
+            setError(null)
+            try {
+              await apiFetch(`/admin/onboarding/${id}/profile`, { method: 'POST', body: JSON.stringify(Object.fromEntries(PROFILE_FIELDS.map((p) => [p.key, String(f.get(p.key) ?? '')]))) })
+              setMsg('Profile saved')
+              load()
+            } catch (err) {
+              setError(err instanceof Error ? err.message : 'Could not save the profile')
+            }
+          }}
+        >
+          {PROFILE_FIELDS.map((p) => (
+            <label key={p.key} className="text-[11px] font-medium text-slate-600">
+              {p.label}
+              <input name={p.key} defaultValue={detail.clientProfile[p.key] ?? ''} maxLength={200} placeholder={p.placeholder} className="mt-0.5 w-full rounded border border-slate-300 px-2 py-1 text-xs font-normal" />
+            </label>
+          ))}
+          <button className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 sm:col-span-2 sm:justify-self-start">Save profile</button>
+        </form>
+      </section>
+
       <div className="flex flex-wrap gap-2">
         <button onClick={() => act('retry', {}, 'Provisioning re-queued')} className="rounded border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50">Retry provisioning</button>
         {!detail.invitation.accepted && (
@@ -122,6 +210,59 @@ function ClientPanel({ id, onChanged }: { id: string; onChanged: () => void }) {
   )
 }
 
+function slugify(v: string) {
+  return v.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80)
+}
+
+/** For a client that did not come through the CRM pipeline: creates the tenant and the inactive client user (audited, no lead/commission). */
+function StartOnboardingForm({ onStarted }: { onStarted: (id: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  if (!open) {
+    return (
+      <div className="border-b border-slate-100 px-4 py-3">
+        <button onClick={() => setOpen(true)} className="rounded border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50">Start onboarding for a new client</button>
+        <span className="ml-2 text-xs text-slate-500">Clients closed through the CRM appear here automatically.</span>
+      </div>
+    )
+  }
+  return (
+    <form
+      className="grid gap-2 border-b border-slate-100 px-4 py-3 sm:grid-cols-2"
+      onSubmit={async (e) => {
+        e.preventDefault()
+        const f = new FormData(e.currentTarget)
+        const name = String(f.get('name'))
+        setBusy(true)
+        setError(null)
+        try {
+          const r = await apiFetch<{ id: string }>('/admin/onboarding', {
+            method: 'POST',
+            body: JSON.stringify({ name, slug: String(f.get('slug') || slugify(name)), contactName: String(f.get('contactName')), contactEmail: String(f.get('contactEmail')) }),
+          })
+          setOpen(false)
+          onStarted(r.id)
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Could not start onboarding')
+        } finally {
+          setBusy(false)
+        }
+      }}
+    >
+      <input name="name" required maxLength={200} placeholder="Company name" aria-label="Company name" className="rounded border border-slate-300 px-2 py-1.5 text-sm" />
+      <input name="slug" maxLength={80} pattern="[a-z0-9\-]+" placeholder="url-slug (optional, from the name)" aria-label="Slug" className="rounded border border-slate-300 px-2 py-1.5 text-sm" />
+      <input name="contactName" required maxLength={120} placeholder="Client contact name" aria-label="Client contact name" className="rounded border border-slate-300 px-2 py-1.5 text-sm" />
+      <input name="contactEmail" type="email" required placeholder="Client contact email" aria-label="Client contact email" className="rounded border border-slate-300 px-2 py-1.5 text-sm" />
+      {error && <p role="alert" className="text-xs text-red-600 sm:col-span-2">{error}</p>}
+      <div className="flex gap-2 sm:col-span-2">
+        <button disabled={busy} className="rounded bg-slate-900 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50">{busy ? 'Creating…' : 'Create client + login'}</button>
+        <button type="button" onClick={() => setOpen(false)} className="rounded border border-slate-300 px-3 py-1.5 text-xs text-slate-700">Cancel</button>
+      </div>
+    </form>
+  )
+}
+
 /** Client onboarding console (CEO / Assistant). Setup links are shown once and never persisted client-side beyond this view. */
 export function OnboardingConsole() {
   const [rows, setRows] = useState<Row[] | null>(null)
@@ -140,6 +281,7 @@ export function OnboardingConsole() {
         <h2 id="onboarding-heading" className="font-semibold text-slate-900">Client onboarding</h2>
         <p className="mt-0.5 text-xs text-slate-500">Closed Won clients move from handoff to go-live here. Nothing goes live until you press Go live.</p>
       </div>
+      <StartOnboardingForm onStarted={(id) => { loadList(); setSelected(id) }} />
       {rows === null ? (
         <p className="p-4 text-sm text-slate-400">Loading…</p>
       ) : rows.length === 0 ? (

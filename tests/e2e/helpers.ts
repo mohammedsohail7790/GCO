@@ -25,7 +25,10 @@ export function signWebhookBodyWithSecret(body: string, secret: string): string 
 /** A fresh, independent cookie-jar session, logged in as the given user. */
 export async function loginAs(email: string, password = 'DemoPassword123!'): Promise<APIRequestContext> {
   const ctx = await request.newContext({ baseURL: BASE_URL })
-  const res = await ctx.post('/api/v1/auth/login', { data: { email, password } })
+  // Each helper login gets its own rate-limit bucket (the limiter keys on IP+email, and every test here comes from
+  // 127.0.0.1): repeated suite runs against the same demo accounts must not trip the real limiter. The limiter itself
+  // is exercised by its own tests, which post to the login endpoint directly.
+  const res = await ctx.post('/api/v1/auth/login', { data: { email, password }, headers: { 'x-forwarded-for': `e2e-login-${Math.random().toString(36).slice(2)}` } })
   if (!res.ok()) {
     throw new Error(`login failed for ${email}: ${res.status()} ${await res.text()}`)
   }
