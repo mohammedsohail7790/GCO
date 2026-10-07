@@ -5,10 +5,12 @@ import { PrismaClient } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 import { createLead, claimLead, changeStage } from '@/lib/crm/leads'
 import { processWebhookEvent } from '@/lib/messages/ingest'
+import { assertSeedAllowed } from './seedGuard'
 
 const db = new PrismaClient()
 
 async function main() {
+  assertSeedAllowed() // never create the published-password demo accounts in a production-mode process
   console.log('Seeding demo data (DEV ONLY)...')
 
   // Fictional e-commerce/services company used as the standard sales-demo

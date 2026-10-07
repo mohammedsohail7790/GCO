@@ -7,7 +7,7 @@ cp .env.example .env        # fill in AUTH_SECRET at minimum (openssl rand -base
 docker compose up -d postgres redis
 npm install
 npm run prisma:migrate
-npm run seed                 # optional demo data, clearly labeled [DEMO]
+npm run seed                 # optional demo data, clearly labeled [DEMO] - LOCAL/STAGING ONLY: creates accounts with a published password; refuses to run when NODE_ENV=production
 npm run dev                  # web on :3000
 npm run worker:dev            # separate terminal - queue workers
 npx tsx workers/realtime-server.ts   # separate terminal - realtime WS on :3001

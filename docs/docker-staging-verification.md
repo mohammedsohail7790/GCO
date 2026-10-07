@@ -89,7 +89,7 @@ This is the production-safe command (`prisma migrate deploy`, never `prisma migr
 Then, for the smoke test in section G, seed the clearly-labeled demo/test data:
 
 ```bash
-docker compose exec web npx tsx prisma/seed.ts
+docker compose exec -e GCO_ALLOW_DEMO_SEED=yes-this-is-staging-not-production web npx tsx prisma/seed.ts   # STAGING ONLY: the seed refuses to run in a production-mode process without this explicit flag
 ```
 
 This creates `[DEMO]`-prefixed users (`admin@demo.gco`, `manager@demo.gco`, `operator1@demo.gco`, `client@demo.gco`, `hunter1@demo.gco`, all password `DemoPassword123!`) — never real accounts, safe for a disposable staging database only.
