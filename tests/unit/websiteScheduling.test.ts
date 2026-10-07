@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { parseSchedulingUrl, getBookCallTarget } from '@/lib/config/scheduling'
+import { parseSchedulingUrl, getBookCallTarget, GCO_BOOKING_URL } from '@/lib/config/scheduling'
 
 describe('parseSchedulingUrl', () => {
   it.each([
@@ -23,26 +23,22 @@ describe('parseSchedulingUrl', () => {
 
 describe('getBookCallTarget (single place Book a Call is decided)', () => {
   const original = process.env.CALENDLY_SCHEDULING_URL
-  beforeEach(() => vi.resetModules())
   afterEach(() => {
     if (original === undefined) delete process.env.CALENDLY_SCHEDULING_URL
     else process.env.CALENDLY_SCHEDULING_URL = original
   })
 
-  it('falls back to /contact (internal) when no URL is configured', () => {
-    delete process.env.CALENDLY_SCHEDULING_URL
-    expect(getBookCallTarget()).toEqual({ href: '/contact', external: false })
-    process.env.CALENDLY_SCHEDULING_URL = ''
-    expect(getBookCallTarget()).toEqual({ href: '/contact', external: false })
+  it('is exactly the official GCO 30-minute event, external, and itself a valid https Calendly URL', () => {
+    expect(GCO_BOOKING_URL).toBe('https://calendly.com/cristianidiaghe9/30min')
+    expect(getBookCallTarget()).toEqual({ href: 'https://calendly.com/cristianidiaghe9/30min', external: true })
+    expect(parseSchedulingUrl(GCO_BOOKING_URL)).toBe(GCO_BOOKING_URL)
   })
 
-  it('falls back when the configured URL is not a valid Calendly https URL', () => {
-    process.env.CALENDLY_SCHEDULING_URL = 'http://calendly.com/gco'
-    expect(getBookCallTarget()).toEqual({ href: '/contact', external: false })
-  })
-
-  it('uses Calendly (external) when a valid URL is configured', () => {
-    process.env.CALENDLY_SCHEDULING_URL = 'https://calendly.com/gco/intro'
-    expect(getBookCallTarget()).toEqual({ href: 'https://calendly.com/gco/intro', external: true })
+  it('cannot be redirected by environment configuration (the CRM closing-call feature keeps its own env var)', () => {
+    for (const v of [undefined, '', 'https://calendly.com/gco/intro', 'http://calendly.com/x', 'https://evil.example.com/x']) {
+      if (v === undefined) delete process.env.CALENDLY_SCHEDULING_URL
+      else process.env.CALENDLY_SCHEDULING_URL = v
+      expect(getBookCallTarget().href, String(v)).toBe(GCO_BOOKING_URL)
+    }
   })
 })

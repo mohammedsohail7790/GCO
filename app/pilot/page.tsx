@@ -4,6 +4,7 @@ import { Container } from '@/components/marketing/Container'
 import { Eyebrow } from '@/components/marketing/SectionHeader'
 import { PilotForm } from '@/components/marketing/PilotForm'
 import { PilotTimeline } from '@/components/marketing/PilotTimeline'
+import { BookCallTextLink } from '@/components/marketing/CtaLinks'
 import { pageMetadata } from '@/lib/config/site'
 import { CTA, PILOT_IS, PILOT_TERMS, PUBLIC_EMAIL } from '@/lib/content/site'
 
@@ -66,6 +67,9 @@ export default function PilotPage() {
                     <PilotTimeline />
                   </div>
                 </div>
+                <p className="text-sm text-graphite-secondary">
+                  Prefer to talk first? <BookCallTextLink location="pilot-page" /> - a 30-minute conversation about your operation.
+                </p>
                 <p className="text-sm text-graphite-secondary">
                   Prefer email? Write to{' '}
                   <a className="font-medium text-accent-600 underline-offset-2 hover:underline" href={`mailto:${PUBLIC_EMAIL}`}>

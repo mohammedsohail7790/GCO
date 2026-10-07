@@ -1,10 +1,11 @@
-import { getCalendarProvider } from '@/lib/integrations/calendar/provider'
-import { CONTACT_PATH } from '@/lib/content/site'
+// One place that decides where every public "Book a Call" link points.
+//
+// GCO has ONE official booking event. The destination is a constant, not environment configuration: it cannot be
+// pointed somewhere else by a stray env var, and it needs no deploy-time setup. (The sales CRM's own
+// "Book Closing Call" feature is separate and keeps using CALENDLY_SCHEDULING_URL via the calendar provider.)
 
-// One place that decides where every "Book a Call" link points.
-// Configure via the existing CALENDLY_SCHEDULING_URL environment variable
-// (read through the calendar provider). Only a well-formed https Calendly URL is
-// accepted; anything else - including empty - falls back to the contact page.
+/** The official GCO 30-minute booking event. The only booking destination for public GCO CTAs. */
+export const GCO_BOOKING_URL = 'https://calendly.com/cristianidiaghe9/30min'
 
 export interface BookCallTarget {
   href: string
@@ -12,6 +13,7 @@ export interface BookCallTarget {
   external: boolean
 }
 
+/** Accepts only a well-formed https Calendly URL (used to guard the constant above in tests and by any future override). */
 export function parseSchedulingUrl(raw: string | null | undefined): string | null {
   if (!raw) return null
   try {
@@ -25,6 +27,5 @@ export function parseSchedulingUrl(raw: string | null | undefined): string | nul
 }
 
 export function getBookCallTarget(): BookCallTarget {
-  const url = parseSchedulingUrl(getCalendarProvider().getBookingUrl())
-  return url ? { href: url, external: true } : { href: CONTACT_PATH, external: false }
+  return { href: GCO_BOOKING_URL, external: true }
 }

@@ -4,7 +4,7 @@ import { Container } from '@/components/marketing/Container'
 import { Eyebrow } from '@/components/marketing/SectionHeader'
 import { ContactForm } from '@/components/marketing/ContactForm'
 import { pageMetadata } from '@/lib/config/site'
-import { PilotCtaLink } from '@/components/marketing/CtaLinks'
+import { PilotCtaLink, BookCallLink } from '@/components/marketing/CtaLinks'
 import { PUBLIC_EMAIL } from '@/lib/content/site'
 
 export const metadata = pageMetadata({
@@ -45,7 +45,10 @@ export default function ContactPage() {
                   {PUBLIC_EMAIL}
                 </a>
               </p>
-              <PilotCtaLink variant="ghostLight" location="contact" />
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <BookCallLink variant="ghostLight" location="contact" />
+                <PilotCtaLink variant="ghostLight" location="contact" />
+              </div>
             </div>
           </Container>
         </section>

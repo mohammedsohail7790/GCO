@@ -19,8 +19,7 @@ import { publishedArticles } from '@/lib/content/resources'
 import { CAPABILITY_STRIP, DESCRIPTIONS, HERO, PILOT_PROMISES } from '@/lib/content/site'
 
 // Fully static public page: it no longer reads the login session (authenticated
-// users are routed by /home after login). `revalidate` lets the Book-a-Call
-// destination pick up CALENDLY_SCHEDULING_URL at runtime without a rebuild.
+// users are routed by /home after login). The Book-a-Call destination is the constant in lib/config/scheduling.ts.
 export const revalidate = 600
 
 export const metadata = pageMetadata({

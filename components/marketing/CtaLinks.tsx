@@ -56,6 +56,25 @@ export function PilotCtaLink({
   )
 }
 
+/** Inline (text-style) booking link for sentences like "Prefer to talk first? Book a call". Same destination and analytics hooks. */
+export function BookCallTextLink({
+  label = 'Book a call',
+  location,
+  className = 'font-medium text-accent-600 underline-offset-2 hover:underline',
+}: {
+  label?: string
+  location: string
+  className?: string
+}) {
+  const target = getBookCallTarget()
+  return (
+    <a href={target.href} target="_blank" rel="noopener noreferrer" data-cta="book-call" data-cta-location={location} className={className}>
+      {label}
+      <span className="sr-only"> (opens in a new tab)</span>
+    </a>
+  )
+}
+
 export function BookCallLink({
   variant = 'ghostDark',
   label = CTA.bookCall,

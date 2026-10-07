@@ -66,7 +66,7 @@ Avoid more than two weights (regular/semibold) in any one composition. Avoid upp
 
 - **Primary:** solid `ink` (light contexts) or solid `accent-500` (dark contexts), white text, `rounded-lg`, `px-5/6 py-2.5/3`.
 - **Secondary (inline):** text link, `accent-600`, with a trailing arrow (`→`) for "view more" links; no border/background.
-- One consistent primary CTA phrase site-wide: **"Book a Call"** (falls back to `/contact` when Calendly isn't configured - see `lib/integrations/calendar/provider.ts` - never a fabricated link). One consistent secondary CTA phrase: **"See How It Works."** Don't introduce a third competing CTA label.
+- One consistent primary CTA phrase site-wide: **"Book a Call"** (opens the official GCO 30-minute booking event, `https://calendly.com/cristianidiaghe9/30min`, in a new tab). One consistent secondary CTA phrase: **"See How It Works."** Don't introduce a third competing CTA label.
 
 ## Border radius
 

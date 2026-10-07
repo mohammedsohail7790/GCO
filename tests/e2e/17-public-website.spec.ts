@@ -297,3 +297,52 @@ test.describe('Public website - career applications visibility (RBAC)', () => {
     expect(Array.isArray(body)).toBe(true)
   })
 })
+
+// Every rendered "Book a Call" CTA on the public site points at the ONE official GCO booking event, opens
+// safely in a new tab, and the pilot/other CTAs keep their original destinations.
+test.describe('Public website - booking CTAs', () => {
+  const OFFICIAL = 'https://calendly.com/cristianidiaghe9/30min'
+  const WITH_BOOKING = ['/', '/pilot', '/contact', '/services', '/industries', '/platform', '/how-it-works', '/security', '/about', '/resources',
+    '/services/chat-moderation', '/industries/saas', '/resources/human-moderation-vs-automated-moderation']
+  const anchors = (html: string) => [...html.matchAll(/<a\b[^>]*>/g)].map((m) => m[0])
+  const attr = (tag: string, name: string) => tag.match(new RegExp(`${name}="([^"]*)"`))?.[1]
+
+  for (const path of WITH_BOOKING) {
+    test(`${path}: every booking CTA is the official Calendly event, new tab, noopener`, async () => {
+      const anon = await anonymousContext()
+      const html = await (await anon.get(path)).text()
+      const booking = anchors(html).filter((t) => attr(t, 'data-cta') === 'book-call')
+      expect(booking.length, 'at least one booking CTA (the footer has one on every page)').toBeGreaterThan(0)
+      for (const tag of booking) {
+        expect(attr(tag, 'href'), tag).toBe(OFFICIAL)
+        expect(attr(tag, 'target')).toBe('_blank')
+        expect(attr(tag, 'rel')).toMatch(/noopener/)
+        expect(attr(tag, 'data-cta-location'), 'analytics location is set').toBeTruthy()
+      }
+      // no stale or alternative booking destination anywhere on the page
+      const others = [...html.matchAll(/https?:\/\/[^"'\s<>\\]*calendly\.com[^"'\s<>\\]*/gi)].map((m) => m[0]).filter((u) => u !== OFFICIAL)
+      expect(others).toEqual([])
+      // a booking CTA must not silently fall back to an internal page
+      expect(anchors(html).filter((t) => attr(t, 'data-cta') === 'book-call' && attr(t, 'href') === '/contact')).toEqual([])
+    })
+  }
+
+  test('the home hero and the pilot page expose a booking CTA; pilot CTAs still go to /pilot', async () => {
+    const anon = await anonymousContext()
+    const home = anchors(await (await anon.get('/')).text())
+    expect(home.some((t) => attr(t, 'data-cta') === 'book-call' && attr(t, 'data-cta-location') === 'hero' && attr(t, 'href') === OFFICIAL)).toBe(true)
+    for (const t of home.filter((x) => attr(x, 'data-cta') === 'pilot')) expect(attr(t, 'href'), t).toBe('/pilot')
+    const pilot = anchors(await (await anon.get('/pilot')).text())
+    expect(pilot.some((t) => attr(t, 'data-cta') === 'book-call' && attr(t, 'data-cta-location') === 'pilot-page' && attr(t, 'href') === OFFICIAL)).toBe(true)
+  })
+
+  test('non-booking links keep their behaviour: Contact, Client Login, mailto and the forms are untouched', async () => {
+    const anon = await anonymousContext()
+    const html = await (await anon.get('/contact')).text()
+    expect(html).toContain('href="/login"')
+    expect(html).toContain('href="/pilot"')
+    expect(html).toMatch(/href="mailto:founder@globalconversationoperations\.com"/)
+    expect(html).toContain('href="/contact"') // the Contact nav link itself is not a booking CTA
+    expect(html.toLowerCase()).toContain('tell us about your operation')
+  })
+})

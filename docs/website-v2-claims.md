@@ -25,8 +25,9 @@ studies, voice / call-centre services, autonomous AI ("AI replaces operators").
 
 ## Other single sources of truth
 - `PUBLIC_EMAIL` - the only public contact address (`founder@globalconversationoperations.com`).
-- `lib/config/scheduling.ts` - "Book a Call": a valid https Calendly URL from `CALENDLY_SCHEDULING_URL`,
-  otherwise `/contact`. **No Calendly URL exists yet.**
+- `lib/config/scheduling.ts` - "Book a Call": the constant `GCO_BOOKING_URL` = `https://calendly.com/cristianidiaghe9/30min`
+  (the official GCO 30-minute event). It is a constant, not env configuration; every public booking CTA uses it. The sales CRM's
+  own "Book Closing Call" feature is separate and still reads `CALENDLY_SCHEDULING_URL`.
 - `lib/content/services.ts`, `industries.ts`, `platform.ts`, `escalation.ts`, `platformAssets.ts` - page content.
 - `NAV_ITEMS` - all items enabled (Phase C added `/resources`).
 - `lib/content/resources.ts` (articles) and `lib/content/security.ts` (security controls) - both covered by the forbidden-claims scan in `websiteContentGates.test.ts` and their own suites.

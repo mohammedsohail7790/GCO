@@ -53,3 +53,5 @@ Deployed 2026-10-06, commit `014fe10` (pushed to `origin/main`, no force).
 ## H. Remaining business inputs
 1. Calendly scheduling URL (`CALENDLY_SCHEDULING_URL`).
 2. Legally approved Privacy Policy, Terms and Cookie Policy text.
+
+> **Update (booking wiring):** the "Book a Call -> `/contact` until a Calendly URL exists" behaviour described above is superseded. Public booking CTAs now open the official GCO event `https://calendly.com/cristianidiaghe9/30min` (see `docs/website-booking-calendly.md`). The Calendly URL is no longer a pending business input.

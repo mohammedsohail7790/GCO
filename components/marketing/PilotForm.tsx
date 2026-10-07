@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react'
 import { trackEvent } from '@/lib/analytics/events'
+import { BookCallTextLink } from './CtaLinks'
 import { COVERAGE_OPTIONS, SERVICE_OPTIONS, VOLUME_OPTIONS, CTA, PUBLIC_EMAIL } from '@/lib/content/site'
 
 // Submits to the existing public lead endpoint (/api/v1/public/contact) with
@@ -131,6 +132,9 @@ export function PilotForm() {
         <p className="mt-2">
           We&apos;ll be in touch to set up a short discovery conversation about your workflow, volume and coverage
           before anything starts.
+        </p>
+        <p className="mt-2">
+          Prefer to pick a time yourself? <BookCallTextLink location="pilot-success" className="font-medium underline underline-offset-2" />.
         </p>
       </div>
     )

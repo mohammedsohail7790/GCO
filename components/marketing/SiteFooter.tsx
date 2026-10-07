@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { BookCallTextLink } from '@/components/marketing/CtaLinks'
 import { Container } from './Container'
 import { GCOLockup } from './GCOLogo'
 import { CTA, PUBLIC_EMAIL, PILOT_PATH, getNavItems } from '@/lib/content/site'
@@ -31,6 +32,7 @@ export function SiteFooter() {
               <p className="font-display text-[11px] font-semibold uppercase tracking-[0.12em] text-white/35">Get involved</p>
               <ul className="mt-3">
                 <li><Link href={PILOT_PATH} className="flex min-h-11 items-center text-sm text-white/60 transition-colors hover:text-white">{CTA.pilotShort}</Link></li>
+                <li><BookCallTextLink label="Book a Call" location="footer" className="flex min-h-11 items-center text-sm text-white/60 transition-colors hover:text-white" /></li>
                 <li><Link href="/security" className="flex min-h-11 items-center text-sm text-white/60 transition-colors hover:text-white">Security</Link></li>
                 <li><Link href="/careers" className="flex min-h-11 items-center text-sm text-white/60 transition-colors hover:text-white">Careers</Link></li>
                 <li><Link href="/contact" className="flex min-h-11 items-center text-sm text-white/60 transition-colors hover:text-white">Contact</Link></li>

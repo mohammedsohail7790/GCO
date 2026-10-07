@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
+import { BookCallTextLink } from './CtaLinks'
 import { trackEvent } from '@/lib/analytics/events'
 
 const inputClass = 'w-full rounded-lg border border-paper-border bg-white px-3.5 py-2.5 text-sm text-graphite transition-colors focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500'
@@ -49,7 +50,10 @@ export function ContactForm() {
   if (status === 'sent') {
     return (
       <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-6 text-sm text-emerald-800" role="status">
-        Thanks - we&apos;ve received your message and will be in touch shortly.
+        <p>Thanks - we&apos;ve received your message and will be in touch shortly.</p>
+        <p className="mt-2">
+          Want to talk sooner? <BookCallTextLink location="contact-success" className="font-medium underline underline-offset-2" />.
+        </p>
       </div>
     )
   }
