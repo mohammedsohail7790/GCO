@@ -30,11 +30,11 @@ The only writer of OUTBOUND messages is `operatorSendMessage`, reachable only th
 ## 11. BPO handoff and commission
 Unchanged and re-run in the full regression: Closed Won does not create a commission; commission is 10% of the first month actually collected, after payment, once per lead; payout stays PENDING; month-2+ revenue never creates a commission (E2E 14, 23, 24).
 
-## 12. Test results
-See the deployment record below.
+## 12. Test results (final tree, one clean run)
+Baseline before changes: unit 312, integration 81, E2E 213. After: unit **339**, integration **87**, E2E **223**; `tsc`, `eslint`, `next build` clean. New: unit +27 (credential guard), integration +6 (manual onboarding, profile, safe admin view), E2E +10 (first-client flow). During the run a test-harness issue appeared and was fixed: repeated suite runs exhausted the real login rate limiter for the shared demo accounts, so test logins now use their own rate-limit bucket (the limiter itself is unchanged and has its own tests).
 
 ## 13. Production deployment
-See the deployment record below.
+Commit `46dde10`. **No migration** (profile lives in the existing JSON column). Web `bc1d760751c7` (rollback `gco-web:pre-phase-h` = `388ade0e9020`), worker `1618c8cd03f3` (rollback `gco-worker:pre-phase-h` = `4bb34f648640`); the worker was rebuilt because it imports the refactored onboarding service. Postgres, Redis and realtime untouched (0 restarts). Verified read-only: health 200 (both hosts); 27 sitemap URLs, login, invitation, admin and manager pages 200; all 73 booking CTAs still point at the official Calendly event; every onboarding, profile, retry, go-live, integrations, users, needs-attention, CRM and send endpoint 401 anonymously; unknown webhook 404; WebSocket 101; web/worker logs clean; migration state unchanged; `ALLOW_DEV_ADAPTERS` unset in both containers; production data identical before/after (2 website leads, 1 demo tenant, 1 `dev-mock` demo integration, no handoffs or onboardings); the SLA-capped demo conversation unchanged (0 active assignments, 1 escalation). Nothing was created in production.
 
 ## 14. Real-client result
 **REAL CLIENT VALIDATION: BLOCKED.** Missing, exactly: a first client (or a signed engagement to onboard); the channel/provider they use; if it is not the generic `gco-webhook` contract, that provider's API documentation and sandbox credentials; the client's HTTPS callback URL; a secure channel for the one-time integration secret; a client-side engineer to implement or confirm their side of the contract and a time slot for the smoke test.
