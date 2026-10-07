@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth/session'
+import { assertCan } from '@/lib/auth/rbac'
 import { db } from '@/lib/db/client'
 import { ok, fail, handleRouteError } from '@/lib/api/response'
 import { changeStage, InvalidStageTransitionError } from '@/lib/crm/leads'
@@ -12,6 +13,7 @@ const Schema = z.object({
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getSession(req)
+    assertCan(session.role, 'LEAD_STAGE_CHANGE') // previously missing: any signed-in role (e.g. CLIENT) could move a lead
     const { id } = await params
     const lead = await db.lead.findUnique({ where: { id } })
     if (!lead) return fail('Lead not found', 404)

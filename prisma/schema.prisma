@@ -612,6 +612,12 @@ model HunterProfile {
   user User @relation(fields: [userId], references: [id])
 }
 
+enum QualificationStatus {
+  QUALIFIED
+  NOT_QUALIFIED
+  NEEDS_FOLLOW_UP
+}
+
 enum PipelineStage {
   NEW
   CONTACTED
@@ -625,25 +631,32 @@ enum PipelineStage {
 }
 
 model Lead {
-  id                     String        @id @default(cuid())
+  id                     String               @id @default(cuid())
   companyName            String
   contactName            String
-  email                  String        @unique // hard duplicate block
+  email                  String               @unique // hard duplicate block
   phone                  String?
   website                String?
   domain                 String? // derived from website/email; indexed, NOT unique - soft-warning only
-  vatId                  String?       @unique // hard duplicate block when provided; Postgres allows multiple NULLs
+  vatId                  String?              @unique // hard duplicate block when provided; Postgres allows multiple NULLs
   industry               String?
   country                String?
   source                 String?
-  notes                  String?       @db.Text
+  notes                  String?              @db.Text
   estimatedValueEurCents Int? // deal-size estimate, drives the CEO dashboard's "pipeline value"
+  // Sales qualification (explicit, human-set - there is no scoring): null = not yet assessed.
+  qualification          QualificationStatus?
+  // Discovery-call record: non-secret structured answers (see lib/crm/discovery.ts). Credentials are refused by lib/security/secretGuard.ts.
+  discovery              Json?
+  // The next human action and when it is due. Drives "Follow-ups due". Nothing is sent automatically.
+  nextAction             String?
+  nextActionAt           DateTime?
   ownerId                String? // null = unassigned/released
   ownershipStartedAt     DateTime?
   ownershipExpiresAt     DateTime? // bumped forward on qualifying activity; auto-released by the worker sweep once passed
-  pipelineStage          PipelineStage @default(NEW)
-  createdAt              DateTime      @default(now())
-  updatedAt              DateTime      @updatedAt
+  pipelineStage          PipelineStage        @default(NEW)
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
 
   owner            User?              @relation("LeadOwner", fields: [ownerId], references: [id])
   history          LeadHistoryEntry[]
@@ -656,6 +669,7 @@ model Lead {
   @@index([domain])
   @@index([pipelineStage])
   @@index([ownershipExpiresAt])
+  @@index([nextActionAt])
 }
 
 model LeadHistoryEntry {

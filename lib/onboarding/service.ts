@@ -8,6 +8,7 @@ import { isIntegrationVerified, readVerification } from '@/lib/integrations/veri
 import { validateCallbackUrl } from '@/lib/integrations/safeHttp'
 import { SITE_URL } from '@/lib/config/site'
 import { extractRequestedProfile } from './profile'
+import { looksLikeSecret } from '@/lib/security/secretGuard'
 
 // Closed Won -> BPO handoff (tenant) -> THIS: client user + invitation + checklist + explicit go-live.
 //
@@ -209,15 +210,7 @@ export const CLIENT_PROFILE_FIELDS = {
 } as const
 export type ClientProfileField = keyof typeof CLIENT_PROFILE_FIELDS
 
-export function looksLikeSecret(v: string): boolean {
-  return (
-    /[A-Za-z0-9+/_=-]{32,}/.test(v) || // one long unbroken token
-    /\b(sk|pk|rk|whsec|xox[abp])[-_][A-Za-z0-9_-]{8,}/i.test(v) || // vendor key prefixes (sk-live-..., whsec_..., xoxb-...)
-    /\bbearer\s+(?=[A-Za-z0-9._~+/-]*\d)[A-Za-z0-9._~+/-]{6,}/i.test(v) ||
-    /(secret|password|passwd|api[ _-]?key|access[ _-]?token|bearer|private[ _-]?key)\s*[:=]/i.test(v) ||
-    /-----BEGIN/.test(v)
-  )
-}
+export { looksLikeSecret } from '@/lib/security/secretGuard'
 
 export async function updateClientProfile(onboardingId: string, input: Partial<Record<ClientProfileField, string>>, actorUserId: string) {
   const ob = await db.clientOnboarding.findUnique({ where: { id: onboardingId } })

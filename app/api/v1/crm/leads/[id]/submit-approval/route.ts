@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth/session'
+import { assertNoSecrets } from '@/lib/security/secretGuard'
 import { assertCan } from '@/lib/auth/rbac'
 import { created, fail, handleRouteError } from '@/lib/api/response'
 import { submitForApproval, ApprovalError } from '@/lib/crm/approvals'
@@ -14,6 +15,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     assertCan(session.role, 'APPROVAL_SUBMIT')
     const { id } = await params
     const body = Schema.parse(await req.json())
+    assertNoSecrets({ reason: body.reason }) // no credentials in CRM records
 
     try {
       const approval = await submitForApproval(id, session.sub, body.reason)

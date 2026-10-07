@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { apiFetch } from '@/lib/api/client'
 import { StatCard } from '@/components/ui/StatCard'
 import { StatusPill } from '@/components/ui/StatusPill'
+import { DiscoveryPanel } from '@/components/sales/DiscoveryPanel'
 
 interface Lead {
   id: string
@@ -13,12 +14,22 @@ interface Lead {
   pipelineStage: string
   ownershipExpiresAt: string | null
   estimatedValueEurCents: number | null
+  source?: string | null
+  qualification?: 'QUALIFIED' | 'NOT_QUALIFIED' | 'NEEDS_FOLLOW_UP' | null
+  discovery?: Record<string, Record<string, string>> | null
+  nextAction?: string | null
+  nextActionAt?: string | null
+  daysSinceContact?: number | null
 }
+
+interface FollowUp { leadId: string; companyName: string; stage: string; nextAction: string | null; nextActionAt: string | null; daysSinceContact: number | null; reason: 'next_action_due' | 'lock_expiring' }
+const QUAL_LABEL: Record<string, string> = { QUALIFIED: 'Qualified', NOT_QUALIFIED: 'Not qualified', NEEDS_FOLLOW_UP: 'Needs follow-up' }
 
 interface HunterDashboard {
   totalLeads: number
   byStage: Record<string, number>
   followUpsDue: Lead[]
+  followUps: FollowUp[]
   pendingApprovals: number
   commissions: { id: string; amountEurCents: number; status: string; lead: { companyName: string } }[]
   walletEurCents: { pending: number; approved: number; paid: number }
@@ -42,6 +53,7 @@ export default function HunterPage() {
   const [pool, setPool] = useState<Lead[]>([])
   const [bookingUrl, setBookingUrl] = useState<{ configured: boolean; bookingUrl: string | null } | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [openLead, setOpenLead] = useState<string | null>(null)
   const [showNewLead, setShowNewLead] = useState(false)
   const [form, setForm] = useState({ companyName: '', contactName: '', email: '', website: '', vatId: '', estimatedValueEurCents: '' })
 
@@ -173,6 +185,25 @@ export default function HunterPage() {
         </div>
       )}
 
+      {dashboard && dashboard.followUps.length > 0 && (
+        <div className="mb-6 overflow-hidden rounded-xl border border-amber-200 bg-amber-50/60 shadow-card" aria-labelledby="followups-heading">
+          <div className="border-b border-amber-200 px-4 py-3">
+            <h2 id="followups-heading" className="text-sm font-semibold text-amber-900">Follow-ups due ({dashboard.followUps.length})</h2>
+          </div>
+          <ul className="divide-y divide-amber-100">
+            {dashboard.followUps.map((f) => (
+              <li key={f.leadId} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 text-sm">
+                <span className="font-medium text-slate-900">{f.companyName} <span className="font-normal text-slate-500">· {f.stage.replaceAll('_', ' ').toLowerCase()}</span></span>
+                <span className="text-xs text-slate-600">
+                  {f.reason === 'next_action_due' ? `${f.nextAction ?? 'Next action'} · due ${f.nextActionAt ? new Date(f.nextActionAt).toLocaleDateString() : ''}` : 'ownership lock expiring soon'}
+                  {f.daysSinceContact !== null && ` · ${f.daysSinceContact} d since contact`}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div className="mb-6 rounded-xl border border-slate-200 bg-white p-4 shadow-card">
         <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Book closing call</p>
         {bookingUrl?.configured ? (
@@ -210,16 +241,26 @@ export default function HunterPage() {
         </div>
         <ul className="divide-y divide-slate-100">
           {myLeads.map((l) => (
-            <li key={l.id} className="flex items-center justify-between p-4">
+            <li key={l.id}>
+            <div className="flex flex-wrap items-center justify-between gap-2 p-4">
               <div>
                 <p className="text-sm font-medium text-slate-900">{l.companyName}</p>
                 <p className="text-xs text-slate-500">
                   {l.contactName} · {l.estimatedValueEurCents ? eur(l.estimatedValueEurCents) : 'no estimate'}
+                  {l.source && ` · source: ${l.source.replaceAll('_', ' ')}`}
+                  {l.daysSinceContact !== null && l.daysSinceContact !== undefined && ` · ${l.daysSinceContact} d since contact`}
                   {l.ownershipExpiresAt && ` · lock expires ${new Date(l.ownershipExpiresAt).toLocaleDateString()}`}
                 </p>
+                <p className="text-xs text-slate-500">
+                  {l.qualification ? QUAL_LABEL[l.qualification] : 'Not assessed'}
+                  {l.nextAction && ` · next: ${l.nextAction}${l.nextActionAt ? ` (${new Date(l.nextActionAt).toLocaleDateString()})` : ''}`}
+                </p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <StatusPill status={l.pipelineStage} />
+                <button onClick={() => setOpenLead(openLead === l.id ? null : l.id)} aria-expanded={openLead === l.id} className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50">
+                  Discovery
+                </button>
                 <button onClick={() => logFollowUp(l.id)} className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50">
                   Log activity
                 </button>
@@ -234,6 +275,8 @@ export default function HunterPage() {
                   </button>
                 )}
               </div>
+            </div>
+            {openLead === l.id && <DiscoveryPanel leadId={l.id} initial={{ qualification: l.qualification ?? null, discovery: l.discovery ?? null, nextAction: l.nextAction ?? null, nextActionAt: l.nextActionAt ?? null }} onSaved={load} />}
             </li>
           ))}
           {myLeads.length === 0 && <li className="p-4 text-sm text-slate-400">No leads yet — claim one from the pool above.</li>}

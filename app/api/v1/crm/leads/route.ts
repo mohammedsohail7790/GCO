@@ -1,11 +1,13 @@
 import { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth/session'
+import { assertNoSecrets } from '@/lib/security/secretGuard'
 import { assertCan } from '@/lib/auth/rbac'
 import { db } from '@/lib/db/client'
 import { created, paginated, fail, handleRouteError } from '@/lib/api/response'
 import { isRateLimited, RATE_LIMITS } from '@/lib/api/rateLimit'
 import { createLead, LeadDuplicateError } from '@/lib/crm/leads'
+import { lastActivityByLead, daysSince } from '@/lib/crm/discovery'
 
 const CreateSchema = z.object({
   companyName: z.string().min(1).max(200),
@@ -54,7 +56,10 @@ export async function GET(req: NextRequest) {
       }),
     ])
 
-    return paginated(leads, { total, page, pageSize })
+    // Last contact per lead from real history rows (one grouped query), so every list can show "days since contact".
+    const last = await lastActivityByLead(leads.map((l) => l.id))
+    const rows = leads.map((l) => ({ ...l, lastActivityAt: last.get(l.id) ?? null, daysSinceContact: daysSince(last.get(l.id) ?? l.createdAt) }))
+    return paginated(rows, { total, page, pageSize })
   } catch (err) {
     return handleRouteError(err)
   }
@@ -72,6 +77,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = CreateSchema.parse(await req.json())
+    assertNoSecrets({ notes: body.notes, industry: body.industry, source: body.source }) // no credentials in CRM records
 
     try {
       const { lead, domainWarning } = await createLead({ ...body, actorUserId: session.sub })

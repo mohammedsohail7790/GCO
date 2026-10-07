@@ -5,6 +5,7 @@ import { apiFetch } from '@/lib/api/client'
 import { EscalationQueue } from '@/components/escalation/EscalationQueue'
 import { StatCard } from '@/components/ui/StatCard'
 import { NeedsAttentionPanel } from '@/components/ops/NeedsAttentionPanel'
+import { SalesConsole } from '@/components/sales/SalesConsole'
 import { StatusPill } from '@/components/ui/StatusPill'
 import { OnboardingConsole } from '@/components/onboarding/OnboardingConsole'
 import { IntegrationConsole } from '@/components/onboarding/IntegrationConsole'
@@ -262,6 +263,8 @@ export default function AdminPage() {
           </div>
         </>
       )}
+
+      <SalesConsole canCreateHunters />
 
       <NeedsAttentionPanel />
 

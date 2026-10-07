@@ -17,3 +17,15 @@ describe('client profile: credentials are refused', () => {
     for (const max of Object.values(CLIENT_PROFILE_FIELDS)) expect(max).toBeLessThanOrEqual(200)
   })
 })
+
+describe('shared guard: URLs are judged by their content, not their length', () => {
+  it.each([
+    'https://www.linkedin.com/in/some-very-long-profile-name-with-many-words-12345',
+    'Profile: https://www.linkedin.com/company/an-extremely-long-company-name-that-goes-on-and-on/about',
+    'Calendly: https://calendly.com/cristianidiaghe9/30min',
+  ])('accepts %s', (v) => expect(looksLikeSecret(v)).toBe(false))
+  it.each([
+    'https://client.example.com/hook?token=abcdef123456', 'see https://x.example.com/a?api_key=AKIAIOSFODNN7EXAMPLE1', 'https://x.example.com/cb?password=hunter22secret',
+    'refresh_token: 1//0gAbCdEfG', 'oauth refresh token=1//0gAbCdEfGhIjKl',
+  ])('refuses %s', (v) => expect(looksLikeSecret(v)).toBe(true))
+})

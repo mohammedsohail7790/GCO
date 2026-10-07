@@ -5,6 +5,7 @@ import { apiFetch } from '@/lib/api/client'
 import { useRealtime } from '@/lib/realtime/useRealtime'
 import { StatCard } from '@/components/ui/StatCard'
 import { NeedsAttentionPanel } from '@/components/ops/NeedsAttentionPanel'
+import { SalesConsole } from '@/components/sales/SalesConsole'
 import { StatusPill } from '@/components/ui/StatusPill'
 import { EscalationQueue } from '@/components/escalation/EscalationQueue'
 
@@ -116,6 +117,8 @@ export default function ManagerPage() {
       )}
 
       <NeedsAttentionPanel />
+
+      <SalesConsole />
 
       <div className="mb-8">
         <EscalationQueue mode="supervisor" />

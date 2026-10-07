@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth/session'
+import { assertNoSecrets } from '@/lib/security/secretGuard'
 import { assertCan } from '@/lib/auth/rbac'
 import { db } from '@/lib/db/client'
 import { ok, fail, handleRouteError } from '@/lib/api/response'
@@ -57,6 +58,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
 
     const body = PatchSchema.parse(await req.json())
+    assertNoSecrets({ notes: body.notes, industry: body.industry }) // no credentials in CRM records
     const updated = await db.lead.update({ where: { id }, data: body })
     await db.leadHistoryEntry.create({ data: { leadId: id, actorUserId: session.sub, action: 'edited', metadata: body } })
 

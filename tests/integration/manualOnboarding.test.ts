@@ -42,10 +42,11 @@ describe('manual client onboarding', () => {
 
   it('refuses a contact email that belongs to any account, and a duplicate slug - creating nothing', async () => {
     await start('dup')
-    const tenants = await db.tenant.count()
+    const mine = () => db.tenant.count({ where: { slug: { startsWith: base } } }) // scoped: other test files create tenants in parallel
+    const tenants = await mine()
     await expect(startManualOnboarding({ name: 'X', slug: `${base}-other`, contactName: 'X', contactEmail: `${base}-DUP@test.gco` }, admin)).rejects.toMatchObject({ status: 409, code: 'EMAIL_IN_USE' })
     await expect(startManualOnboarding({ name: 'X', slug: `${base}-dup`, contactName: 'X', contactEmail: `${base}-fresh@test.gco` }, admin)).rejects.toMatchObject({ status: 409, code: 'SLUG_IN_USE' })
-    expect(await db.tenant.count()).toBe(tenants)
+    expect(await mine()).toBe(tenants)
     expect(await db.user.count({ where: { email: `${base}-fresh@test.gco` } })).toBe(0)
   })
 

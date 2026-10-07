@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { getSession } from '@/lib/auth/session'
 import { assertCan } from '@/lib/auth/rbac'
 import { db } from '@/lib/db/client'
+import { followUpsDue } from '@/lib/crm/discovery'
 import { ok, handleRouteError } from '@/lib/api/response'
 
 export async function GET(req: NextRequest) {
@@ -18,9 +19,10 @@ export async function GET(req: NextRequest) {
     const byStage: Record<string, number> = {}
     for (const l of leads) byStage[l.pipelineStage] = (byStage[l.pipelineStage] ?? 0) + 1
 
-    const followUpsDue = leads.filter(
-      (l) => l.ownershipExpiresAt && l.ownershipExpiresAt.getTime() - Date.now() < 5 * 24 * 60 * 60 * 1000,
-    )
+    // Follow-ups: next action date reached, or the 30-day lock expiring within 5 days (open leads only).
+    const followUps = await followUpsDue({ ownerId: session.sub })
+    const dueIds = new Set(followUps.map((f) => f.leadId))
+    const followUpsDue_ = leads.filter((l) => dueIds.has(l.id))
 
     const walletEurCents = {
       pending: commissions.filter((c) => c.status === 'PENDING').reduce((s, c) => s + c.amountEurCents, 0),
@@ -31,7 +33,8 @@ export async function GET(req: NextRequest) {
     return ok({
       totalLeads: leads.length,
       byStage,
-      followUpsDue,
+      followUpsDue: followUpsDue_,
+      followUps,
       pendingApprovals,
       commissions,
       walletEurCents,

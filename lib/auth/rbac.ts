@@ -47,6 +47,9 @@ export const PERMISSIONS = {
   LEAD_VIEW_OWN: ['HUNTER'],
   LEAD_VIEW_TEAM: ['MANAGER', 'CEO_ADMIN'],
   LEAD_CLAIM: ['HUNTER'],
+  // Moving a lead through the pipeline. A Hunter only on their own lead (enforced in the route); Manager/CEO anywhere.
+  // Closed Won is never reachable here - only the approval path can set it.
+  LEAD_STAGE_CHANGE: ['HUNTER', 'MANAGER', 'CEO_ADMIN'],
   LEAD_RELEASE: ['HUNTER', 'MANAGER', 'CEO_ADMIN'],
 
   // Sales CRM - approvals

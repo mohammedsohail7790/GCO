@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth/session'
+import { assertNoSecrets } from '@/lib/security/secretGuard'
 import { assertCan } from '@/lib/auth/rbac'
 import { ok, fail, handleRouteError } from '@/lib/api/response'
 import { isRateLimited, RATE_LIMITS } from '@/lib/api/rateLimit'
@@ -14,6 +15,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     assertCan(session.role, 'LEAD_VIEW_OWN')
     const { id } = await params
     const body = Schema.parse(await req.json())
+    assertNoSecrets({ note: body.note }) // no credentials in CRM records
 
     if (
       await isRateLimited(`crm-write:${session.sub}`, RATE_LIMITS.AUTHENTICATED_WRITE.max, RATE_LIMITS.AUTHENTICATED_WRITE.windowSeconds)
