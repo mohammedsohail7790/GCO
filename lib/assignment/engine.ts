@@ -3,6 +3,7 @@ import { pickOperator, computeRespondsBy, type OperatorCandidate } from './polic
 import { scheduleAssignmentTimeoutCheck, cancelAssignmentTimeoutCheck } from '@/lib/queue/jobs'
 import { writeAuditLog } from '@/lib/audit/log'
 import { publishRealtimeEvent } from '@/lib/realtime/publish'
+import { consecutiveSlaExpiries, getSlaCap, SLA_CAP_RESUME_EVENT } from './slaCap'
 
 /**
  * Attempts to assign a QUEUED (or REASSIGNING) conversation to an eligible operator.
@@ -110,39 +111,72 @@ export async function completeAssignment(assignmentId: string) {
 
 /**
  * Server-side SLA expiry handler, invoked by the assignment-timeout worker.
- * Idempotent: if the assignment is no longer ACTIVE (already completed or
- * already expired by a prior run), this is a no-op.
+ *
+ * Atomic and idempotent: the ACTIVE -> EXPIRED transition is a conditional update, so two workers (or a retried job)
+ * cannot both expire the same assignment, write duplicate audit rows, or both reassign. A no-op if the assignment is no
+ * longer ACTIVE.
+ *
+ * Capped: after SLA_MAX_CONSECUTIVE_EXPIRIES consecutive expiries (see lib/assignment/slaCap.ts) the conversation is NOT
+ * reassigned again. It moves to the EXPIRED state and a single content-free escalation is recorded (audit + SystemEvent +
+ * realtime). Only the worker that actually performed the expiry reaches that code, so escalation is recorded once.
  */
 export async function expireAssignment(assignmentId: string) {
   const assignment = await db.assignment.findUnique({ where: { id: assignmentId } })
   if (!assignment || assignment.status !== 'ACTIVE') return
 
-  await db.$transaction(async (tx) => {
-    await tx.assignment.update({
-      where: { id: assignmentId },
+  const cap = getSlaCap()
+  const outcome = await db.$transaction(async (tx) => {
+    const claimed = await tx.assignment.updateMany({
+      where: { id: assignmentId, status: 'ACTIVE' },
       data: { status: 'EXPIRED', expiredAt: new Date(), releaseReason: 'sla_timeout' },
     })
-    await tx.assignmentHistoryEntry.create({
-      data: { assignmentId, event: 'expired', metadata: { reason: 'sla_timeout' } },
+    if (claimed.count === 0) return null // another worker expired it first
+    await tx.assignmentHistoryEntry.create({ data: { assignmentId, event: 'expired', metadata: { reason: 'sla_timeout' } } })
+    const { count } = await consecutiveSlaExpiries(tx, assignment.conversationId)
+    const capped = count >= cap
+    await tx.conversation.updateMany({
+      where: { id: assignment.conversationId, currentAssignmentId: assignmentId },
+      data: { currentAssignmentId: null, state: capped ? 'EXPIRED' : 'REASSIGNING' },
     })
-    await tx.conversation.update({
-      where: { id: assignment.conversationId },
-      data: { currentAssignmentId: null, state: 'REASSIGNING' },
-    })
+    return { count, capped }
   })
+  if (!outcome) return
 
   await writeAuditLog({
     tenantId: assignment.tenantId,
     action: 'assignment.expired',
     resource: 'assignment',
     resourceId: assignment.id,
-    metadata: { conversationId: assignment.conversationId, operatorId: assignment.operatorId },
+    metadata: { conversationId: assignment.conversationId, operatorId: assignment.operatorId, consecutiveExpiries: outcome.count },
   })
-
   await publishRealtimeEvent(assignment.tenantId, 'assignment.expired', {
     conversationId: assignment.conversationId,
     assignmentId: assignment.id,
   })
+
+  if (outcome.capped) {
+    // Automatic reassignment stops here. Distinct from an ordinary expiry so monitoring can tell them apart.
+    await writeAuditLog({
+      tenantId: assignment.tenantId,
+      action: 'conversation.sla_escalated',
+      resource: 'conversation',
+      resourceId: assignment.conversationId,
+      metadata: { consecutiveExpiries: outcome.count, cap },
+    })
+    await db.systemEvent
+      .create({
+        data: {
+          category: 'sla',
+          severity: 'warning',
+          message: 'Conversation reached the SLA reassignment cap - manager attention required',
+          metadata: { tenantId: assignment.tenantId, conversationId: assignment.conversationId, consecutiveExpiries: outcome.count, cap },
+        },
+      })
+      .catch(() => null)
+    // Deliberately NOT published on the tenant realtime channel (CLIENT sockets share it): an SLA failure is internal
+    // operations information. Managers see it through the needs-attention list, which polls.
+    return
+  }
 
   // Immediately attempt reassignment; if no operator is free the conversation
   // simply stays in REASSIGNING/queue until one is.
@@ -152,6 +186,14 @@ export async function expireAssignment(assignmentId: string) {
 /** Manual reassignment triggered by a manager/assistant (e.g. operator went offline). */
 export async function manualReassign(conversationId: string, actorUserId: string, reason: string) {
   const conversation = await db.conversation.findUniqueOrThrow({ where: { id: conversationId } })
+  if (conversation.state === 'EXPIRED') {
+    // Resuming an SLA-capped conversation: record the boundary that resets the consecutive-expiry counter, so the
+    // resumed conversation gets a fresh set of attempts instead of being capped again after one more expiry.
+    const last = await db.assignment.findFirst({ where: { conversationId }, orderBy: { assignedAt: 'desc' }, select: { id: true } })
+    if (last) {
+      await db.assignmentHistoryEntry.create({ data: { assignmentId: last.id, event: SLA_CAP_RESUME_EVENT, actorUserId, metadata: { reason } } })
+    }
+  }
   if (conversation.currentAssignmentId) {
     const current = await db.assignment.findUnique({ where: { id: conversation.currentAssignmentId } })
     if (current && current.status === 'ACTIVE') {

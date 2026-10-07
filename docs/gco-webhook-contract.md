@@ -19,8 +19,8 @@ const sig = 'v1=' + require('crypto').createHmac('sha256', SECRET).update(`${ts}
 ```json
 { "events": [ { "event_id": "e-1", "message_id": "m-1", "user_id": "end-user-42", "text": "Hello", "lang": "it", "sent_at": "2026-10-06T10:00:00Z" } ] }
 ```
-- 1-100 events; `event_id`, `message_id`, `user_id` required strings (<= 200 chars); `text` 1-4000 chars; `lang` (<= 16) and `sent_at` (ISO) optional.
-- `202` accepted (queued) - `200` with `deduplicated: true` for an exact repeat - `400` malformed (nothing stored) - `401` bad/missing/stale signature - `404` unknown or not-yet-live integration - `429` rate limited.
+- Body limit **1 MB** (`413` above it, before parsing). 1-100 events; `event_id`, `message_id`, `user_id` required strings (<= 200 chars); `text` 1-4000 chars; `lang` (<= 16) and `sent_at` (ISO) optional.
+- `202` accepted (queued) - `200` with `deduplicated: true` for an exact repeat - `400` malformed (nothing stored) - `413` body too large - `401` bad/missing/stale signature - `404` unknown or not-yet-live integration - `429` rate limited.
 - Retries are safe: the same body is deduplicated, and `message_id` is idempotent per conversation.
 - **Connectivity test:** `{ "type": "ping" }` (signed) returns `200` and creates nothing. It is also accepted while the integration is staged (not yet live), which is how the client proves inbound connectivity before go-live.
 
@@ -37,4 +37,11 @@ Headers: the signing headers above, `Idempotency-Key: <message_id>`, `User-Agent
 - Connectivity test: `{ "type": "ping", "ping_id": "..." }` (signed) - answer 2xx.
 
 ## Go-live prerequisites (GCO side)
-Integration created staged (DISABLED) with the callback URL -> GCO's outbound ping answered 2xx -> your inbound ping accepted -> checklist complete -> CEO go-live activates it. Rotating the secret clears verification (re-verify before relying on it).
+Integration created staged (DISABLED) with the callback URL -> GCO's outbound ping answered 2xx -> your inbound ping accepted -> checklist complete (Pass / Fail / Blocked per item in the admin console) -> CEO go-live activates it. Rotating the secret **or changing the callback URL** clears/invalidates verification (re-verify before relying on it). Go-live re-validates the whole checklist inside its transaction, so a change made while it runs cannot slip through.
+
+## First smoke test (with a real client)
+1. GCO creates the staged integration and delivers the one-time secret over a secure channel; the client configures its callback URL.
+2. GCO runs *Verify*; the client sends a signed `{ "type": "ping" }` to the webhook URL; both show as passed.
+3. After go-live the client sends one real `message`; GCO confirms it appears in the right tenant and an operator is assigned.
+4. The operator replies; the client's endpoint receives `message.reply`, answers 2xx, and GCO shows the reply DELIVERED. The client confirms the end user received it and that a repeated `message_id` is ignored.
+Do not run steps 3-4 against production data until the first client has agreed a test conversation.

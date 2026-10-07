@@ -6,7 +6,8 @@ import { db } from '@/lib/db/client'
 import { ok, created, fail, handleRouteError } from '@/lib/api/response'
 import { writeAuditLog } from '@/lib/audit/log'
 import { isRateLimited, RATE_LIMITS } from '@/lib/api/rateLimit'
-import { listAdapterKeys, getAdapter } from '@/lib/integrations/registry'
+import { listAdapterKeys, getAdapter, isProductionAdapter, supportsVerification } from '@/lib/integrations/registry'
+import { isIntegrationVerified, readVerification } from '@/lib/integrations/verification'
 
 // Same permission the existing webhook-secret rotation route already gates
 // on (INTEGRATION_MANAGE: ['CEO_ADMIN']) - no new permission invented, and
@@ -28,7 +29,9 @@ const CreateSchema = z.object({
   adapterKey: z.string().min(1),
   name: z.string().min(1).max(200),
   config: z.record(z.unknown()).default({}),
-  status: z.enum(['ACTIVE', 'DISABLED', 'DEGRADED']).default('ACTIVE'),
+  // Omitted: a production-capable adapter is staged DISABLED (it goes live only through the onboarding go-live), every
+  // other adapter keeps the historical default ACTIVE.
+  status: z.enum(['ACTIVE', 'DISABLED', 'DEGRADED']).optional(),
   // Same optional-secret pattern as the existing rotation endpoint: supply a
   // secret issued by the client's own platform, or omit it to have GCO
   // generate a strong random one. Either way it is returned exactly once,
@@ -64,7 +67,21 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: 'desc' },
     })
 
-    return ok(integrations)
+    // Capability and verification are COMPUTED from the adapter registry and recorded proofs - never taken from the
+    // request or from stored config. The secret is never selected (SAFE_SELECT).
+    return ok(
+      integrations.map((i) => {
+        const v = readVerification(i.config)
+        return {
+          ...i,
+          productionCapable: getAdapter(i.adapterKey).productionCapable === true,
+          usableForGoLive: isProductionAdapter(i.adapterKey),
+          requiresVerification: supportsVerification(i.adapterKey),
+          verification: { outboundAt: v.outboundAt ?? null, inboundAt: v.inboundAt ?? null },
+          verified: isIntegrationVerified(i.adapterKey, i.config),
+        }
+      }),
+    )
   } catch (err) {
     return handleRouteError(err)
   }
@@ -98,6 +115,7 @@ export async function POST(req: NextRequest) {
     const configError = await getAdapter(body.adapterKey).validateConfig?.(body.config as Record<string, unknown>)
     if (configError) return fail(configError, 400, 'INVALID_CONFIG')
 
+    const initialStatus = body.status ?? (getAdapter(body.adapterKey).productionCapable ? 'DISABLED' : 'ACTIVE')
     const secret = body.secret ?? crypto.randomBytes(32).toString('hex')
 
     const integration = await db.integration.create({
@@ -106,7 +124,7 @@ export async function POST(req: NextRequest) {
         adapterKey: body.adapterKey,
         name: body.name,
         config: body.config as any,
-        status: body.status,
+        status: initialStatus,
         webhookSecret: secret,
       },
       select: SAFE_SELECT,
@@ -119,7 +137,7 @@ export async function POST(req: NextRequest) {
       resource: 'integration',
       resourceId: integration.id,
       // Never the secret value itself - only that one was set, and by whom.
-      metadata: { adapterKey: body.adapterKey, name: body.name, status: body.status },
+      metadata: { adapterKey: body.adapterKey, name: body.name, status: initialStatus },
     })
 
     // The secret is returned exactly once, on this response only - the same

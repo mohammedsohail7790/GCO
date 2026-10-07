@@ -120,3 +120,26 @@ describe('gco-webhook: outbound refuses unsafe or incomplete configuration witho
     expect((await adapter.verifyOutbound!({ callbackUrl: 'https://client.example.com/x' }, { integrationId: 'i', tenantId: 't', secret: null })).ok).toBe(false)
   })
 })
+
+describe('safe HTTP: DNS rebinding and private destinations are refused at CONNECT time', () => {
+  const saved = process.env.ALLOW_DEV_ADAPTERS
+  beforeEach(() => delete process.env.ALLOW_DEV_ADAPTERS)
+  afterEach(() => {
+    vi.restoreAllMocks()
+    if (saved === undefined) delete process.env.ALLOW_DEV_ADAPTERS
+    else process.env.ALLOW_DEV_ADAPTERS = saved
+  })
+  it.each(['127.0.0.1', '10.0.0.5', '169.254.169.254', '192.168.1.10', '::1', 'fd00::1'])('a public-looking hostname that resolves to %s is blocked (no connection attempted)', async (addr) => {
+    const dns = await import('dns')
+    const spy = vi.spyOn(dns.default, 'lookup').mockImplementation(((_h: string, _o: unknown, cb: (e: null, a: unknown) => void) => cb(null, [{ address: addr, family: addr.includes(':') ? 6 : 4 }])) as never)
+    const { postJson } = await import('@/lib/integrations/safeHttp')
+    await expect(postJson('https://rebind.example.com/hook', {}, '{}', { timeoutMs: 2000 })).rejects.toMatchObject({ category: 'dns_blocked' })
+    expect(spy).toHaveBeenCalled()
+  })
+  it('a hostname with one public and one private answer is blocked as a whole', async () => {
+    const dns = await import('dns')
+    vi.spyOn(dns.default, 'lookup').mockImplementation(((_h: string, _o: unknown, cb: (e: null, a: unknown) => void) => cb(null, [{ address: '93.184.216.34', family: 4 }, { address: '10.0.0.1', family: 4 }])) as never)
+    const { postJson } = await import('@/lib/integrations/safeHttp')
+    await expect(postJson('https://mixed.example.com/hook', {}, '{}', { timeoutMs: 2000 })).rejects.toMatchObject({ category: 'dns_blocked' })
+  })
+})

@@ -103,7 +103,7 @@ test.describe('client onboarding: handoff -> invitation -> checklist -> go-live;
     expect(d.status).toBe('SETUP')
     expect(d.ready).toBe(false)
     expect(d.clientUser.isActive).toBe(false)
-    expect(d.checklist.map((i: any) => i.key)).toEqual(['tenant_created', 'client_user_created', 'invitation_accepted', 'integration_configured', 'integration_verified', 'webhook_secret_issued', 'operator_assigned', 'supervisor_confirmed', 'languages_confirmed', 'coverage_confirmed'])
+    expect(d.checklist.map((i: any) => i.key)).toEqual(['tenant_created', 'client_user_created', 'invitation_accepted', 'integration_configured', 'callback_url_valid', 'integration_verified', 'webhook_secret_issued', 'operator_assigned', 'supervisor_confirmed', 'languages_confirmed', 'coverage_confirmed'])
     expect(JSON.stringify(d)).not.toMatch(/passwordHash|inviteTokenHash|webhookSecret|"secret"/)
     expect((await admin.get(api('/admin/onboarding/does-not-exist'))).status()).toBe(404)
   })

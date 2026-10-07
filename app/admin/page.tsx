@@ -4,8 +4,10 @@ import { useEffect, useState } from 'react'
 import { apiFetch } from '@/lib/api/client'
 import { EscalationQueue } from '@/components/escalation/EscalationQueue'
 import { StatCard } from '@/components/ui/StatCard'
+import { NeedsAttentionPanel } from '@/components/ops/NeedsAttentionPanel'
 import { StatusPill } from '@/components/ui/StatusPill'
 import { OnboardingConsole } from '@/components/onboarding/OnboardingConsole'
+import { IntegrationConsole } from '@/components/onboarding/IntegrationConsole'
 
 interface Tenant {
   id: string
@@ -261,7 +263,11 @@ export default function AdminPage() {
         </>
       )}
 
+      <NeedsAttentionPanel />
+
       <OnboardingConsole />
+
+      <IntegrationConsole />
 
       <div className="mb-8 grid gap-4 sm:grid-cols-2">
         <div className="rounded-lg border border-slate-200 bg-white p-4">

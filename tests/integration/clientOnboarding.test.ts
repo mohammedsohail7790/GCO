@@ -183,7 +183,7 @@ describe('client onboarding', () => {
 
       const { items, ready } = await computeChecklist(ob.id)
       expect(ready).toBe(false)
-      expect(items.filter((i) => !i.done).map((i) => i.key)).toEqual(['integration_configured', 'integration_verified', 'webhook_secret_issued'])
+      expect(items.filter((i) => !i.done).map((i) => i.key)).toEqual(['integration_configured', 'callback_url_valid', 'integration_verified', 'webhook_secret_issued'])
       await expect(goLive(ob.id, admin)).rejects.toMatchObject({ status: 409, code: 'CHECKLIST_INCOMPLETE' })
       expect((await db.clientOnboarding.findUniqueOrThrow({ where: { id: ob.id } })).status).toBe('SETUP')
       expect((await db.integration.findUniqueOrThrow({ where: { id: integ.id } })).status).toBe('DISABLED') // never activated

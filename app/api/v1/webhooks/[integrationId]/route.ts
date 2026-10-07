@@ -11,6 +11,9 @@ import { isTenantActive, isMessageCapReached } from '@/lib/tenant/activity'
 import { logger } from '@/lib/observability/logger'
 
 export const dynamic = 'force-dynamic'
+
+/** 1 MB: far above any valid contract payload, far below anything that could strain the process. */
+const MAX_WEBHOOK_BODY_BYTES = 1_000_000
 /**
  * Inbound webhook entry point for a client integration. Per spec section 18:
  * verify -> validate -> persist raw event -> dedup -> enqueue -> return fast.
@@ -68,7 +71,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ int
       return fail('Tenant message volume cap reached', 429)
     }
 
+    // Hard ceiling on the raw body BEFORE it is read or parsed (the contract allows at most 100 events x 4000 characters).
+    const declared = Number(req.headers.get('content-length') ?? '0')
+    if (declared > MAX_WEBHOOK_BODY_BYTES) return fail('Payload too large', 413)
     const rawBody = await req.text()
+    if (Buffer.byteLength(rawBody) > MAX_WEBHOOK_BODY_BYTES) return fail('Payload too large', 413)
     const adapter = getAdapter(integration.adapterKey)
 
     // Business rule (confirmed): every integration has its own webhook

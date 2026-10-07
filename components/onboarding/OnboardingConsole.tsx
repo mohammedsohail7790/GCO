@@ -12,7 +12,7 @@ interface Detail {
   contact: { name: string; email: string }
   invitation: { pending: boolean; expiresAt: string | null; accepted: boolean }
   requestedProfile: { services?: string[]; languages?: string[]; coverage?: string | null; volume?: string | null }
-  checklist: { key: string; label: string; done: boolean; source: 'system' | 'manual' }[]
+  checklist: { key: string; label: string; done: boolean; source: 'system' | 'manual'; state: 'pass' | 'fail' | 'blocked'; detail?: string }[]
   lastError: string | null
 }
 
@@ -68,18 +68,33 @@ function ClientPanel({ id, onChanged }: { id: string; onChanged: () => void }) {
         </p>
       </div>
       {detail.lastError && <p role="alert" className="rounded border border-red-200 bg-red-50 p-2 text-xs text-red-700">Provisioning problem: {detail.lastError}</p>}
-      <ul className="space-y-1.5">
+      <ul className="space-y-2">
         {detail.checklist.map((i) => (
-          <li key={i.key} className="flex flex-wrap items-center gap-2">
-            <span aria-hidden className={i.done ? 'text-emerald-600' : 'text-slate-300'}>{i.done ? '✓' : '○'}</span>
-            <span className={i.done ? 'text-slate-700' : 'text-slate-900'}>{i.label}</span>
-            <span className="sr-only">{i.done ? 'done' : 'not done'}</span>
-            {!i.done && MANUAL[i.key] && (
-              <button onClick={() => act('confirm', { item: MANUAL[i.key] }, 'Confirmed')} className="rounded border border-slate-300 px-2 py-0.5 text-xs text-slate-700 hover:bg-slate-50">Confirm</button>
-            )}
+          <li key={i.key} className="text-sm">
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className={`inline-flex min-w-[3.25rem] justify-center rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                  i.state === 'pass' ? 'bg-emerald-100 text-emerald-800' : i.state === 'blocked' ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-700'
+                }`}
+              >
+                {i.state === 'pass' ? 'Pass' : i.state === 'blocked' ? 'Blocked' : 'Fail'}
+              </span>
+              <span className={i.done ? 'text-slate-700' : 'text-slate-900'}>{i.label}</span>
+              {!i.done && MANUAL[i.key] && (
+                <button onClick={() => act('confirm', { item: MANUAL[i.key] }, 'Confirmed')} className="rounded border border-slate-300 px-2 py-0.5 text-xs text-slate-700 hover:bg-slate-50">Confirm</button>
+              )}
+            </div>
+            {!i.done && i.detail && <p className="ml-[3.9rem] mt-0.5 text-xs text-slate-500">{i.detail}</p>}
           </li>
         ))}
       </ul>
+      {!detail.ready && detail.status !== 'LIVE' && (
+        <div role="note" className="rounded border border-slate-200 bg-slate-50 p-2 text-xs text-slate-700">
+          <strong>Go Live is blocked</strong> by {detail.checklist.filter((i) => !i.done).length} item(s):{' '}
+          {detail.checklist.filter((i) => !i.done).map((i) => i.label).join('; ')}.
+          {detail.checklist.some((i) => i.state === 'blocked') && ' Items marked Blocked are waiting on the client.'}
+        </div>
+      )}
       <div className="flex flex-wrap gap-2">
         <button onClick={() => act('retry', {}, 'Provisioning re-queued')} className="rounded border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50">Retry provisioning</button>
         {!detail.invitation.accepted && (

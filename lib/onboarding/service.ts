@@ -3,8 +3,9 @@ import bcrypt from 'bcryptjs'
 import { db } from '@/lib/db/client'
 import { writeAuditLog } from '@/lib/audit/log'
 import { normalizeEmail } from '@/lib/crm/leads'
-import { listProductionAdapterKeys } from '@/lib/integrations/registry'
-import { isIntegrationVerified } from '@/lib/integrations/verification'
+import { listProductionAdapterKeys, supportsVerification } from '@/lib/integrations/registry'
+import { isIntegrationVerified, readVerification } from '@/lib/integrations/verification'
+import { validateCallbackUrl } from '@/lib/integrations/safeHttp'
 import { SITE_URL } from '@/lib/config/site'
 import { extractRequestedProfile } from './profile'
 
@@ -51,6 +52,10 @@ export interface ChecklistItem {
   source: 'system' | 'manual'
   /** visible in the client-facing status */
   clientVisible: boolean
+  /** pass = done; fail = GCO can fix it; blocked = waiting on someone else (the client). Computed by the backend only. */
+  state: 'pass' | 'fail' | 'blocked'
+  /** Why it is not done / what to do next (staff only - never shown to clients, never contains secrets). */
+  detail?: string
 }
 
 // ---------------------------------------------------------------------------
@@ -166,30 +171,63 @@ export async function recordOnboardingFailure(leadId: string, err: unknown) {
 // Checklist (computed from real data) and status
 // ---------------------------------------------------------------------------
 
-export async function computeChecklist(onboardingId: string) {
-  const ob = await db.clientOnboarding.findUniqueOrThrow({ where: { id: onboardingId } })
+type Reader = Pick<typeof db, 'clientOnboarding' | 'user' | 'integration' | 'operator'>
+
+export async function computeChecklist(onboardingId: string, client: Reader = db) {
+  const ob = await client.clientOnboarding.findUniqueOrThrow({ where: { id: onboardingId } })
   const confirmations = (ob.confirmations ?? {}) as Confirmations
   // Only integrations on a production-capable adapter count (see lib/integrations/registry.ts) - a development
   // mock must never make a client look ready, or be activated, in production.
   const prodKeys = listProductionAdapterKeys()
-  const [user, integrations, withSecret, operators] = await Promise.all([
-    ob.clientUserId ? db.user.findUnique({ where: { id: ob.clientUserId }, select: { isActive: true } }) : Promise.resolve(null),
-    db.integration.findMany({ where: { tenantId: ob.tenantId, adapterKey: { in: prodKeys }, status: { in: ['DISABLED', 'ACTIVE'] } }, select: { adapterKey: true, config: true } }),
-    db.integration.count({ where: { tenantId: ob.tenantId, adapterKey: { in: prodKeys }, webhookSecret: { not: null } } }), // presence only - the secret is never selected
-    db.operator.count({ where: { tenantId: ob.tenantId, user: { isActive: true } } }),
+  const [user, allIntegrations, operators] = await Promise.all([
+    ob.clientUserId ? client.user.findUnique({ where: { id: ob.clientUserId }, select: { isActive: true } }) : Promise.resolve(null),
+    // webhookSecret is only tested for presence, never selected
+    client.integration.findMany({ where: { tenantId: ob.tenantId }, select: { adapterKey: true, status: true, config: true, name: true, webhookSecret: false } }),
+    client.operator.count({ where: { tenantId: ob.tenantId, user: { isActive: true } } }),
   ])
+  const usable = allIntegrations.filter((i) => prodKeys.includes(i.adapterKey) && (i.status === 'DISABLED' || i.status === 'ACTIVE'))
+  const withSecret = await client.integration.count({ where: { tenantId: ob.tenantId, adapterKey: { in: prodKeys }, webhookSecret: { not: null } } })
+  const needsCallback = (key: string) => supportsVerification(key)
+  const callbackOk = (i: { adapterKey: string; config: unknown }) => !needsCallback(i.adapterKey) || validateCallbackUrl((i.config as { callbackUrl?: unknown } | null)?.callbackUrl) === null
+
+  const noIntegrationDetail = (() => {
+    if (allIntegrations.length === 0) return 'No integration exists yet. Create a production-capable integration (for example gco-webhook) staged as DISABLED.'
+    if (!allIntegrations.some((i) => prodKeys.includes(i.adapterKey))) return 'Only development adapters exist (dev-mock). A development adapter simulates delivery and can never go live - create a production-capable integration.'
+    return 'Every production-capable integration is DEGRADED. Fix it or create a new one; DEGRADED integrations are never activated.'
+  })()
+  const verState = (() => {
+    const verifiable = usable.filter((i) => needsCallback(i.adapterKey))
+    if (usable.length === 0) return { state: 'fail' as const, detail: 'Needs a production-capable integration first.' }
+    if (usable.some((i) => isIntegrationVerified(i.adapterKey, i.config))) return { state: 'pass' as const, detail: undefined }
+    const v = readVerification(verifiable[0]?.config)
+    const current = (verifiable[0]?.config as { callbackUrl?: string } | null)?.callbackUrl
+    if ((v.outboundAt || v.inboundAt) && v.callbackUrl !== current) return { state: 'fail' as const, detail: 'The callback URL changed after verification (or the secret was rotated). Verify again in both directions.' }
+    if (!v.outboundAt) return { state: 'fail' as const, detail: 'Run GCO\'s outbound verification (a signed ping to the client\'s callback URL).' }
+    return { state: 'blocked' as const, detail: 'Waiting for the client to send a signed test ping to the integration\'s webhook URL.' }
+  })()
+  const inviteState = (() => {
+    if (user?.isActive) return { state: 'pass' as const, detail: undefined }
+    if (!ob.clientUserId) return { state: 'fail' as const, detail: 'The client user has not been created yet - retry provisioning.' }
+    if (ob.inviteTokenHash && ob.inviteExpiresAt && ob.inviteExpiresAt > new Date()) return { state: 'blocked' as const, detail: 'Waiting for the client to open their setup link and choose a password.' }
+    return { state: 'fail' as const, detail: 'No valid setup link is outstanding - create one and send it to the client contact.' }
+  })()
+  const mk = (key: string, label: string, done: boolean, source: 'system' | 'manual', clientVisible: boolean, detail?: string, blocked = false): ChecklistItem => ({
+    key, label, done, source, clientVisible, state: done ? 'pass' : blocked ? 'blocked' : 'fail', detail: done ? undefined : detail,
+  })
+  const manualDetail = 'Needs confirmation by a CEO / Assistant (confirm it with the client first).'
   const items: ChecklistItem[] = [
-    { key: 'tenant_created', label: 'Client account created', done: true, source: 'system', clientVisible: true },
-    { key: 'client_user_created', label: 'Client user created', done: !!ob.clientUserId, source: 'system', clientVisible: false },
-    { key: 'invitation_accepted', label: 'Client has set up their login', done: !!user?.isActive, source: 'system', clientVisible: true },
-    { key: 'integration_configured', label: 'Production integration configured', done: integrations.length > 0, source: 'system', clientVisible: true },
+    mk('tenant_created', 'Client account created', true, 'system', true),
+    mk('client_user_created', 'Client user created', !!ob.clientUserId, 'system', false, 'Provisioning has not created the client user - use Retry provisioning.'),
+    { ...mk('invitation_accepted', 'Client has set up their login', !!user?.isActive, 'system', true, inviteState.detail), state: inviteState.state },
+    mk('integration_configured', 'Production-capable integration configured', usable.length > 0, 'system', true, noIntegrationDetail),
+    mk('callback_url_valid', 'Callback URL valid and safe', usable.length > 0 && usable.some(callbackOk), 'system', false, usable.length === 0 ? 'Needs a production-capable integration first.' : 'The integration\'s callback URL is missing or unsafe (must be a public https URL).'),
     // Signed round trip in BOTH directions against the current destination (adapters that cannot be pinged need none).
-    { key: 'integration_verified', label: 'Integration verified (signed test in both directions)', done: integrations.some((i) => isIntegrationVerified(i.adapterKey, i.config)), source: 'system', clientVisible: true },
-    { key: 'webhook_secret_issued', label: 'Webhook secret issued', done: withSecret > 0, source: 'system', clientVisible: false },
-    { key: 'operator_assigned', label: 'Operator assigned', done: operators > 0, source: 'system', clientVisible: false },
-    { key: 'supervisor_confirmed', label: 'Supervisor / team lead confirmed', done: !!confirmations.supervisor, source: 'manual', clientVisible: false },
-    { key: 'languages_confirmed', label: 'Languages confirmed', done: !!confirmations.languages, source: 'manual', clientVisible: true },
-    { key: 'coverage_confirmed', label: 'Coverage confirmed', done: !!confirmations.coverage, source: 'manual', clientVisible: true },
+    { ...mk('integration_verified', 'Integration verified (signed test in both directions)', verState.state === 'pass', 'system', true, verState.detail), state: verState.state },
+    mk('webhook_secret_issued', 'Webhook secret issued', withSecret > 0, 'system', false, 'No production-capable integration has a webhook secret.'),
+    mk('operator_assigned', 'Active operator assigned', operators > 0, 'system', false, 'Create an OPERATOR user for this tenant (Admin > users).'),
+    mk('supervisor_confirmed', 'Supervisor / team lead confirmed', !!confirmations.supervisor, 'manual', false, manualDetail),
+    mk('languages_confirmed', 'Languages confirmed', !!confirmations.languages, 'manual', true, manualDetail),
+    mk('coverage_confirmed', 'Coverage confirmed', !!confirmations.coverage, 'manual', true, manualDetail),
   ]
   return { onboarding: ob, items, ready: items.every((i) => i.done) }
 }
@@ -286,8 +324,8 @@ export async function goLive(onboardingId: string, actorUserId: string) {
   const { onboarding, items, ready } = await computeChecklist(onboardingId)
   if (onboarding.status === 'LIVE') return { onboarding, activatedIntegrations: 0, alreadyLive: true }
   if (!ready) {
-    const missing = items.filter((i) => !i.done).map((i) => i.key)
-    throw new OnboardingError(`Go-live checklist incomplete: ${missing.join(', ')}`, 409, 'CHECKLIST_INCOMPLETE')
+    const missing = items.filter((i) => !i.done)
+    throw new OnboardingError(`Go-live checklist incomplete: ${missing.map((i) => i.key).join(', ')}`, 409, 'CHECKLIST_INCOMPLETE')
   }
   const result = await db.$transaction(async (tx) => {
     const claimed = await tx.clientOnboarding.updateMany({
@@ -295,7 +333,12 @@ export async function goLive(onboardingId: string, actorUserId: string) {
       data: { status: 'LIVE', liveAt: new Date(), liveByUserId: actorUserId },
     })
     if (claimed.count === 0) return { activated: 0, already: true }
-    // Only this client's staged integrations on a production-capable adapter - never a development mock.
+    // Re-validate INSIDE the transaction: a change between the first check and this claim (secret rotated, callback URL
+    // edited, operator deactivated, integration degraded) must not let the client go live. Throwing rolls the claim back.
+    const fresh = await computeChecklist(onboardingId, tx as unknown as Reader)
+    if (!fresh.ready) {
+      throw new OnboardingError(`Go-live checklist incomplete: ${fresh.items.filter((i) => !i.done).map((i) => i.key).join(', ')}`, 409, 'CHECKLIST_INCOMPLETE')
+    }
     // Only staged integrations that are production-capable AND verified for their current destination. A DEGRADED,
     // unverified, unknown-adapter or other-tenant integration is never touched.
     const staged = await tx.integration.findMany({

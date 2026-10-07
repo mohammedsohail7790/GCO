@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { apiFetch } from '@/lib/api/client'
 import { useRealtime } from '@/lib/realtime/useRealtime'
 import { StatCard } from '@/components/ui/StatCard'
+import { NeedsAttentionPanel } from '@/components/ops/NeedsAttentionPanel'
 import { StatusPill } from '@/components/ui/StatusPill'
 import { EscalationQueue } from '@/components/escalation/EscalationQueue'
 
@@ -113,6 +114,8 @@ export default function ManagerPage() {
           />
         </div>
       )}
+
+      <NeedsAttentionPanel />
 
       <div className="mb-8">
         <EscalationQueue mode="supervisor" />

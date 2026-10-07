@@ -62,6 +62,7 @@ test.describe('gco-webhook: configure -> verify -> go-live -> first conversation
     B = await seedIsolatedTenant('gw-b')
     admin = await sharedAdminContext()
     await db.integration.deleteMany({ where: { tenantId: A.tenantId } }) // replace the seeded dev-mock with the real adapter
+    await db.operator.updateMany({ where: { tenantId: A.tenantId }, data: { capacity: 20 } }) // several unanswered test conversations stay open
   })
   test.afterAll(async () => {
     await new Promise((r) => sim.close(r))
@@ -93,6 +94,23 @@ test.describe('gco-webhook: configure -> verify -> go-live -> first conversation
     expect(list).not.toContain(secret)
     expect(list).not.toContain('webhookSecret')
     expect((await db.integration.findUniqueOrThrow({ where: { id: integrationId } })).status).toBe('DISABLED')
+
+    // capability and verification are COMPUTED by the server; nothing the caller sends can declare them
+    const row = (await (await admin.get(api(`/admin/integrations?tenantId=${A.tenantId}`))).json()).data.find((x: any) => x.id === integrationId)
+    expect(row).toMatchObject({ productionCapable: true, usableForGoLive: true, requiresVerification: true, verified: false, status: 'DISABLED' })
+    expect(row.verification).toEqual({ outboundAt: null, inboundAt: null })
+    const spoof = await admin.post(api('/admin/integrations'), { data: { ...body, name: 'spoof', productionCapable: true, config: { callbackUrl: simUrl } } })
+    expect(spoof.status()).toBe(201) // unknown field is ignored, not trusted
+    const spoofRow = (await (await admin.get(api(`/admin/integrations?tenantId=${A.tenantId}`))).json()).data.find((x: any) => x.name === 'spoof')
+    expect(spoofRow.productionCapable).toBe(true) // from the registry for gco-webhook, never from the request
+    await db.integration.delete({ where: { id: spoofRow.id } })
+    const adapters = (await (await admin.get(api('/admin/integrations/adapters'))).json()).data
+    expect(adapters.find((a: any) => a.key === 'dev-mock')).toMatchObject({ productionCapable: false })
+    expect(adapters.find((a: any) => a.key === 'gco-webhook')).toMatchObject({ productionCapable: true, supportsVerification: true })
+    for (const [who, ctx] of [['operator', A.operatorCtx], ['manager', A.managerCtx], ['client', A.clientCtx]] as const) {
+      expect((await ctx.get(api('/admin/integrations/adapters'))).status(), who).toBe(403)
+    }
+    expect((await (await anonymousContext()).get(api('/admin/integrations/adapters'))).status()).toBe(401)
   })
 
   test('a staged (DISABLED) integration accepts ONLY a correctly signed ping: nothing else is persisted or acknowledged', async () => {
@@ -144,10 +162,14 @@ test.describe('gco-webhook: configure -> verify -> go-live -> first conversation
 
   test('go-live (CEO) activates exactly the verified integration; the Manager cannot', async () => {
     expect((await A.managerCtx.post(api(`/admin/onboarding/${onboardingId}/go-live`), { data: {} })).status()).toBe(403)
-    const live = await admin.post(api(`/admin/onboarding/${onboardingId}/go-live`), { data: {} })
-    expect(live.status()).toBe(200)
-    expect((await live.json()).data).toMatchObject({ status: 'LIVE', activatedIntegrations: 1 })
+    // six concurrent go-live requests: exactly one performs it, the others are idempotent no-ops
+    const results = await Promise.all(Array.from({ length: 6 }, () => admin.post(api(`/admin/onboarding/${onboardingId}/go-live`), { data: {} })))
+    for (const r of results) expect([200, 409]).toContain(r.status())
+    const bodies = await Promise.all(results.filter((r) => r.status() === 200).map(async (r) => (await r.json()).data))
+    expect(bodies.filter((b) => b.alreadyLive === false)).toHaveLength(1)
+    expect(bodies.find((b) => b.alreadyLive === false)).toMatchObject({ status: 'LIVE', activatedIntegrations: 1 })
     expect((await db.integration.findUniqueOrThrow({ where: { id: integrationId } })).status).toBe('ACTIVE')
+    expect(await db.auditLog.count({ where: { tenantId: A.tenantId, action: 'onboarding.live' } })).toBe(1)
   })
 
   test('first conversation: signed inbound -> authenticated -> persisted -> queued -> assigned to the operator (latency measured locally)', async () => {
@@ -240,6 +262,24 @@ test.describe('gco-webhook: configure -> verify -> go-live -> first conversation
     expect((await B.operatorCtx.post(api(`/admin/integrations/${integrationId}/verify`), { data: {} })).status()).toBe(403)
     expect((await B.clientCtx.get(api('/onboarding/status'))).status()).toBe(200) // own tenant only
     expect(JSON.stringify(await (await B.clientCtx.get(api('/onboarding/status'))).json())).not.toContain('Client A')
+  })
+
+  test('secret rotation (CEO only): the old secret stops working at once, verification is cleared, the new secret works', async () => {
+    const oldSecret = secret
+    for (const [who, ctx] of [['operator', A.operatorCtx], ['manager', A.managerCtx], ['client', A.clientCtx]] as const) {
+      expect((await ctx.patch(api(`/admin/integrations/${integrationId}/webhook-secret`), { data: {} })).status(), who).toBe(403)
+    }
+    const rot = await admin.patch(api(`/admin/integrations/${integrationId}/webhook-secret`), { data: {} })
+    expect(rot.status()).toBe(200)
+    secret = (await rot.json()).data.secret
+    expect(secret).not.toBe(oldSecret)
+    const row = (await (await admin.get(api(`/admin/integrations?tenantId=${A.tenantId}`))).json()).data.find((x: any) => x.id === integrationId)
+    expect(row.verified).toBe(false) // verification cleared by the rotation
+    expect(row.verification).toEqual({ outboundAt: null, inboundAt: null })
+    expect(JSON.stringify(row)).not.toContain(secret)
+    expect((await signedPost(integrationId, inbound('end-user-rot', 'sent with the OLD secret'), { secret: oldSecret })).status()).toBe(401)
+    expect((await signedPost(integrationId, inbound('end-user-rot', 'sent with the NEW secret'))).status()).toBe(202)
+    expect(await db.message.count({ where: { tenantId: A.tenantId, content: 'sent with the OLD secret' } })).toBe(0)
   })
 
   test('provider 5xx: message FAILED (never DELIVERED), retried with the SAME idempotency key, delivered once the client recovers', async () => {

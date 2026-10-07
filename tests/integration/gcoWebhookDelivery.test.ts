@@ -274,7 +274,7 @@ describe('go-live safety for the gco-webhook adapter (production default: dev fl
   it('a dev-mock integration still cannot take a client live in production', async () => {
     const c = await mk('c')
     await db.integration.create({ data: { tenantId: c.tenant.id, adapterKey: 'dev-mock', name: 'dev', status: 'DISABLED', config: {}, webhookSecret: 'w'.repeat(64) } })
-    expect(await missing(c.ob.id)).toEqual(['integration_configured', 'integration_verified', 'webhook_secret_issued'])
+    expect(await missing(c.ob.id)).toEqual(['integration_configured', 'callback_url_valid', 'integration_verified', 'webhook_secret_issued'])
     await expect(goLive(c.ob.id, admin)).rejects.toMatchObject({ status: 409 })
   })
 })
