@@ -56,8 +56,20 @@ Needs-attention and resume are tenant-scoped (another tenant's manager gets an e
 | Go-live | missing integration, dev-mock, unverified, one direction only, stale verification, rotation, URL change, unsafe URL, wrong tenant, DEGRADED, no operator, missing supervisor/language/coverage, 8 concurrent go-lives, go-live vs rotation/operator removal race | integration `goLiveRace`, `gcoWebhookDelivery`, E2E 25 |
 Not exercised with real outages: database down and Redis down at runtime (covered only by stubbing the queue); 502/504 and 408/425 share the tested retryable/permanent branches by status class and were not run individually.
 
-## 16-19. Test results, deployment, rollback, production verification, real-client status
-See the sections appended below after the run and release.
+## 16. Test results (final tree, one clean run)
+Unit **310** passed (24 files; identical with and without `ALLOW_DEV_ADAPTERS`), integration **81** passed (12 files, flag unset), E2E **198** passed (flag set for the local test servers only), `tsc` clean, `eslint` clean, `next build` clean. New this phase: unit +9, integration +17, E2E +7. Nothing skipped.
+
+## 17. Deployment
+Commit `b5c43eb` (pushed, no force). **No migration, no backup required.** Web `68229d9a6ff7`, worker `4bb34f648640` rebuilt and recreated; Postgres, Redis and realtime untouched (0 restarts, original start times).
+
+## 18. Rollback
+`gco-web:pre-phase-g` = `63c232d58042`, `gco-worker:pre-phase-g` = `4c0dc66d3f10`: retag as `latest` and `docker compose up -d --no-deps web worker`. No schema change, so rollback is safe (the old code would resume the old looping behaviour).
+
+## 19. Production verification (read-only)
+Health 200 on both hosts; 27 sitemap URLs, login, invitation and admin pages 200; needs-attention, resume, integrations (list/adapters/verify), go-live, CRM and send all 401 anonymously; unknown webhook 404; WebSocket 101; web and worker logs clean; `ALLOW_DEV_ADAPTERS` unset in both containers; no cap override env set (default 5). **Demo SLA loop:** within seconds of the worker starting, the stale demo conversation capped itself -> state `EXPIRED`, 0 ACTIVE assignments, exactly one `conversation.sla_escalated` audit row and one `sla` SystemEvent, and no growth in assignments or `assignment.expired` rows across two samples 100 s apart (SLA is 120 s). History was not edited; the 6,000+ historical rows remain. Business-data counts unchanged (Lead 2, Tenant 1, User 5, Integration 1, Message 1, Commission 0, ClientOnboarding 0, WebhookEvent 1); nothing created in production.
+
+## 19b. Real-client validation
+**BLOCKED** - see section 20. Local timings and the simulator prove the GCO side only.
 
 ## 20. Remaining blockers
 Real client validation (needs a real first client): a client who implements the contract (or a named platform + its API specification), a staged tenant, their callback URL and a secure channel for the one-time secret.
