@@ -49,19 +49,19 @@ export default function Home() {
             className="pointer-events-none absolute inset-0"
             style={{ background: 'radial-gradient(ellipse 900px 500px at 15% -10%, rgba(61,63,219,0.28), transparent 60%)' }}
           />
-          <Container className="relative grid gap-12 py-16 sm:py-24 lg:grid-cols-[1.1fr_0.9fr] lg:items-center lg:gap-8 lg:py-28">
+          <Container className="relative grid gap-12 py-16 sm:py-24 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:gap-14 lg:py-28">
             <div className="animate-fade-up">
               <Eyebrow tone="dark">{HERO.eyebrow}</Eyebrow>
-              <h1 className="font-display mt-5 max-w-xl text-[2.25rem] font-semibold leading-[1.08] tracking-tight sm:text-5xl">
+              <h1 className="font-display mt-5 max-w-2xl text-[2.5rem] font-semibold leading-[1.05] tracking-[-0.03em] sm:text-5xl lg:text-[3.5rem]">
                 {HERO.headlineLead}
                 <span className="block text-accent-100">{HERO.headlineTail}</span>
               </h1>
-              <p className="mt-6 max-w-lg text-[16.5px] leading-relaxed text-white/65 sm:text-[17px]">{HERO.body}</p>
+              <p className="mt-6 max-w-xl text-[17px] leading-relaxed text-white/70 sm:text-[18px]">{HERO.body}</p>
               <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
                 <PilotCtaLink location="hero" />
                 <BookCallLink location="hero" />
               </div>
-              <ul className="mt-6 flex flex-wrap gap-x-5 gap-y-1 text-[13px] text-white/55">
+              <ul className="mt-6 flex flex-wrap gap-x-5 gap-y-1 text-[13.5px] text-white/65">
                 {PILOT_PROMISES.map((p) => (
                   <li key={p} className="flex items-center gap-1.5">
                     <span className="h-1 w-1 rounded-full bg-accent-400" aria-hidden="true" />
@@ -69,7 +69,7 @@ export default function Home() {
                   </li>
                 ))}
               </ul>
-              <p className="mt-3 max-w-lg text-[13px] leading-relaxed text-white/40">{HERO.note}</p>
+              <p className="mt-3 max-w-lg text-[13px] leading-relaxed text-white/50">{HERO.note}</p>
             </div>
 
             <div className="flex animate-fade-in justify-center lg:justify-end" style={{ animationDelay: '0.15s' }}>

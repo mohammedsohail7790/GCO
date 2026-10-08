@@ -7,9 +7,18 @@
 }
 
 html {
-  font-feature-settings: 'cv11', 'ss01';
-  font-variant-numeric: tabular-nums;
+  /* Default Inter glyphs (two-storey a, standard digits). Tabular numerals
+     are applied only where columns of figures need to align (tables, stats). */
+  font-feature-settings: 'calt', 'kern';
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
+
+h1, h2, h3 {
+  letter-spacing: -0.02em;
+}
+
+table, .tabular { font-variant-numeric: tabular-nums; }
 
 body {
   @apply bg-slate-50 text-slate-900 antialiased;

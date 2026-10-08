@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Space_Grotesk, Inter } from 'next/font/google'
+import { Inter_Tight, Inter } from 'next/font/google'
 import './globals.css'
 import { SITE_URL, SITE_NAME, SITE_TAGLINE } from '@/lib/config/site'
 import { AnalyticsRoot } from '@/components/analytics/AnalyticsRoot'
@@ -11,7 +11,7 @@ import { AnalyticsRoot } from '@/components/analytics/AnalyticsRoot'
 // Grotesk's slightly technical, geometric letterforms suit an operations/
 // infrastructure brand for display type; Inter remains the reliable
 // workhorse for body copy and UI.
-const displayFont = Space_Grotesk({ subsets: ['latin'], variable: '--font-display', display: 'swap' })
+const displayFont = Inter_Tight({ subsets: ['latin'], variable: '--font-display', display: 'swap' })
 const bodyFont = Inter({ subsets: ['latin'], variable: '--font-body', display: 'swap' })
 
 export const metadata: Metadata = {
