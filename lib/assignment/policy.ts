@@ -17,20 +17,20 @@ export interface OperatorCandidate {
  *     ties broken by whichever has been idle longest is not tracked in V1,
  *     so we fall back to stable input order (lowest operatorId).
  */
-export function pickOperator(candidates: OperatorCandidate[]): OperatorCandidate | null {
+export function rankOperators(candidates: OperatorCandidate[]): OperatorCandidate[] {
   const eligible = candidates.filter(
     (c) => c.status === 'AVAILABLE' && c.activeAssignmentCount < c.capacity,
   )
-  if (eligible.length === 0) return null
-
-  eligible.sort((a, b) => {
+  return eligible.sort((a, b) => {
     const spareA = a.capacity - a.activeAssignmentCount
     const spareB = b.capacity - b.activeAssignmentCount
     if (spareB !== spareA) return spareB - spareA
     return a.operatorId.localeCompare(b.operatorId)
   })
+}
 
-  return eligible[0] ?? null
+export function pickOperator(candidates: OperatorCandidate[]): OperatorCandidate | null {
+  return rankOperators(candidates)[0] ?? null
 }
 
 export function computeRespondsBy(assignedAt: Date, slaSeconds: number): Date {

@@ -1,9 +1,73 @@
 import { db } from '@/lib/db/client'
-import { pickOperator, computeRespondsBy, type OperatorCandidate } from './policy'
+import { rankOperators, computeRespondsBy, type OperatorCandidate } from './policy'
 import { scheduleAssignmentTimeoutCheck, cancelAssignmentTimeoutCheck } from '@/lib/queue/jobs'
 import { writeAuditLog } from '@/lib/audit/log'
 import { publishRealtimeEvent } from '@/lib/realtime/publish'
 import { consecutiveSlaExpiries, getSlaCap, SLA_CAP_RESUME_EVENT } from './slaCap'
+
+type AssignOutcome = { id: string } | 'operator_full' | 'conversation_taken'
+
+/**
+ * Creates the assignment for one operator, enforcing the operator's capacity.
+ *
+ * Capacity race: the candidate counts read before this call are only advisory. With several workers assigning
+ * different conversations at once, each could read "1 of 2 used" and all create an assignment, exceeding capacity.
+ * So the transaction first takes a transaction-scoped Postgres advisory lock keyed on the operator, then re-reads
+ * the operator and re-counts its ACTIVE assignments; the lock is released at commit/rollback, so the next waiter's
+ * re-count sees every committed assignment (READ COMMITTED takes a fresh snapshot per statement).
+ *
+ * Deadlock safety: a transaction takes exactly ONE advisory lock (its operator) and only then touches the
+ * conversation row; nothing takes a conversation row and then asks for an operator lock, so there is no lock cycle.
+ * Tenant isolation: the operator must belong to the conversation's tenant.
+ */
+async function assignToOperator(p: {
+  tenantId: string
+  conversationId: string
+  operatorId: string
+  slaSeconds: number
+  now: Date
+  respondsBy: Date
+}): Promise<AssignOutcome> {
+  return db.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('gco:operator-capacity'), hashtext(${p.operatorId}))`
+
+    const operator = await tx.operator.findFirst({
+      where: { id: p.operatorId, tenantId: p.tenantId, status: 'AVAILABLE' },
+      select: { capacity: true },
+    })
+    if (!operator) return 'operator_full' as const
+    const active = await tx.assignment.count({ where: { operatorId: p.operatorId, status: 'ACTIVE' } })
+    if (active >= operator.capacity) return 'operator_full' as const
+
+    const created = await tx.assignment.create({
+      data: {
+        tenantId: p.tenantId,
+        conversationId: p.conversationId,
+        operatorId: p.operatorId,
+        slaSeconds: p.slaSeconds,
+        assignedAt: p.now,
+        respondsBy: p.respondsBy,
+      },
+    })
+
+    // Conditional update prevents a race where two workers both pass the
+    // "currentAssignmentId is null" check and both try to win the same conversation.
+    const updateResult = await tx.conversation.updateMany({
+      where: { id: p.conversationId, currentAssignmentId: null },
+      data: { currentAssignmentId: created.id, state: 'ACTIVE' },
+    })
+    if (updateResult.count === 0) {
+      // Lost the race - undo the assignment we just created.
+      await tx.assignment.delete({ where: { id: created.id } })
+      return 'conversation_taken' as const
+    }
+
+    await tx.assignmentHistoryEntry.create({
+      data: { assignmentId: created.id, event: 'created', metadata: { operatorId: p.operatorId } },
+    })
+    return { id: created.id }
+  })
+}
 
 /**
  * Attempts to assign a QUEUED (or REASSIGNING) conversation to an eligible operator.
@@ -37,8 +101,10 @@ export async function tryAssignConversation(conversationId: string): Promise<boo
     status: op.status,
   }))
 
-  const chosen = pickOperator(candidates)
-  if (!chosen) {
+  // Best candidate first. The counts above are only a pre-filter (they can be stale by the time we act): the
+  // authoritative capacity check happens under a per-operator lock inside the transaction below.
+  const ranked = rankOperators(candidates)
+  if (ranked.length === 0) {
     // No eligible operator right now - conversation stays QUEUED, a future
     // operator status change or queue sweep will retry.
     return false
@@ -48,45 +114,30 @@ export async function tryAssignConversation(conversationId: string): Promise<boo
   const slaSeconds = tenant.defaultResponseSlaSeconds
   const respondsBy = computeRespondsBy(now, slaSeconds)
 
-  const assignment = await db.$transaction(async (tx) => {
-    const created = await tx.assignment.create({
-      data: {
-        tenantId: conversation.tenantId,
-        conversationId: conversation.id,
-        operatorId: chosen.operatorId,
-        slaSeconds,
-        assignedAt: now,
-        respondsBy,
-      },
+  let assignment: { id: string } | null = null
+  let chosenOperatorId = ''
+  for (const candidate of ranked) {
+    const outcome = await assignToOperator({
+      tenantId: conversation.tenantId,
+      conversationId: conversation.id,
+      operatorId: candidate.operatorId,
+      slaSeconds,
+      now,
+      respondsBy,
     })
-
-    // Conditional update prevents a race where two workers both pass the
-    // "currentAssignmentId is null" check above and both try to win.
-    const updateResult = await tx.conversation.updateMany({
-      where: { id: conversation.id, currentAssignmentId: null },
-      data: { currentAssignmentId: created.id, state: 'ACTIVE' },
-    })
-
-    if (updateResult.count === 0) {
-      // Lost the race - undo the assignment we just created.
-      await tx.assignment.delete({ where: { id: created.id } })
-      return null
-    }
-
-    await tx.assignmentHistoryEntry.create({
-      data: { assignmentId: created.id, event: 'created', metadata: { operatorId: chosen.operatorId } },
-    })
-
-    return created
-  })
-
+    if (outcome === 'conversation_taken') return false // another worker assigned this conversation first
+    if (outcome === 'operator_full') continue // lost the capacity race for this operator - try the next best
+    assignment = outcome
+    chosenOperatorId = candidate.operatorId
+    break
+  }
   if (!assignment) return false
 
   await scheduleAssignmentTimeoutCheck(assignment.id, respondsBy.getTime() - Date.now())
   await publishRealtimeEvent(conversation.tenantId, 'assignment.created', {
     conversationId: conversation.id,
     assignmentId: assignment.id,
-    operatorId: chosen.operatorId,
+    operatorId: chosenOperatorId,
   })
 
   return true
