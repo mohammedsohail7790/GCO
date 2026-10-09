@@ -39,3 +39,11 @@ Re-enable a demo account: `update "User" set "isActive" = true where id = '<id>'
 - **Forced rotation / first-login change:** needs a `mustChangePassword` flag (an additive migration), login and middleware handling, and the change-password endpoint above.
 - **Stateless-token gap:** `getSession` does not check `isActive`/revocation, so access tokens outlive a disable by up to 60 minutes; closing it means a per-request user check (one indexed read) or shorter token lifetime.
 Recommended order: change-password endpoint + form, then the `isActive` check on requests, then forced rotation; reset waits on an email provider.
+
+
+## Status check 2026-10-09 (read-only)
+Production still has exactly the five `@demo.gco` accounts, all active, each with one live session. No real CEO or
+Hunter account exists yet, so no real CEO login is possible. Nothing was disabled or reset: that requires Cristian to
+create his own account (he types his password privately at the tool's hidden prompt) and confirm he can log in. Actions
+needing the owner: (1) create the CEO account, (2) log in once through the normal login page, (3) approve running
+`disable-demo-accounts.ts --execute`, (4) Hunter creates his own account the same way.

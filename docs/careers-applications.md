@@ -20,6 +20,10 @@ lastSubmittedAt, createdAt. Emails are stored lower-cased.
 - Database failures return a generic `500 Internal server error` (details are logged server-side, never sent to the
   applicant).
 
+## Internal note
+Optional, up to 2000 characters, CEO-only, stored in `reviewNote`. Saving the same note with the same status is a
+no-op; clearing it stores null; the audit entry records only `noteChanged: true/false`, never the note text.
+
 ## Access control
 `CAREER_VIEW` and `CAREER_MANAGE` are CEO_ADMIN only (applicant personal data). Earlier the list API also allowed
 MANAGER (no UI used it); that was removed. `/admin/*` is CEO-gated in middleware and every API call re-checks the role.
@@ -30,11 +34,20 @@ Audit entries contain ids and statuses only - no applicant name, email or notes.
 - `GET  /api/v1/admin/career-applications?q=&status=&page=&pageSize=` (CEO_ADMIN, `Cache-Control: no-store`)
 - `PATCH /api/v1/admin/career-applications/:id` `{status, reviewNote?}` (CEO_ADMIN)
 
-## Email notifications: NOT implemented
-GCO has no outbound email provider configured, so nobody is emailed when an application arrives and applicants get no
-confirmation email. Persistence does not depend on email. The dashboard card on `/admin` shows the count of NEW
-applications instead. Adding notifications needs a provider decision (see docs/gco-credential-remediation.md, which
-reaches the same conclusion for password reset).
+## Email notifications: NOT implemented (no provider exists)
+Audited 2026-10-09: no email/SMTP/transactional-mail library in `package.json`, no mail-related variable in
+`.env.example`, the production `.env`, or the worker container. Nobody is emailed when an application arrives and
+applicants get no confirmation. Saving an application never depends on email. The `/admin` dashboard card (count of NEW
+applications) is the only alert today.
+
+Smallest setup to add notifications (needs the owner's decision and a real account - nothing here has been created):
+1. Choose a transactional provider (e.g. Resend, Postmark, Amazon SES) and verify the sending domain
+   (SPF/DKIM DNS records on `globalconversationoperations.com`).
+2. Put the provider API key and a `CAREERS_NOTIFY_TO` recipient in the server `.env` (never in Git).
+3. Then a small change (about one file plus a worker job): after the application row is committed, enqueue a BullMQ job
+   that emails `CAREERS_NOTIFY_TO` a content-light message ("new application", link to `/admin/careers`, no applicant
+   details), with retries and exponential backoff; failures are logged without payloads and never affect the
+   submission. The same provider also unlocks staff password reset (see docs/gco-credential-remediation.md).
 
 ## Migration
 `20261009054744_career_application_review` is additive (new enum, new columns with defaults, one index, and a backfill

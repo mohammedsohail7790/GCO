@@ -83,14 +83,16 @@ export async function setApplicationStatus(params: {
 }) {
   const existing = await db.careerApplication.findUnique({ where: { id: params.id } })
   if (!existing) return null
-  if (existing.status === params.status && params.reviewNote === undefined) return existing
+  const nextNote = params.reviewNote === undefined ? undefined : params.reviewNote.trim() || null
+  const noteChanged = nextNote !== undefined && nextNote !== existing.reviewNote
+  if (existing.status === params.status && !noteChanged) return existing // nothing to change, nothing to audit
   const updated = await db.careerApplication.update({
     where: { id: params.id },
     data: {
       status: params.status,
       statusUpdatedAt: new Date(),
       statusUpdatedBy: params.actorUserId,
-      ...(params.reviewNote !== undefined ? { reviewNote: params.reviewNote || null } : {}),
+      ...(noteChanged ? { reviewNote: nextNote } : {}),
     },
   })
   await writeAuditLog({
@@ -98,7 +100,7 @@ export async function setApplicationStatus(params: {
     action: 'career_application.status_changed',
     resource: 'career_application',
     resourceId: params.id,
-    metadata: { from: existing.status, to: params.status, noteChanged: params.reviewNote !== undefined },
+    metadata: { from: existing.status, to: params.status, noteChanged },
   })
   return updated
 }

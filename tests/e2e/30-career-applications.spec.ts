@@ -112,4 +112,46 @@ test.describe('operator applications: submit, review, audit', () => {
     }
     expect((await db.careerApplication.findUniqueOrThrow({ where: { id: row.id } })).status).not.toBe('ACCEPTED')
   })
+
+  test('the internal note persists, can be edited and cleared, is validated, and is audited as a note change only when it changes', async () => {
+    const email = `note-${stamp}@${EMAIL_DOMAIN}`
+    await apply({ fullName: '[E2E] Note', email }, 'n1')
+    const row = await db.careerApplication.findFirstOrThrow({ where: { email } })
+    ids.push(row.id)
+    const admin = await loginAs('admin@demo.gco')
+    const patch = (data: Record<string, unknown>) => admin.patch(`/api/v1/admin/career-applications/${row.id}`, { data })
+
+    expect((await patch({ status: 'NEW', reviewNote: 'Call on Monday' })).status()).toBe(200)
+    expect((await db.careerApplication.findUniqueOrThrow({ where: { id: row.id } })).reviewNote).toBe('Call on Monday')
+    // It is visible to the CEO through the list API.
+    const listed = (await (await admin.get(`/api/v1/admin/career-applications?q=Note`)).json()).data.find((a: { id: string }) => a.id === row.id)
+    expect(listed.reviewNote).toBe('Call on Monday')
+
+    // Re-saving the same note with the same status is a no-op: no extra audit row.
+    expect((await patch({ status: 'NEW', reviewNote: 'Call on Monday' })).status()).toBe(200)
+    // Changing only the status keeps the note.
+    expect((await patch({ status: 'REVIEWING' })).status()).toBe(200)
+    expect((await db.careerApplication.findUniqueOrThrow({ where: { id: row.id } })).reviewNote).toBe('Call on Monday')
+    // Clearing it stores null.
+    expect((await patch({ status: 'REVIEWING', reviewNote: '   ' })).status()).toBe(200)
+    expect((await db.careerApplication.findUniqueOrThrow({ where: { id: row.id } })).reviewNote).toBeNull()
+
+    const audit = await db.auditLog.findMany({ where: { resource: 'career_application', resourceId: row.id }, orderBy: { createdAt: 'asc' } })
+    expect(audit.map((a) => (a.metadata as { noteChanged: boolean }).noteChanged)).toEqual([true, false, true])
+    expect(JSON.stringify(audit)).not.toContain('Call on Monday')
+
+    // Validation: too long, wrong type, unknown field.
+    expect((await patch({ status: 'NEW', reviewNote: 'x'.repeat(2001) })).status()).toBe(400)
+    expect((await patch({ status: 'NEW', reviewNote: 42 })).status()).toBe(400)
+    expect((await patch({ status: 'NEW', notes: 'typo field' })).status()).toBe(400)
+  })
+
+  test('the review page itself is CEO-only: other roles and anonymous visitors are redirected, never shown applicant data', async () => {
+    const status = async (ctx: Awaited<ReturnType<typeof loginAs>>) => (await ctx.get('/admin/careers', { maxRedirects: 0 })).status()
+    expect(await status(await anonymousContext())).toBe(307)
+    for (const who of ['manager@demo.gco', 'operator1@demo.gco', 'client@demo.gco', 'hunter1@demo.gco']) {
+      expect(await status(await loginAs(who)), who).toBe(307)
+    }
+    expect(await status(await loginAs('admin@demo.gco'))).toBe(200)
+  })
 })
