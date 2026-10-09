@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { z } from 'zod'
-import { db } from '@/lib/db/client'
+import { submitCareerApplication } from '@/lib/careers/applications'
 import { created, fail, handleRouteError } from '@/lib/api/response'
 import { isRateLimited, RATE_LIMITS } from '@/lib/api/rateLimit'
 import { getClientIp } from '@/lib/api/clientIp'
@@ -34,18 +34,18 @@ export async function POST(req: NextRequest) {
     const body = Schema.parse(await req.json())
     if (body.website) return created({ received: true })
 
-    const application = await db.careerApplication.create({
-      data: {
-        fullName: body.fullName,
-        email: body.email,
-        phone: body.phone,
-        country: body.country,
-        languages: body.languages,
-        message: body.message,
-      },
+    const application = await submitCareerApplication({
+      fullName: body.fullName,
+      email: body.email,
+      phone: body.phone,
+      country: body.country,
+      languages: body.languages,
+      message: body.message,
     })
 
-    return created({ received: true, id: application.id })
+    // The id is deliberately not returned: a repeat submission is merged into the earlier application, and
+    // the response must not let a caller probe which emails have applied.
+    return created({ received: true })
   } catch (err) {
     return handleRouteError(err)
   }

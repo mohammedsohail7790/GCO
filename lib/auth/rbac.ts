@@ -75,7 +75,9 @@ export const PERMISSIONS = {
   ONBOARDING_VIEW_OWN: ['CLIENT'],
 
   // Public website - careers applications
-  CAREER_VIEW: ['CEO_ADMIN', 'MANAGER'],
+  // Applicant personal data: CEO only (previously the list API also allowed MANAGER, which had no UI).
+  CAREER_VIEW: ['CEO_ADMIN'],
+  CAREER_MANAGE: ['CEO_ADMIN'],
 } as const
 
 export type PermissionKey = keyof typeof PERMISSIONS

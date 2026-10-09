@@ -2,6 +2,13 @@ import { describe, it, expect } from 'vitest'
 import { can, assertCan } from '@/lib/auth/rbac'
 
 describe('RBAC permission matrix', () => {
+  it('operator applications (applicant personal data) are CEO_ADMIN only', () => {
+    for (const perm of ['CAREER_VIEW', 'CAREER_MANAGE'] as const) {
+      expect(can('CEO_ADMIN', perm)).toBe(true)
+      for (const role of ['MANAGER', 'ASSISTANT', 'OPERATOR', 'CLIENT', 'HUNTER'] as const) expect(can(role, perm)).toBe(false)
+    }
+  })
+
   it('only CEO_ADMIN can manage tenants', () => {
     expect(can('CEO_ADMIN', 'TENANT_MANAGE')).toBe(true)
     expect(can('MANAGER', 'TENANT_MANAGE')).toBe(false)

@@ -831,20 +831,37 @@ model CalendarBooking {
 }
 
 // Public "Careers" page submissions. Deliberately not modeled on Lead (a
-// candidate is not a sales prospect). No status/review-pipeline workflow yet -
-// CEO_ADMIN/MANAGER can list submissions (see /admin/career-applications),
-// but there is no stage tracking beyond that until explicitly requested.
+// candidate is not a sales prospect). CEO_ADMIN reviews them at /admin/careers:
+// status workflow (NEW -> REVIEWING -> ACCEPTED/REJECTED), search/filter, and an
+// AuditLog entry for every status change. A repeat submission from the same email
+// while an application is still NEW/REVIEWING updates that row (submissionCount)
+// instead of creating a duplicate. Persistence never depends on email delivery
+// (no email provider is configured - see docs/careers-applications.md).
+enum CareerApplicationStatus {
+  NEW
+  REVIEWING
+  ACCEPTED
+  REJECTED
+}
+
 model CareerApplication {
-  id        String   @id @default(cuid())
-  fullName  String
-  email     String
-  phone     String?
-  country   String?
-  languages String?
-  message   String?  @db.Text
-  createdAt DateTime @default(now())
+  id               String                  @id @default(cuid())
+  fullName         String
+  email            String
+  phone            String?
+  country          String?
+  languages        String?
+  message          String?                 @db.Text
+  createdAt        DateTime                @default(now())
+  status           CareerApplicationStatus @default(NEW)
+  statusUpdatedAt  DateTime?
+  statusUpdatedBy  String? // User id (plain string, like Note.authorUserId)
+  reviewNote       String?                 @db.Text
+  submissionCount  Int                     @default(1)
+  lastSubmittedAt  DateTime                @default(now())
 
   @@index([createdAt])
+  @@index([status, createdAt])
 }
 
 // ---------------------------------------------------------------------------

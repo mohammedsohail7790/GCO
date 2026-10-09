@@ -240,13 +240,14 @@ test.describe('Public website - careers application', () => {
     })
     expect(res.status()).toBe(201)
     const body = (await res.json()).data
-    expect(body.id).toBeTruthy()
+    expect(body.received).toBe(true)
+    expect(body.id).toBeUndefined() // the response must not let a caller probe which emails applied
 
-    const app = await db.careerApplication.findUnique({ where: { id: body.id } })
+    const app = await db.careerApplication.findFirst({ where: { email } })
     expect(app).toBeTruthy()
-    expect(app!.email).toBe(email)
+    expect(app!.status).toBe('NEW')
 
-    await db.careerApplication.delete({ where: { id: body.id } })
+    await db.careerApplication.delete({ where: { id: app!.id } })
   })
 
   test('a filled honeypot field is silently accepted and creates no application', async () => {
@@ -285,10 +286,10 @@ test.describe('Public website - career applications visibility (RBAC)', () => {
     expect(res.status()).toBe(403)
   })
 
-  test('MANAGER and CEO_ADMIN can view career applications', async () => {
+  test('only CEO_ADMIN can view career applications (applicant personal data); MANAGER is refused', async () => {
     const managerCtx = await loginAs('manager@demo.gco')
     const managerRes = await managerCtx.get('/api/v1/admin/career-applications')
-    expect(managerRes.status()).toBe(200)
+    expect(managerRes.status()).toBe(403)
 
     const admin = await sharedAdminContext()
     const adminRes = await admin.get('/api/v1/admin/career-applications')

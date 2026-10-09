@@ -47,17 +47,6 @@ interface Approval {
   submitter: { displayName: string }
 }
 
-interface CareerApplication {
-  id: string
-  fullName: string
-  email: string
-  phone: string | null
-  country: string | null
-  languages: string | null
-  message: string | null
-  createdAt: string
-}
-
 function eur(cents: number) {
   return `€${(cents / 100).toFixed(2)}`
 }
@@ -67,7 +56,7 @@ export default function AdminPage() {
   const [health, setHealth] = useState<SystemHealth | null>(null)
   const [dashboard, setDashboard] = useState<CeoDashboard | null>(null)
   const [approvals, setApprovals] = useState<Approval[]>([])
-  const [applications, setApplications] = useState<CareerApplication[]>([])
+  const [newApplications, setNewApplications] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [decisionNotes, setDecisionNotes] = useState<Record<string, string>>({})
   const [paymentAmount, setPaymentAmount] = useState<Record<string, string>>({})
@@ -82,7 +71,10 @@ export default function AdminPage() {
     apiFetch<SystemHealth>('/admin/system-health').then(setHealth).catch(() => {})
     apiFetch<CeoDashboard>('/crm/dashboard/ceo').then(setDashboard).catch(() => {})
     apiFetch<Approval[]>('/crm/approvals').then(setApprovals).catch(() => {})
-    apiFetch<CareerApplication[]>('/admin/career-applications').then(setApplications).catch(() => {})
+    fetch('/api/v1/admin/career-applications?pageSize=1&status=NEW', { credentials: 'include' })
+      .then((r) => r.json())
+      .then((j) => { if (j?.ok) setNewApplications(j.meta.total) })
+      .catch(() => {})
   }
 
   useEffect(() => {
@@ -316,23 +308,14 @@ export default function AdminPage() {
         </table>
       </div>
 
-      <div className="mt-8 rounded-lg border border-slate-200 bg-white">
-        <div className="border-b border-slate-200 p-4">
-          <h2 className="font-semibold text-slate-900">Career applications</h2>
-          <p className="text-xs text-slate-500">Submissions from the public /careers page. No review workflow yet - shown here for visibility.</p>
+      <div className="mt-8 flex items-center justify-between rounded-lg border border-slate-200 bg-white p-4">
+        <div>
+          <h2 className="font-semibold text-slate-900">Operator applications</h2>
+          <p className="text-xs text-slate-500">
+            {newApplications === null ? 'Submissions from the public /careers page.' : `${newApplications} new application${newApplications === 1 ? '' : 's'} awaiting review.`}
+          </p>
         </div>
-        <ul className="divide-y divide-slate-100">
-          {applications.map((a) => (
-            <li key={a.id} className="p-4 text-sm">
-              <p className="font-medium text-slate-900">{a.fullName} <span className="font-normal text-slate-500">— {a.email}</span></p>
-              <p className="mt-0.5 text-xs text-slate-500">
-                {[a.country, a.languages, a.phone].filter(Boolean).join(' · ') || 'No additional details'}
-              </p>
-              {a.message && <p className="mt-1 text-xs italic text-slate-500">&ldquo;{a.message}&rdquo;</p>}
-            </li>
-          ))}
-          {applications.length === 0 && <li className="p-4 text-sm text-slate-400">No applications yet.</li>}
-        </ul>
+        <a href="/admin/careers" className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white">Review applications</a>
       </div>
     </div>
   )
