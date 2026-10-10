@@ -6,6 +6,7 @@ import { recordMessageUsage } from '@/lib/usage/ledger'
 import { publishRealtimeEvent } from '@/lib/realtime/publish'
 import { flags } from '@/lib/config/flags'
 import { isTenantActive } from '@/lib/tenant/activity'
+import { normalizeLanguage } from '@/lib/languages'
 
 /**
  * Processes one previously-persisted WebhookEvent: normalizes it, persists
@@ -88,9 +89,12 @@ async function ingestOneMessage(params: {
         tenantId: params.tenantId,
         externalUserId: params.externalUserId,
         state: 'QUEUED',
-        language: params.language,
+        language: normalizeLanguage(params.language) ?? undefined,
       },
     })
+  } else if (!conversation.language && normalizeLanguage(params.language)) {
+    // First message that carries a language fills in an unknown one (never overwrites a known language).
+    conversation = await db.conversation.update({ where: { id: conversation.id }, data: { language: normalizeLanguage(params.language)! } })
   }
 
   // Idempotent message persistence: (tenantId, externalMessageId, direction) is unique.

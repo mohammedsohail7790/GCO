@@ -8,6 +8,8 @@ import { NeedsAttentionPanel } from '@/components/ops/NeedsAttentionPanel'
 import { SalesConsole } from '@/components/sales/SalesConsole'
 import { StatusPill } from '@/components/ui/StatusPill'
 import { EscalationQueue } from '@/components/escalation/EscalationQueue'
+import { LanguageCoverage } from '@/components/manager/LanguageCoverage'
+import { QaReviewPanel } from '@/components/manager/QaReviewPanel'
 
 interface Overview {
   operators: { available: number; busy: number; offline: number; paused: number }
@@ -117,6 +119,10 @@ export default function ManagerPage() {
       )}
 
       <NeedsAttentionPanel />
+
+      <LanguageCoverage />
+
+      <QaReviewPanel />
 
       <SalesConsole />
 

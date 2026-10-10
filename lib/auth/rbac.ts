@@ -74,6 +74,11 @@ export const PERMISSIONS = {
   // A client's own (client-safe) onboarding progress.
   ONBOARDING_VIEW_OWN: ['CLIENT'],
 
+  // Language coverage (which languages each operator handles) and quality review of sent replies. Tenant-scoped via
+  // resolveTenantScope: MANAGER is pinned to its own tenant; CEO_ADMIN/ASSISTANT may target a tenant.
+  LANGUAGE_MANAGE: ['CEO_ADMIN', 'MANAGER', 'ASSISTANT'],
+  QA_REVIEW: ['CEO_ADMIN', 'MANAGER', 'ASSISTANT'],
+
   // Public website - careers applications
   // Applicant personal data: CEO only (previously the list API also allowed MANAGER, which had no UI).
   CAREER_VIEW: ['CEO_ADMIN'],

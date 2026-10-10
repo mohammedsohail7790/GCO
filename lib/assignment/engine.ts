@@ -1,4 +1,5 @@
 import { db } from '@/lib/db/client'
+import { operatorCoversLanguage } from '@/lib/languages'
 import { rankOperators, computeRespondsBy, type OperatorCandidate } from './policy'
 import { scheduleAssignmentTimeoutCheck, cancelAssignmentTimeoutCheck } from '@/lib/queue/jobs'
 import { writeAuditLog } from '@/lib/audit/log'
@@ -27,15 +28,18 @@ async function assignToOperator(p: {
   slaSeconds: number
   now: Date
   respondsBy: Date
+  language?: string | null
 }): Promise<AssignOutcome> {
   return db.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('gco:operator-capacity'), hashtext(${p.operatorId}))`
 
     const operator = await tx.operator.findFirst({
       where: { id: p.operatorId, tenantId: p.tenantId, status: 'AVAILABLE' },
-      select: { capacity: true },
+      select: { capacity: true, languages: true },
     })
     if (!operator) return 'operator_full' as const
+    // Language coverage is re-checked under the lock too (a manager may have edited the operator's languages).
+    if (!operatorCoversLanguage(operator.languages, p.language)) return 'operator_full' as const
     const active = await tx.assignment.count({ where: { operatorId: p.operatorId, status: 'ACTIVE' } })
     if (active >= operator.capacity) return 'operator_full' as const
 
@@ -97,13 +101,14 @@ export async function tryAssignConversation(conversationId: string): Promise<boo
   const candidates: OperatorCandidate[] = operators.map((op) => ({
     operatorId: op.id,
     capacity: op.capacity,
+    languages: op.languages,
     activeAssignmentCount: op.assignments.length,
     status: op.status,
   }))
 
   // Best candidate first. The counts above are only a pre-filter (they can be stale by the time we act): the
   // authoritative capacity check happens under a per-operator lock inside the transaction below.
-  const ranked = rankOperators(candidates)
+  const ranked = rankOperators(candidates, conversation.language)
   if (ranked.length === 0) {
     // No eligible operator right now - conversation stays QUEUED, a future
     // operator status change or queue sweep will retry.
@@ -124,6 +129,7 @@ export async function tryAssignConversation(conversationId: string): Promise<boo
       slaSeconds,
       now,
       respondsBy,
+      language: conversation.language,
     })
     if (outcome === 'conversation_taken') return false // another worker assigned this conversation first
     if (outcome === 'operator_full') continue // lost the capacity race for this operator - try the next best

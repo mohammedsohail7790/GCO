@@ -28,6 +28,7 @@ export async function GET(req: NextRequest) {
         operatorNumber: op.operatorNumber,
         status: op.status,
         capacity: op.capacity,
+        languages: op.languages,
         activeAssignments: op.assignments.length,
         user: op.user,
       })),

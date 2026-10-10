@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
     }))
 
     return ok({
-      operator: { id: operator.id, operatorNumber: operator.operatorNumber, status: operator.status, capacity: operator.capacity },
+      operator: { id: operator.id, operatorNumber: operator.operatorNumber, status: operator.status, capacity: operator.capacity, languages: operator.languages },
       conversations,
     })
   } catch (err) {

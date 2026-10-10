@@ -129,6 +129,10 @@ model Operator {
   tenantId       String // primary tenant; cross-tenant assignment via OperatorService
   status         OperatorStatus @default(OFFLINE)
   capacity       Int            @default(2) // configurable, default matches Tenant.defaultOperatorCapacity
+  // ISO 639-1 codes this operator handles (e.g. ["en","es"]). Empty = unrestricted (takes any language) - the
+  // pre-existing behaviour. A conversation with a language is only assigned to an operator that lists it (or is
+  // unrestricted). See lib/assignment/policy.ts and lib/languages.ts.
+  languages      String[]       @default([])
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
@@ -980,4 +984,35 @@ model ClientOnboarding {
   tenant Tenant @relation(fields: [tenantId], references: [id])
 
   @@index([status])
+}
+
+
+// ---------------------------------------------------------------------------
+// Quality review: a supervisor scores a sent operator reply. Only real reviews feed the QA summary - there are no
+// automatic or AI-generated scores. User/operator ids are plain strings (no FK), like Note.authorUserId.
+// ---------------------------------------------------------------------------
+enum QaOutcome {
+  PASS
+  COACHING
+  FAIL
+}
+
+model QaReview {
+  id             String    @id @default(cuid())
+  tenantId       String
+  conversationId String
+  messageId      String // the reviewed OUTBOUND message
+  operatorId     String? // operator who sent it (Operator.id), when known
+  reviewerUserId String
+  accuracy       Int // 1-5
+  tone           Int // 1-5
+  resolution     Int // 1-5
+  outcome        QaOutcome
+  flags          String[]  @default([])
+  note           String?   @db.Text
+  createdAt      DateTime  @default(now())
+
+  @@unique([messageId, reviewerUserId])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, operatorId])
 }

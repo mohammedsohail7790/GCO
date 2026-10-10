@@ -1,8 +1,10 @@
 // Pure, dependency-free assignment policy logic - kept separate from engine.ts
 // (which does DB/queue I/O) so it can be unit tested without a database.
+import { operatorCoversLanguage } from '@/lib/languages'
 
 export interface OperatorCandidate {
   operatorId: string
+  languages?: string[] // recorded languages; empty/undefined = unrestricted
   capacity: number
   activeAssignmentCount: number
   status: 'OFFLINE' | 'AVAILABLE' | 'BUSY' | 'PAUSED'
@@ -13,13 +15,14 @@ export interface OperatorCandidate {
  * Policy (V1, deliberately simple - see docs/decisions.md):
  *  1. Only AVAILABLE operators are eligible.
  *  2. Operator must have spare capacity (activeAssignmentCount < capacity).
+ *  2b. If the conversation has a language, the operator must cover it (or be unrestricted) - see lib/languages.ts.
  *  3. Prefer the operator with the *most* spare capacity (load balancing);
  *     ties broken by whichever has been idle longest is not tracked in V1,
  *     so we fall back to stable input order (lowest operatorId).
  */
-export function rankOperators(candidates: OperatorCandidate[]): OperatorCandidate[] {
+export function rankOperators(candidates: OperatorCandidate[], conversationLanguage?: string | null): OperatorCandidate[] {
   const eligible = candidates.filter(
-    (c) => c.status === 'AVAILABLE' && c.activeAssignmentCount < c.capacity,
+    (c) => c.status === 'AVAILABLE' && c.activeAssignmentCount < c.capacity && operatorCoversLanguage(c.languages ?? [], conversationLanguage),
   )
   return eligible.sort((a, b) => {
     const spareA = a.capacity - a.activeAssignmentCount
@@ -29,8 +32,8 @@ export function rankOperators(candidates: OperatorCandidate[]): OperatorCandidat
   })
 }
 
-export function pickOperator(candidates: OperatorCandidate[]): OperatorCandidate | null {
-  return rankOperators(candidates)[0] ?? null
+export function pickOperator(candidates: OperatorCandidate[], conversationLanguage?: string | null): OperatorCandidate | null {
+  return rankOperators(candidates, conversationLanguage)[0] ?? null
 }
 
 export function computeRespondsBy(assignedAt: Date, slaSeconds: number): Date {

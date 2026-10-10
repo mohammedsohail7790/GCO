@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { apiFetch } from '@/lib/api/client'
 import { useRealtime } from '@/lib/realtime/useRealtime'
+import { languageLabel, normalizeLanguage } from '@/lib/languages'
 import { OperatorEscalate, type ActiveEscalation } from '@/components/escalation/OperatorEscalate'
 
 interface Message {
@@ -20,6 +21,7 @@ interface ConversationItem {
   conversation: {
     id: string
     externalUserId: string
+    language?: string | null
     state: string
     messages: Message[]
     notes: { id: string; body: string; createdAt: string }[]
@@ -236,6 +238,11 @@ export default function OperatorPage() {
                         <span className={`truncate text-sm ${isActive ? 'font-semibold text-slate-900' : 'font-medium text-slate-800'}`}>
                           {item.conversation.externalUserId}
                         </span>
+                        {normalizeLanguage(item.conversation.language) && (
+                          <span title={languageLabel(item.conversation.language)} className="shrink-0 rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700">
+                            {normalizeLanguage(item.conversation.language)}
+                          </span>
+                        )}
                       </div>
                       {lastMessage && (
                         <p className="mt-0.5 truncate text-xs text-slate-500">
@@ -283,7 +290,10 @@ export default function OperatorPage() {
                   <Avatar label={active.conversation.externalUserId} tone="brand" />
                   <div>
                     <p className="text-sm font-semibold text-slate-900">{active.conversation.externalUserId}</p>
-                    <p className="text-xs text-slate-500">{active.conversation.state}</p>
+                    <p className="text-xs text-slate-500">
+                      {active.conversation.state}
+                      {normalizeLanguage(active.conversation.language) && <> &middot; Customer language: {languageLabel(active.conversation.language)}</>}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
