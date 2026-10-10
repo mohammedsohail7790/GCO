@@ -1,3 +1,4 @@
+// Usage: npx tsx prisma/demo-showcase.ts [--reset]   (--reset clears the demo tenant's conversations first)
 // SHOWCASE DEMO DATA for screen recordings and partner demos - LOCAL / STAGING ONLY, never production
 // (assertSeedAllowed refuses a production-mode process). Run AFTER `npm run seed`:  npx tsx prisma/demo-showcase.ts
 //
@@ -12,9 +13,29 @@ import { deriveOutcome } from '@/lib/qa/reviews'
 const db = new PrismaClient()
 const ago = (min: number) => new Date(Date.now() - min * 60_000)
 
+/** Clears the demo tenant's conversations/reviews and the local onboarding rows so a recording starts from a clean slate. */
+async function resetShowcase(tenantId: string) {
+  const w = { tenantId }
+  const convIds = (await db.conversation.findMany({ where: w, select: { id: true } })).map((c) => c.id)
+  await db.conversation.updateMany({ where: w, data: { currentAssignmentId: null } })
+  await db.qaReview.deleteMany({ where: w })
+  await db.escalationEvent.deleteMany({ where: { escalation: { conversationId: { in: convIds } } } })
+  await db.escalation.deleteMany({ where: { conversationId: { in: convIds } } })
+  await db.aiGeneration.deleteMany({ where: w })
+  await db.assignmentHistoryEntry.deleteMany({ where: { assignment: { tenantId } } })
+  await db.assignment.deleteMany({ where: w })
+  await db.messageEvent.deleteMany({ where: { message: { tenantId } } })
+  await db.usageRecord.deleteMany({ where: w })
+  await db.message.deleteMany({ where: w })
+  await db.conversation.deleteMany({ where: w })
+  await db.$executeRawUnsafe('TRUNCATE TABLE "ClientOnboarding" CASCADE')
+  console.log('Showcase reset: demo tenant conversations, QA reviews and local onboarding rows cleared.')
+}
+
 async function main() {
   assertSeedAllowed()
   const tenant = await db.tenant.findFirstOrThrow({ where: { slug: 'demo-dating-app' } })
+  if (process.argv.includes('--reset')) await resetShowcase(tenant.id)
   if ((await db.conversation.count({ where: { tenantId: tenant.id } })) > 3) {
     console.log('Showcase data already present (tenant has conversations) - nothing to do.')
     return
@@ -33,11 +54,11 @@ async function main() {
   const mkOperator = async (email: string, displayName: string, languages: string[], status: 'AVAILABLE' | 'OFFLINE') => {
     const u = await db.user.upsert({ where: { email }, update: { displayName }, create: { email, passwordHash: hash, role: 'OPERATOR', displayName, tenantId: tenant.id } })
     const existing = await db.operator.findUnique({ where: { userId: u.id } })
-    if (existing) return db.operator.update({ where: { id: existing.id }, data: { languages, status, capacity: 3 } })
-    return db.operator.create({ data: { userId: u.id, tenantId: tenant.id, languages, status, capacity: 3 } })
+    if (existing) return db.operator.update({ where: { id: existing.id }, data: { languages, status, capacity: 2 } })
+    return db.operator.create({ data: { userId: u.id, tenantId: tenant.id, languages, status, capacity: 2 } })
   }
-  const alex = await db.operator.update({ where: { userId: alexUser.id }, data: { languages: ['en', 'es'], status: 'AVAILABLE', capacity: 3 } })
-  const lucia = await mkOperator('operator2@demo.gco', 'Lucía Fernández', ['es', 'en'], 'AVAILABLE')
+  const alex = await db.operator.update({ where: { userId: alexUser.id }, data: { languages: ['en', 'es'], status: 'AVAILABLE', capacity: 2 } })
+  const lucia = await mkOperator('operator2@demo.gco', 'Lucía Fernández', ['es', 'en'], 'OFFLINE')
   const marc = await mkOperator('operator3@demo.gco', 'Marc Dubois', ['fr', 'en'], 'OFFLINE')
 
   // --- conversation history (answered conversations, backdated) --------------

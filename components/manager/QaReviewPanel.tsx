@@ -49,7 +49,7 @@ export function QaReviewPanel() {
     <div className="flex items-center gap-2 text-xs text-slate-600">
       <span className="w-20">{label}</span>
       {[1, 2, 3, 4, 5].map((n) => (
-        <button key={n} aria-label={`${label} ${n}`} aria-pressed={sc(id)[field] === n} onClick={() => setScores((s) => ({ ...s, [id]: { ...sc(id), [field]: n } }))}
+        <button key={n} aria-label={`${label} ${n}`} aria-pressed={sc(id)[field] === n} onClick={() => setScores((s) => ({ ...s, [id]: { ...(s[id] ?? { accuracy: 0, tone: 0, resolution: 0 }), [field]: n } }))}
           className={`h-6 w-6 rounded-full border text-xs font-medium ${sc(id)[field] === n ? 'border-brand-500 bg-brand-500 text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'}`}>{n}</button>
       ))}
     </div>
