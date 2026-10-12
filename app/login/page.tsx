@@ -7,6 +7,8 @@ export default function LoginPage() {
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [code, setCode] = useState('')
+  const [needCode, setNeedCode] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -19,10 +21,18 @@ export default function LoginPage() {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify(needCode ? { email, password, code } : { email, password }),
       })
       const json = await res.json()
-      if (!res.ok || !json.ok) throw new Error(json?.error?.message ?? 'Login failed')
+      if (!res.ok || !json.ok) {
+        if (json?.error?.code === 'TWO_FACTOR_REQUIRED') {
+          // Password was right; ask for the second factor. The message after a wrong code is shown, the first prompt is not an error.
+          if (needCode) setError(json.error.message)
+          setNeedCode(true)
+          return
+        }
+        throw new Error(json?.error?.message ?? 'Login failed')
+      }
       // /home routes by role (the public homepage no longer does).
       router.push('/home')
     } catch (err) {
@@ -145,6 +155,23 @@ export default function LoginPage() {
                 />
               </div>
             </div>
+            {needCode && (
+              <div className="space-y-1.5">
+                <label htmlFor="login-code" className="text-sm font-medium text-slate-700">Authenticator code</label>
+                <input
+                  id="login-code"
+                  autoFocus
+                  autoComplete="one-time-code"
+                  inputMode="text"
+                  required
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  placeholder="6-digit code or a recovery code"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                />
+                <p className="text-xs text-slate-500">Open your authenticator app and enter the current code for GCO.</p>
+              </div>
+            )}
             <button
               type="submit"
               disabled={loading}

@@ -88,6 +88,13 @@ model User {
   updatedAt    DateTime  @updatedAt
   lastLoginAt  DateTime?
 
+  // Two-factor sign-in (TOTP, RFC 6238). The secret is stored ENCRYPTED (lib/auth/secretBox.ts); recovery codes only as SHA-256 hashes.
+  // totpEnabledAt null with a secret present = enrolment started but not confirmed (not enforced at login).
+  totpSecretEnc       String?
+  totpEnabledAt       DateTime?
+  totpLastStep        Int? // last accepted 30-second time step: a code can never be reused
+  totpRecoveryHashes  String[]  @default([])
+
   tenant             Tenant?            @relation(fields: [tenantId], references: [id])
   operator           Operator?
   hunterProfile      HunterProfile?

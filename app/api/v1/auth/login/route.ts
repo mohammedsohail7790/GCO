@@ -10,10 +10,13 @@ import { writeAuditLog } from '@/lib/audit/log'
 import { isRateLimited, RATE_LIMITS } from '@/lib/api/rateLimit'
 import { getClientIp } from '@/lib/api/clientIp'
 import { isTenantActive } from '@/lib/tenant/activity'
+import { verifySecondFactor } from '@/lib/auth/twoFactor'
 
 const LoginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
+  // Authenticator code or a recovery code; only needed when the account has two-factor on.
+  code: z.string().max(32).optional(),
 })
 
 export async function POST(req: NextRequest) {
@@ -50,6 +53,20 @@ export async function POST(req: NextRequest) {
         ipAddress: ip,
       })
       return fail('Invalid credentials', 401)
+    }
+
+    // Second factor, asked for only AFTER the password is right (so the prompt never confirms an email on its own).
+    if (user.totpEnabledAt) {
+      if (!body.code?.trim()) return fail('Enter the code from your authenticator app.', 401, 'TWO_FACTOR_REQUIRED')
+      if (await isRateLimited(`2fa:${user.id}`, 10, 15 * 60)) return fail('Too many attempts. Try again later.', 429)
+      const second = await verifySecondFactor(user.id, body.code)
+      if (!second) {
+        await writeAuditLog({ tenantId: user.tenantId, actorUserId: user.id, action: 'auth.2fa_failed', resource: 'user', resourceId: user.id, ipAddress: ip })
+        return fail('That code is not correct.', 401, 'TWO_FACTOR_REQUIRED')
+      }
+      if (second === 'recovery') {
+        await writeAuditLog({ tenantId: user.tenantId, actorUserId: user.id, action: 'auth.2fa_recovery_code_used', resource: 'user', resourceId: user.id, ipAddress: ip })
+      }
     }
 
     const accessToken = await signAccessToken({

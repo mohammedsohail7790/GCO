@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { apiFetch } from '@/lib/api/client'
+import { TwoFactorSection } from '@/components/account/TwoFactorSection'
 
 interface Me { email: string; role: string; displayName?: string }
 
@@ -51,7 +52,8 @@ export default function AccountPage() {
         {msg && <p role={msg.ok ? 'status' : 'alert'} className={`text-sm ${msg.ok ? 'text-emerald-700' : 'text-red-600'}`}>{msg.text}</p>}
         <button disabled={busy} className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">{busy ? 'Saving…' : 'Change password'}</button>
       </form>
-      <p className="mt-4 text-xs text-slate-400">Two-factor sign-in and emailed password reset are not available yet.</p>
+      <TwoFactorSection />
+      <p className="mt-4 text-xs text-slate-400">Emailed password reset is not available yet; ask the GCO team to issue a new sign-in link.</p>
     </main>
   )
 }

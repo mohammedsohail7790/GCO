@@ -32,7 +32,7 @@ Status: built and tested locally; **not deployed to production** (see `docs/depl
 ## Account
 - `/account` (all roles) and `POST /api/v1/auth/change-password`: needs the current password, applies the staff password policy,
   signs out the user's other sessions, rate-limited (5 per 15 min), audited without any password.
-- Not built: two-factor sign-in, emailed password reset, forced rotation.
+- Two-factor sign-in: optional, see below. Not built: emailed password reset, forced rotation.
 
 ## Not built (and why)
 - Email notifications: no email provider configured; needs an owner decision (see `docs/careers-applications.md`).
@@ -55,3 +55,16 @@ Status: built and tested locally; **not deployed to production** (see `docs/depl
 - Post-deploy (read-only): web healthy, worker up, 0 log errors; `StaffInvitation` has 0 rows; users unchanged (7, 2 active: real CEO and Hunter);
   pages 200; the four invitation endpoints return 401 to an anonymous caller; a bogus invitation token returns the generic 400.
   No production data was created.
+
+## Two-factor sign-in (optional, per account)
+
+Any signed-in user can turn on authenticator-app (TOTP, RFC 6238: SHA-1, 6 digits, 30 s) sign-in from **Your account → Two-factor sign-in**. It is **not forced on anyone**; it is strongly recommended for the CEO account and any CEO_ADMIN/ASSISTANT.
+
+- **Enrol:** enter the current password → a setup key is shown (type it into Google Authenticator, 1Password, Authy…; no QR image is generated, so no extra dependency) → confirm with the first 6-digit code and the password → ten single-use **recovery codes** are shown once. Nothing is enforced until that first code is confirmed.
+- **Sign in:** the password is checked first; only a correct password gets asked for the code (`401 TWO_FACTOR_REQUIRED`, no cookies set). A code is accepted within ±1 step and **only once** (the step is claimed atomically; concurrent submissions of the same code cannot both succeed). A recovery code can be typed in its place and is removed when used. Wrong codes are audited (`auth.2fa_failed`) and rate-limited (10 per 15 min per account, on top of the login limiter).
+- **Change anything** (set up, turn off, new recovery codes) requires the current password again, so a stolen session alone cannot disable it.
+- **Storage:** the seed is encrypted (AES-256-GCM, key derived with HKDF from `AUTH_SECRET`); recovery codes are stored only as SHA-256 hashes. Audit entries hold ids only. **Rotating `AUTH_SECRET` makes stored seeds undecryptable** - affected people would need an operator reset (below) and to enrol again.
+- **Lost phone and recovery codes:** after confirming the person's identity by another channel, run on the server (interactive, asks you to type `reset`):
+  `ssh -t gco@<server> 'cd /opt/gco && docker compose exec worker npx tsx prisma/ops/reset-2fa.ts --email someone@example.com'`
+  It turns two-factor off and signs that account out everywhere; they set it up again themselves.
+- Migration `20261012065733_two_factor` is additive (four nullable/defaulted columns on `User`).
