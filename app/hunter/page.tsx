@@ -138,6 +138,7 @@ export default function HunterPage() {
             <span className="text-xs font-bold text-white">G</span>
           </div>
           <h1 className="text-lg font-semibold tracking-tight text-slate-900">Hunter dashboard</h1>
+          <a href="/account" className="ml-4 text-sm font-medium text-brand-600 hover:underline">Account</a>
         </div>
         <button
           onClick={() => setShowNewLead(!showNewLead)}

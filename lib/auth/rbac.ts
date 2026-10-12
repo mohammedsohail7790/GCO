@@ -79,6 +79,16 @@ export const PERMISSIONS = {
   LANGUAGE_MANAGE: ['CEO_ADMIN', 'MANAGER', 'ASSISTANT'],
   QA_REVIEW: ['CEO_ADMIN', 'MANAGER', 'ASSISTANT'],
 
+  // Conversation lifecycle, history and operations visibility
+  CONVERSATION_RESOLVE: ['OPERATOR', 'MANAGER', 'CEO_ADMIN', 'ASSISTANT'],
+  CONVERSATION_REOPEN: ['MANAGER', 'CEO_ADMIN', 'ASSISTANT'],
+  CONVERSATION_NOTE_ADD: ['OPERATOR', 'MANAGER', 'CEO_ADMIN', 'ASSISTANT'],
+  CONVERSATION_SEARCH: ['MANAGER', 'CEO_ADMIN', 'ASSISTANT'],
+  OPS_ALERTS_VIEW: ['MANAGER', 'CEO_ADMIN', 'ASSISTANT'],
+  // Per-client SLA / capacity / operating hours. Managers and clients can read; only CEO/assistant change them.
+  TENANT_SETTINGS_VIEW: ['CEO_ADMIN', 'ASSISTANT', 'MANAGER', 'CLIENT'],
+  TENANT_SETTINGS_MANAGE: ['CEO_ADMIN', 'ASSISTANT'],
+
   // Public website - careers applications
   // Applicant personal data: CEO only (previously the list API also allowed MANAGER, which had no UI).
   CAREER_VIEW: ['CEO_ADMIN'],

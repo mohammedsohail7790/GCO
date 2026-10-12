@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { apiFetch } from '@/lib/api/client'
 import { useRealtime } from '@/lib/realtime/useRealtime'
 import { languageLabel, normalizeLanguage } from '@/lib/languages'
+import { NoteForm, ResolveButton } from '@/components/operator/ConversationActions'
 import { OperatorEscalate, type ActiveEscalation } from '@/components/escalation/OperatorEscalate'
 
 interface Message {
@@ -179,6 +180,7 @@ export default function OperatorPage() {
           <span className="text-sm text-slate-500">
             Operator {operatorMeta ? `#${operatorMeta.operatorNumber}` : ''}
           </span>
+          <a href="/account" className="text-xs font-medium text-brand-600 hover:underline">Account</a>
           {operatorMeta && (
             <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">
               {items.length}/{operatorMeta.capacity} assigned
@@ -297,6 +299,7 @@ export default function OperatorPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  <ResolveButton conversationId={active.conversation.id} onDone={load} />
                   <OperatorEscalate conversationId={active.conversation.id} active={active.conversation.escalations?.[0] ?? null} onDone={load} />
                   <Timer respondsBy={active.respondsBy} />
                 </div>
@@ -435,6 +438,7 @@ export default function OperatorPage() {
                 </li>
               ))}
             </ul>
+            <NoteForm conversationId={active.conversation.id} onDone={load} />
           </aside>
         )}
       </div>

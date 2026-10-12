@@ -32,6 +32,11 @@ model Tenant {
   defaultOperatorCapacity        Int @default(2)
   defaultResponseSlaSeconds      Int @default(120)
 
+  // Operating hours (informational + used by alerts; they do NOT block routing). null hours = 24/7.
+  // Shape: { mon?: {open:"09:00",close:"17:00"}, tue?: ..., ... }; a missing day = closed. See lib/tenant/settings.ts.
+  timezone       String @default("UTC")
+  operatingHours Json?
+
   // Optional per-tenant cap on total billable inbound messages (usage records).
   // null = unlimited. Used for controlled pilot volume caps (see docs/GCO_V1_PRODUCT_TECHNICAL_DRAFT.md §18).
   messageCap Int?

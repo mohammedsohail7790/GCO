@@ -10,6 +10,9 @@ import { StatusPill } from '@/components/ui/StatusPill'
 import { EscalationQueue } from '@/components/escalation/EscalationQueue'
 import { LanguageCoverage } from '@/components/manager/LanguageCoverage'
 import { QaReviewPanel } from '@/components/manager/QaReviewPanel'
+import { AlertsPanel } from '@/components/manager/AlertsPanel'
+import { ConversationHistory } from '@/components/manager/ConversationHistory'
+import { TenantSettings } from '@/components/manager/TenantSettings'
 
 interface Overview {
   operators: { available: number; busy: number; offline: number; paused: number }
@@ -93,6 +96,7 @@ export default function ManagerPage() {
           <span className="text-xs font-bold text-white">G</span>
         </div>
         <h1 className="text-lg font-semibold tracking-tight text-slate-900">Manager dashboard</h1>
+        <a href="/account" className="ml-auto text-sm font-medium text-brand-600 hover:underline">Account</a>
       </div>
 
       {error && (
@@ -103,6 +107,8 @@ export default function ManagerPage() {
           {error}
         </div>
       )}
+
+      <AlertsPanel />
 
       {overview && (
         <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
@@ -123,6 +129,10 @@ export default function ManagerPage() {
       <LanguageCoverage />
 
       <QaReviewPanel />
+
+      <ConversationHistory />
+
+      <TenantSettings editable={false} />
 
       <SalesConsole />
 

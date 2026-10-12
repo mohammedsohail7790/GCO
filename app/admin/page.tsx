@@ -9,6 +9,9 @@ import { SalesConsole } from '@/components/sales/SalesConsole'
 import { StatusPill } from '@/components/ui/StatusPill'
 import { OnboardingConsole } from '@/components/onboarding/OnboardingConsole'
 import { IntegrationConsole } from '@/components/onboarding/IntegrationConsole'
+import { TenantSettings } from '@/components/manager/TenantSettings'
+import { AlertsPanel } from '@/components/manager/AlertsPanel'
+
 
 interface Tenant {
   id: string
@@ -53,6 +56,7 @@ function eur(cents: number) {
 
 export default function AdminPage() {
   const [tenants, setTenants] = useState<Tenant[]>([])
+  const [settingsTenant, setSettingsTenant] = useState('')
   const [health, setHealth] = useState<SystemHealth | null>(null)
   const [dashboard, setDashboard] = useState<CeoDashboard | null>(null)
   const [approvals, setApprovals] = useState<Approval[]>([])
@@ -120,6 +124,7 @@ export default function AdminPage() {
           <span className="text-xs font-bold text-white">G</span>
         </div>
         <h1 className="text-lg font-semibold tracking-tight text-slate-900">Executive dashboard</h1>
+        <a href="/account" className="ml-auto text-sm font-medium text-brand-600 hover:underline">Account</a>
       </div>
 
       <div className="mb-8">
@@ -280,7 +285,19 @@ export default function AdminPage() {
       </div>
 
       <div className="rounded-lg border border-slate-200 bg-white">
-        <div className="border-b border-slate-200 p-4">
+        <div className="mt-8">
+        <div className="mb-3 flex items-center gap-2">
+          <label htmlFor="settings-tenant" className="text-sm font-semibold text-slate-900">Client settings</label>
+          <select id="settings-tenant" value={settingsTenant} onChange={(e) => setSettingsTenant(e.target.value)} className="rounded-lg border border-slate-200 px-2 py-1 text-sm">
+            <option value="">Choose a client…</option>
+            {tenants.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        </div>
+        {settingsTenant && <TenantSettings key={settingsTenant} tenantId={settingsTenant} editable />}
+        {settingsTenant && <AlertsPanel key={`a-${settingsTenant}`} tenantId={settingsTenant} />}
+      </div>
+
+      <div className="border-b border-slate-200 p-4">
           <h2 className="font-semibold text-slate-900">Tenants</h2>
         </div>
         <table className="w-full text-sm">

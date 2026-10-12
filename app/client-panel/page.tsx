@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { apiFetch } from '@/lib/api/client'
 import { ClientDecisions } from '@/components/escalation/ClientDecisions'
+import { ReportsPanel } from '@/components/client/ReportsPanel'
 
 interface Usage {
   messageCount: number
@@ -62,6 +63,7 @@ export default function ClientPanelPage() {
           <span className="text-xs font-bold text-white">G</span>
         </div>
         <h1 className="text-lg font-semibold tracking-tight text-slate-900">Client dashboard</h1>
+        <a href="/account" className="ml-auto text-sm font-medium text-brand-600 hover:underline">Account</a>
       </div>
 
       {error && (
@@ -74,6 +76,8 @@ export default function ClientPanelPage() {
       )}
 
       <ClientDecisions />
+
+      <ReportsPanel />
 
       <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-3">
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-card">
