@@ -80,3 +80,10 @@ rsync -az --delete -e "ssh -i ~/.ssh/id_ed25519_gco_prod" .git/ gco@<server>:/op
 ssh gco@<server> 'cd /opt/gco && docker tag gco-web:latest gco-web:pre-langqa && docker tag gco-worker:latest gco-worker:pre-langqa && docker compose build web worker && docker compose run --rm --no-deps -T web npx prisma migrate deploy && docker compose up -d --no-deps web worker'
 # 3. verify (read-only) as listed above
 ```
+
+## Deployment record (executed 2026-10-12, owner-approved)
+- Local gate on the deployed code: lint, tsc clean; unit 418/418; integration 134/134; build clean; e2e 245/245.
+- Backup: `gco-postgres-20261012T052301Z.dump` (894,154 bytes), B2 upload verified (sha1 600fa7ef...).
+- Server HEAD after rsync: `2cef1df`. Rollback tags: `gco-web:pre-langqa`, `gco-worker:pre-langqa`.
+- Migration `20261010062049_operator_languages_qa_reviews` applied (13 migrations total). Only web and worker were recreated; postgres/redis/realtime were not restarted.
+- Post-deploy (read-only): web healthy, worker up, no errors in logs; `QaReview` has 0 rows; 0 of 1 operators has languages set (routing unchanged until a manager configures them); no operator over capacity; `/`, `/careers`, `/login`, `/pilot` return 200; anonymous GET/PATCH/POST on the new QA and language endpoints return 401. No test data was created in production.
