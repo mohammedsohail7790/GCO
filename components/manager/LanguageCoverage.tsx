@@ -51,7 +51,7 @@ export function LanguageCoverage() {
         <div>
           <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Conversations by language</h3>
           <table className="w-full text-sm">
-            <thead className="text-left text-xs text-slate-500"><tr><th className="py-1">Language</th><th>Open</th><th>Waiting</th><th>Operator coverage</th></tr></thead>
+            <thead className="text-left text-xs text-slate-500"><tr><th className="py-1">Language</th><th>In progress</th><th>Waiting</th><th>Operator coverage</th></tr></thead>
             <tbody className="divide-y divide-slate-100">
               {data?.languages.map((l) => (
                 <tr key={l.code ?? 'none'}>

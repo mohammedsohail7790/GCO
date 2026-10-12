@@ -6,7 +6,7 @@ import { db } from '@/lib/db/client'
 import { ok, handleRouteError } from '@/lib/api/response'
 import { languageLabel, operatorCoversLanguage } from '@/lib/languages'
 
-/** Per language: how many conversations are waiting, and whether any AVAILABLE operator can take them. */
+/** Per language: conversations being handled (active) and waiting for an operator (queued), and whether any AVAILABLE operator can take them. Answered/closed conversations are not counted. */
 export async function GET(req: NextRequest) {
   try {
     const session = await getSession(req)
@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
     const tenantId = resolveTenantScope(session, new URL(req.url).searchParams.get('tenantId'))
     const [operators, convs] = await Promise.all([
       db.operator.findMany({ where: { tenantId }, include: { user: { select: { displayName: true } } }, orderBy: { operatorNumber: 'asc' } }),
-      db.conversation.findMany({ where: { tenantId, state: { notIn: ['CLOSED', 'FAILED'] } }, select: { language: true, state: true } }),
+      db.conversation.findMany({ where: { tenantId, state: { in: ['QUEUED', 'REASSIGNING', 'ACTIVE', 'WAITING_FOR_OPERATOR'] } }, select: { language: true, state: true } }),
     ])
     const groups = new Map<string, { active: number; queued: number }>()
     for (const c of convs) {
