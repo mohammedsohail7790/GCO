@@ -1,7 +1,9 @@
 import type { MetadataRoute } from 'next'
 import { SITE_URL } from '@/lib/config/site'
+import { IS_STAGING_BUILD } from '@/lib/config/environment'
 
 export default function robots(): MetadataRoute.Robots {
+  if (IS_STAGING_BUILD) return { rules: [{ userAgent: '*', disallow: '/' }] }
   return {
     rules: [
       {

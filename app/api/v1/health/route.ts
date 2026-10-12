@@ -1,6 +1,7 @@
 import { db } from '@/lib/db/client'
 import { getAppRedisConnection } from '@/lib/queue/connection'
 import { ok } from '@/lib/api/response'
+import { environmentName } from '@/lib/config/environment'
 
 export const dynamic = 'force-dynamic'
 
@@ -30,5 +31,5 @@ export async function GET() {
   }
 
   const healthy = Object.values(checks).every((c) => c.status === 'up')
-  return ok({ healthy, checks }, healthy ? 200 : 503)
+  return ok({ healthy, checks, environment: environmentName() }, healthy ? 200 : 503)
 }

@@ -3,6 +3,8 @@ import { Inter_Tight, Inter } from 'next/font/google'
 import './globals.css'
 import { SITE_URL, SITE_NAME, SITE_TAGLINE } from '@/lib/config/site'
 import { AnalyticsRoot } from '@/components/analytics/AnalyticsRoot'
+import { EnvironmentBanner } from '@/components/ui/EnvironmentBanner'
+import { IS_STAGING_BUILD } from '@/lib/config/environment'
 
 // Self-hosted at build time by next/font (no runtime request to
 // fonts.googleapis.com, no extra network round-trip) - a font pairing
@@ -18,6 +20,8 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: { default: `${SITE_NAME} - ${SITE_TAGLINE}`, template: `%s | ${SITE_NAME}` },
   description: SITE_TAGLINE,
+  // A staging build must never be indexed.
+  ...(IS_STAGING_BUILD ? { robots: { index: false, follow: false } } : {}),
   // Icons come from the file conventions: app/icon.svg, app/favicon.ico, app/apple-icon.png.
 }
 
@@ -25,6 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${displayFont.variable} ${bodyFont.variable}`}>
       <body>
+        <EnvironmentBanner />
         {children}
         <AnalyticsRoot />
       </body>

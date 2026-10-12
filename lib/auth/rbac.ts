@@ -71,6 +71,7 @@ export const PERMISSIONS = {
   ONBOARDING_MANAGE: ['CEO_ADMIN', 'ASSISTANT'],
   // Invite a client's operators/managers by one-time setup link (they choose their own password).
   STAFF_INVITE: ['CEO_ADMIN', 'ASSISTANT'],
+  STAGING_TOOLS: ['CEO_ADMIN'], // staging environment only (see lib/config/environment.ts)
   // Go-live activates the client's integrations - CEO only.
   ONBOARDING_GO_LIVE: ['CEO_ADMIN'],
   // A client's own (client-safe) onboarding progress.

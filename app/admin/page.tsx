@@ -11,6 +11,7 @@ import { OnboardingConsole } from '@/components/onboarding/OnboardingConsole'
 import { IntegrationConsole } from '@/components/onboarding/IntegrationConsole'
 import { TenantSettings } from '@/components/manager/TenantSettings'
 import { AlertsPanel } from '@/components/manager/AlertsPanel'
+import { IS_STAGING_BUILD } from '@/lib/config/environment'
 
 
 interface Tenant {
@@ -124,7 +125,8 @@ export default function AdminPage() {
           <span className="text-xs font-bold text-white">G</span>
         </div>
         <h1 className="text-lg font-semibold tracking-tight text-slate-900">Executive dashboard</h1>
-        <a href="/account" className="ml-auto text-sm font-medium text-brand-600 hover:underline">Account</a>
+        {IS_STAGING_BUILD && <a href="/admin/staging" className="ml-auto rounded-lg bg-amber-100 px-3 py-1 text-sm font-medium text-amber-900 hover:bg-amber-200">Staging tools</a>}
+        <a href="/account" className={`${IS_STAGING_BUILD ? '' : 'ml-auto '}text-sm font-medium text-brand-600 hover:underline`}>Account</a>
       </div>
 
       <div className="mb-8">

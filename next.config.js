@@ -7,6 +7,8 @@ const nextConfig = {
   // never previously verified since Docker wasn't available - see
   // docs/production-readiness-audit.md.
   output: 'standalone',
+  // Default .next. A second, differently-configured build (local staging check) can be kept side by side with NEXT_DIST_DIR.
+  distDir: process.env.NEXT_DIST_DIR || '.next',
   serverExternalPackages: ['@prisma/client', 'bullmq', 'ioredis'],
   // 90 is used for platform screenshots so small UI text stays crisp after optimisation.
   images: { qualities: [75, 90] },

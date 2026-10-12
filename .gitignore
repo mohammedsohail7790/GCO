@@ -23,3 +23,5 @@ gco-backup-b2.env
 # Any .env.<name> secret file (e.g. .env.ai = worker-only OpenAI key); template stays tracked
 .env.*
 !.env.example
+.next-staging
+!.env.staging.example
