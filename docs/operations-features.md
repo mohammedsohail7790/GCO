@@ -68,3 +68,10 @@ Any signed-in user can turn on authenticator-app (TOTP, RFC 6238: SHA-1, 6 digit
   `ssh -t gco@<server> 'cd /opt/gco && docker compose exec worker npx tsx prisma/ops/reset-2fa.ts --email someone@example.com'`
   It turns two-factor off and signs that account out everywhere; they set it up again themselves.
 - Migration `20261012065733_two_factor` is additive (four nullable/defaulted columns on `User`).
+
+### Deployment record - two-factor sign-in (2026-10-12, owner-approved)
+- Gate: lint/tsc clean; unit 434/434; integration 168/168; build clean; e2e 256/257 on the full run, the one failure being a browser-based test that could not launch (no Playwright browser installed), since rewritten as an API test; both 2FA e2e tests then passed.
+- Backup `gco-postgres-20261012T070645Z.dump` (900,551 bytes), B2 upload verified (sha1 2fd04263...).
+- Code commit `662cccf`; `deliverables/` not sent. Rollback tags `gco-web:pre-2fa`, `gco-worker:pre-2fa`.
+- Migration `20261012065733_two_factor` applied (16 total); only web and worker recreated; postgres/redis/realtime uptime unchanged.
+- Post-deploy (read-only): web healthy, worker up, 0 log errors; 7 users, 2 active, 0 with two-factor on; `/`, `/login`, `/account` return 200; the five `/auth/2fa/*` endpoints return 401 to an anonymous caller. No production data was created. The login-page code field and account section were not visually checked in a browser.
