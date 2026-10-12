@@ -1,7 +1,7 @@
 # Production deployment plan - language routing and quality review (NOT YET APPROVED)
 
-Status: **prepared, not executed.** Do not run any step below until the owner approves in writing.
-Commit to deploy: `c502fba` plus the follow-up commit that contains the QA panel rating fix (see `git log`).
+Status: **prepared and pre-flighted (read-only); NOT executed.** Do not run the deploy steps until the owner approves in writing.
+Commit to deploy: `HEAD` of `main` at approval time (currently `26c470f` + this doc commit). Server is at `a546977`.
 
 ## What changes
 - Migration `20261010062049_operator_languages_qa_reviews` (additive only):
@@ -60,3 +60,23 @@ Proceed only if the log shows the dump written AND "offsite upload to B2 verifie
 - The marketing site's "Multilingual operations" and "Supervision & QA" claims match the product only after this deployment AND
   after operator languages are configured; do not state they are live earlier.
 - The real CEO account still has to be created before the owner can use the new panels in production.
+
+
+## Pre-flight record (read-only, 2026-10-12)
+- Production: web/worker up (healthy), postgres/redis/realtime healthy (13 days), disk 43% used (83 GB free). Server HEAD `a546977`.
+- Database: 12 migrations applied, latest `20261009054744_career_application_review`; `Operator.languages` column and `QaReview` table do **not** exist yet (so the migration is pending and applies cleanly). Counts for the record: 1 operator, 1 conversation, 5 users.
+- The migration `20261010062049_operator_languages_qa_reviews` contains only CREATE TYPE / CREATE TABLE / ADD COLUMN / CREATE INDEX statements (6 additive); it has no DROP, DELETE, TRUNCATE or UPDATE.
+- `rsync --dry-run` lists exactly the 24 expected paths (app routes/pages, components, lib, migration, schema, tests, docs) and nothing else; `.env*`, `node_modules`, `.next`, `.git` and `deliverables/` (80 MB of demo video) are excluded. **Always keep `--exclude deliverables` in the rsync command.**
+- Local gate on the exact commit: see the final line of this document (filled in when the run completes).
+
+## Exact commands (run only after approval)
+```bash
+# 0. verified backup (stop if the log does not say "offsite upload to B2 verified")
+ssh gco@<server> 'sudo systemctl start gco-backup-postgres.service && journalctl -u gco-backup-postgres.service -n 6 --no-pager'
+# 1. sync code (note --exclude deliverables)
+rsync -az --delete --exclude .git --exclude node_modules --exclude .next --exclude .tools --exclude .env --exclude .env.local --exclude test-results --exclude deliverables -e "ssh -i ~/.ssh/id_ed25519_gco_prod" ./ gco@<server>:/opt/gco/
+rsync -az --delete -e "ssh -i ~/.ssh/id_ed25519_gco_prod" .git/ gco@<server>:/opt/gco/.git/
+# 2. rollback tags, build, migrate, switch
+ssh gco@<server> 'cd /opt/gco && docker tag gco-web:latest gco-web:pre-langqa && docker tag gco-worker:latest gco-worker:pre-langqa && docker compose build web worker && docker compose run --rm --no-deps -T web npx prisma migrate deploy && docker compose up -d --no-deps web worker'
+# 3. verify (read-only) as listed above
+```
