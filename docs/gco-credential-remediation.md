@@ -65,4 +65,7 @@ ssh -t gco@<server> 'cd /opt/gco && docker compose exec worker npx tsx prisma/op
 - Existing accounts: `--update-password` rotates (and revokes sessions); the tool never moves an account to another client and does
   not change roles of client staff.
 - Client (customer) accounts are not created here; they come from the client onboarding/invitation flow.
-- Deployment: code only (worker image); no migration. Not yet deployed to production - see the status in the project notes.
+- Deployment: code only (worker image); no migration. **Deployed to production 2026-10-12** (worker rebuilt from `7e2adb7`; rollback tag
+  `gco-worker:pre-acct-tool`). Verified read-only with dry runs: no client / demo client / unknown client / global role with a client /
+  password-as-argument are each refused, and `--allow-demo-tenant` is refused in production. No accounts were created; user and operator
+  counts were unchanged (7 users, 1 operator, 2 active).
