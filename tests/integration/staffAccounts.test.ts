@@ -20,7 +20,10 @@ describe('staff accounts: create / rotate / retire', () => {
     await db.session.deleteMany({ where: { userId: { in: userIds } } })
     await db.auditLog.deleteMany({ where: { resourceId: { in: userIds } } })
     await db.hunterProfile.deleteMany({ where: { userId: { in: userIds } } })
-    await db.user.deleteMany({ where: { id: { in: userIds } } })
+    await db.operator.deleteMany({ where: { userId: { in: userIds } } })
+    await db.auditLog.deleteMany({ where: { tenantId: { in: tenantIds } } })
+    await db.operator.deleteMany({ where: { tenantId: { in: tenantIds } } })
+    await db.user.deleteMany({ where: { OR: [{ id: { in: userIds } }, { tenantId: { in: tenantIds } }] } })
     await db.tenant.deleteMany({ where: { id: { in: tenantIds } } })
   })
   const track = (id: string | null) => {
@@ -57,7 +60,7 @@ describe('staff accounts: create / rotate / retire', () => {
     })
     it.each([
       ['a demo-domain email', { email: 'someone@demo.gco', role: 'CEO_ADMIN' as const }, /Demo accounts are retired/],
-      ['a non-staff role', { email: 'x1@staff.test', role: 'OPERATOR' as never }, /Role must be one of/],
+      ['a role the tool does not manage', { email: 'x1@staff.test', role: 'CLIENT' as never }, /Role must be one of/],
       ['an invalid email', { email: 'not-an-email', role: 'CEO_ADMIN' as const }, /valid email/],
     ])('refuses %s', async (_n, extra, msg) => {
       await expect(upsertStaffAccount(db, { displayName: 'X', passwordHash: hash, ...extra })).rejects.toThrow(msg)
@@ -90,6 +93,72 @@ describe('staff accounts: create / rotate / retire', () => {
       expect(await bcrypt.compare('A-Completely-Different-Passphrase-9', u.passwordHash)).toBe(true)
       expect(await bcrypt.compare('Fixture-Passphrase-For-Tests-1', u.passwordHash)).toBe(false)
       expect((await db.session.findUniqueOrThrow({ where: { id: s.id } })).revokedAt).not.toBeNull()
+    })
+  })
+
+  describe('operator and manager accounts (client-scoped)', () => {
+    let tenantSlug = ''
+    let tenantId = ''
+    beforeAll(async () => {
+      const t = await db.tenant.create({ data: { name: '[TEST] staff-tenant', slug: `st-${stamp}`, defaultOperatorCapacity: 3 } })
+      tenantSlug = t.slug; tenantId = t.id; tenantIds.push(t.id)
+    })
+    it('creates an OPERATOR for the client: OFFLINE, client default capacity, normalised languages; audit without secrets', async () => {
+      const r = await upsertStaffAccount(db, { email: email('op'), displayName: 'Op', role: 'OPERATOR', tenantSlug, languages: ['ES', 'en-GB', 'es'], passwordHash: hash })
+      track(r.userId)
+      expect(r).toMatchObject({ action: 'created', role: 'OPERATOR', tenantSlug })
+      const u = await db.user.findUniqueOrThrow({ where: { id: r.userId! }, include: { operator: true } })
+      expect(u).toMatchObject({ role: 'OPERATOR', tenantId, isActive: true })
+      expect(u.operator).toMatchObject({ status: 'OFFLINE', capacity: 3, tenantId })
+      expect(u.operator!.languages).toEqual(['en', 'es'])
+      expect(await bcrypt.compare('Fixture-Passphrase-For-Tests-1', u.passwordHash)).toBe(true)
+      const audit = JSON.stringify(await db.auditLog.findMany({ where: { resourceId: r.userId! } }))
+      expect(audit).toContain('staff.account_created'); expect(audit).not.toMatch(/Fixture-Passphrase|\$2[aby]\$/)
+    })
+    it('creates a MANAGER for the client without an operator profile', async () => {
+      const r = await upsertStaffAccount(db, { email: email('mgr'), displayName: 'Mgr', role: 'MANAGER', tenantSlug, passwordHash: hash })
+      track(r.userId)
+      const u = await db.user.findUniqueOrThrow({ where: { id: r.userId! }, include: { operator: true } })
+      expect(u).toMatchObject({ role: 'MANAGER', tenantId }); expect(u.operator).toBeNull()
+    })
+    it.each([
+      ['no client given', { role: 'OPERATOR' as const, tenantSlug: undefined }, /--tenant/],
+      ['an unknown client', { role: 'MANAGER' as const, tenantSlug: 'no-such-client' }, /No client with the slug/],
+      ['the demo client', { role: 'OPERATOR' as const, tenantSlug: 'demo-dating-app' }, /demo client|No client/],
+      ['a client on a global role', { role: 'HUNTER' as const, tenantSlug: 'x' }, /global role/],
+      ['languages on a manager', { role: 'MANAGER' as const, languages: ['en'] }, /OPERATOR accounts only/],
+      ['invalid language codes', { role: 'OPERATOR' as const, languages: ['english'] }, /two-letter/],
+    ])('refuses %s', async (_n, extra, msg) => {
+      const before = await db.user.count()
+      await expect(upsertStaffAccount(db, { email: email('bad'), displayName: 'X', passwordHash: hash, tenantSlug, ...extra } as never)).rejects.toThrow(msg)
+      expect(await db.user.count()).toBe(before)
+    })
+    it('refuses a suspended client, and the demo client by id (only a test flag can override it)', async () => {
+      const sus = await db.tenant.create({ data: { name: '[TEST] suspended', slug: `sus-${stamp}`, status: 'SUSPENDED' } }); tenantIds.push(sus.id)
+      await expect(upsertStaffAccount(db, { email: email('sus'), displayName: 'S', role: 'OPERATOR', tenantSlug: sus.slug, passwordHash: hash })).rejects.toThrow(/SUSPENDED/)
+      const demo = await db.tenant.findUnique({ where: { slug: 'demo-dating-app' } })
+      if (demo) {
+        await expect(upsertStaffAccount(db, { email: email('demoop'), displayName: 'D', role: 'OPERATOR', tenantSlug: demo.slug, passwordHash: hash })).rejects.toThrow(/demo client/)
+      }
+    })
+    it('dry run changes nothing; a failed operator-profile step leaves no half-created user (transaction)', async () => {
+      const before = await db.user.count()
+      const d = await upsertStaffAccount(db, { email: email('dryop'), displayName: 'D', role: 'OPERATOR', tenantSlug, passwordHash: null, dryRun: true })
+      expect(d).toMatchObject({ action: 'would_create', tenantSlug })
+      expect(await db.user.count()).toBe(before)
+    })
+    it('existing client staff: needs --update-password, stays in its client, no role change, no moving between clients', async () => {
+      const r = await upsertStaffAccount(db, { email: email('exop'), displayName: 'E', role: 'OPERATOR', tenantSlug, passwordHash: hash }); track(r.userId)
+      await expect(upsertStaffAccount(db, { email: email('exop'), displayName: 'E', role: 'OPERATOR', tenantSlug, passwordHash: hash })).rejects.toThrow(/already exists/)
+      const other = await db.tenant.create({ data: { name: '[TEST] other', slug: `oth-${stamp}` } }); tenantIds.push(other.id)
+      await expect(upsertStaffAccount(db, { email: email('exop'), displayName: 'E', role: 'OPERATOR', tenantSlug: other.slug, passwordHash: hash, updatePassword: true })).rejects.toThrow(/different client/)
+      await expect(upsertStaffAccount(db, { email: email('exop'), displayName: 'E', role: 'MANAGER', tenantSlug, passwordHash: hash, updatePassword: true, allowRoleChange: true })).rejects.toThrow(/role changes for client staff/)
+      await expect(upsertStaffAccount(db, { email: email('exop'), displayName: 'E', role: 'CEO_ADMIN', passwordHash: hash, updatePassword: true, allowRoleChange: true })).rejects.toThrow(/different client/)
+      const s = await newSession(r.userId!)
+      const rotated = await upsertStaffAccount(db, { email: email('exop'), displayName: 'E', role: 'OPERATOR', tenantSlug, passwordHash: await hashPassword('Another-Fixture-Passphrase-22'), updatePassword: true })
+      expect(rotated.action).toBe('password_updated')
+      expect((await db.session.findUniqueOrThrow({ where: { id: s.id } })).revokedAt).not.toBeNull()
+      expect(await db.operator.count({ where: { userId: r.userId! } })).toBe(1) // still exactly one profile
     })
   })
 

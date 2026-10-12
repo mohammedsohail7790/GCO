@@ -2,22 +2,26 @@
 // environment variable, a file, a log line or chat text. Run it yourself, on the server, in an interactive terminal:
 //
 //   ssh -t gco@<server> 'cd /opt/gco && docker compose exec worker npx tsx prisma/ops/staff-account.ts --role CEO_ADMIN'
+//   ssh -t gco@<server> 'cd /opt/gco && docker compose exec worker npx tsx prisma/ops/staff-account.ts --role OPERATOR --tenant <client-slug> --languages en,es'
 //
 // You are prompted for the email, a display name, and the password (hidden, typed twice). Only a bcrypt hash is stored.
-// Flags: --role CEO_ADMIN|ASSISTANT|HUNTER (required) - --email x - --name "x" - --dry-run (validate, change nothing,
-// ask for no password) - --update-password (rotate an EXISTING account) - --allow-role-change.
+// Flags: --role CEO_ADMIN|ASSISTANT|HUNTER|OPERATOR|MANAGER (required) - --email x - --name "x" - --dry-run (validate, change
+// nothing, ask for no password) - --update-password (rotate an EXISTING account) - --allow-role-change.
+// OPERATOR and MANAGER belong to one active client: --tenant <client slug> is required (never the demo client; an
+// OPERATOR is created OFFLINE with the client's default capacity). --languages en,es (OPERATOR only) records the languages
+// the operator handles; omit it for an unrestricted operator. --allow-demo-tenant exists for local testing only.
 import 'dotenv/config'
 import { PrismaClient } from '@prisma/client'
 import { hashPassword, validateStaffPassword } from '@/lib/auth/password'
-import { AccountToolError, STAFF_ROLES, upsertStaffAccount, normalizeStaffEmail, type StaffRole } from '@/lib/auth/staffAccounts'
+import { AccountToolError, ACCOUNT_ROLES, upsertStaffAccount, normalizeStaffEmail, type AccountRole } from '@/lib/auth/staffAccounts'
 import { describeDatabase, readLine, requireTerminal } from './prompt'
 
 const db = new PrismaClient()
 const log = (m: string) => console.log(m)
 
-interface Args { role?: string; email?: string; name?: string; dryRun: boolean; updatePassword: boolean; allowRoleChange: boolean }
+interface Args { role?: string; email?: string; name?: string; tenant?: string; languages?: string[]; dryRun: boolean; updatePassword: boolean; allowRoleChange: boolean; allowDemoTenant: boolean }
 function parseArgs(argv: string[]): Args {
-  const out: Args = { dryRun: false, updatePassword: false, allowRoleChange: false }
+  const out: Args = { dryRun: false, updatePassword: false, allowRoleChange: false, allowDemoTenant: false }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]!
     const value = () => {
@@ -30,6 +34,9 @@ function parseArgs(argv: string[]): Args {
     if (a === '--role') out.role = value()
     else if (a === '--email') out.email = value()
     else if (a === '--name') out.name = value()
+    else if (a === '--tenant') out.tenant = value()
+    else if (a === '--languages') out.languages = value().split(',').map((x) => x.trim()).filter(Boolean)
+    else if (a === '--allow-demo-tenant') out.allowDemoTenant = true
     else if (a === '--dry-run') out.dryRun = true
     else if (a === '--update-password') out.updatePassword = true
     else if (a === '--allow-role-change') out.allowRoleChange = true
@@ -40,19 +47,20 @@ function parseArgs(argv: string[]): Args {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2))
-  if (!args.role || !(STAFF_ROLES as readonly string[]).includes(args.role)) throw new AccountToolError(`--role is required: ${STAFF_ROLES.join(' | ')}`)
-  const role = args.role as StaffRole
+  if (!args.role || !(ACCOUNT_ROLES as readonly string[]).includes(args.role)) throw new AccountToolError(`--role is required: ${ACCOUNT_ROLES.join(' | ')}`)
+  const role = args.role as AccountRole
   const production = process.env.NODE_ENV === 'production'
   if (!args.dryRun || !args.email) requireTerminal('This command')
 
   log(production ? `\n*** PRODUCTION *** database: ${describeDatabase()}` : `\nDevelopment/non-production process. Database: ${describeDatabase()}`)
-  log(`Role: ${role}${args.dryRun ? '   (DRY RUN - nothing will be changed)' : ''}\n`)
+  if (args.allowDemoTenant && production) throw new AccountToolError('--allow-demo-tenant is not permitted in production.')
+  log(`Role: ${role}${args.tenant ? `   Client: ${args.tenant}` : ''}${args.languages?.length ? `   Languages: ${args.languages.join(', ')}` : ''}${args.dryRun ? '   (DRY RUN - nothing will be changed)' : ''}\n`)
 
   const email = normalizeStaffEmail(args.email ?? (await readLine('Email: ')))
   const displayName = (args.name ?? (await readLine('Display name: '))).trim()
 
   if (args.dryRun) {
-    const r = await upsertStaffAccount(db, { email, displayName, role, passwordHash: null, updatePassword: args.updatePassword, allowRoleChange: args.allowRoleChange, dryRun: true })
+    const r = await upsertStaffAccount(db, { email, displayName, role, tenantSlug: args.tenant, languages: args.languages, allowDemoTenant: args.allowDemoTenant, passwordHash: null, updatePassword: args.updatePassword, allowRoleChange: args.allowRoleChange, dryRun: true })
     log(`Dry run OK: would ${r.action === 'would_create' ? 'create' : 'set a new password on'} ${r.role} account ${r.email}. Nothing was changed and no password was requested.`)
     return
   }
@@ -69,8 +77,9 @@ async function main() {
   const passwordHash = await hashPassword(password)
   password = '' // best effort: drop the plaintext reference now that only the hash is needed
 
-  const r = await upsertStaffAccount(db, { email, displayName, role, passwordHash, updatePassword: args.updatePassword, allowRoleChange: args.allowRoleChange })
-  log(`\nDone: ${r.action === 'created' ? 'created' : 'updated the password of'} ${r.role} account ${r.email} (id ${r.userId}).`)
+  const r = await upsertStaffAccount(db, { email, displayName, role, tenantSlug: args.tenant, languages: args.languages, allowDemoTenant: args.allowDemoTenant, passwordHash, updatePassword: args.updatePassword, allowRoleChange: args.allowRoleChange })
+  log(`\nDone: ${r.action === 'created' ? 'created' : 'updated the password of'} ${r.role} account ${r.email}${r.tenantSlug ? ` for client ${r.tenantSlug}` : ''} (id ${r.userId}).`)
+  if (r.action === 'created' && r.role === 'OPERATOR') log('The operator profile was created OFFLINE; the operator sets their own status to Available after signing in.')
   log('The password was not displayed, logged or stored anywhere except as a bcrypt hash in the database.')
   if (r.action === 'password_updated') log('All previous sessions for this account were revoked.')
 }

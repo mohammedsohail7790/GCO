@@ -1,15 +1,22 @@
 import bcrypt from 'bcryptjs'
 import type { PrismaClient, Role } from '@prisma/client'
 import { PUBLISHED_SEED_PASSWORD } from './password'
+import { normalizeLanguage, normalizeLanguageList } from '@/lib/languages'
 
 // Operator-run account tooling (see prisma/ops/*): create/rotate a real staff account WITHOUT ever handling the password
 // in plain text outside the process that hashes it, and retire the published demo accounts safely. Pure DB logic lives
 // here so it is testable; the scripts are thin interactive wrappers.
 
-type Db = Pick<PrismaClient, 'user' | 'session' | 'auditLog' | 'hunterProfile' | '$transaction'>
+type Db = Pick<PrismaClient, 'user' | 'session' | 'auditLog' | 'hunterProfile' | 'tenant' | 'operator' | '$transaction'>
 
 export const STAFF_ROLES = ['CEO_ADMIN', 'ASSISTANT', 'HUNTER'] as const
 export type StaffRole = (typeof STAFF_ROLES)[number]
+/** Accounts that belong to exactly one client (tenant): they are created with --tenant <slug>. */
+export const TENANT_STAFF_ROLES = ['OPERATOR', 'MANAGER'] as const
+export const ACCOUNT_ROLES = [...STAFF_ROLES, ...TENANT_STAFF_ROLES] as const
+export type AccountRole = (typeof ACCOUNT_ROLES)[number]
+/** The seeded demo client: real people must never be attached to it (override only with an explicit flag, outside production). */
+export const DEMO_TENANT = { id: 'cmulg4gwr0000z8nw5wy9kjwy', slug: 'demo-dating-app' } as const
 
 export class AccountToolError extends Error {}
 
@@ -29,7 +36,13 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 export interface UpsertInput {
   email: string
   displayName: string
-  role: StaffRole
+  role: AccountRole
+  /** Required for OPERATOR and MANAGER (the client they work for); forbidden for global roles. */
+  tenantSlug?: string
+  /** OPERATOR only: ISO 639-1 codes the operator handles (empty/omitted = unrestricted, the existing default). */
+  languages?: string[]
+  /** Allows attaching staff to the seeded demo client (never in production). */
+  allowDemoTenant?: boolean
   /** bcrypt hash of the password the operator typed (null only for dry runs). */
   passwordHash: string | null
   updatePassword?: boolean
@@ -40,37 +53,70 @@ export interface UpsertResult {
   action: 'created' | 'password_updated' | 'would_create' | 'would_update_password'
   userId: string | null
   email: string
-  role: StaffRole
+  role: AccountRole
+  tenantSlug: string | null
 }
 
-/** Creates a staff account, or (explicitly) sets a new password on an existing one. Never prints or stores a password. */
+/**
+ * Creates a staff account, or (explicitly) sets a new password on an existing one. Never prints or stores a password.
+ * OPERATOR and MANAGER accounts belong to one active client; an OPERATOR also gets its operator profile (status OFFLINE,
+ * the client's default capacity, the given languages) in the same transaction, so a half-created account cannot exist.
+ */
 export async function upsertStaffAccount(db: Db, input: UpsertInput): Promise<UpsertResult> {
   const email = normalizeStaffEmail(input.email)
   if (!EMAIL.test(email) || email.length > 200) throw new AccountToolError('That does not look like a valid email address.')
   if (email.endsWith(DEMO_EMAIL_DOMAIN)) throw new AccountToolError('Demo accounts are retired with disable-demo-accounts, never edited here.')
-  if (!(STAFF_ROLES as readonly string[]).includes(input.role)) throw new AccountToolError(`Role must be one of: ${STAFF_ROLES.join(', ')}.`)
+  if (!(ACCOUNT_ROLES as readonly string[]).includes(input.role)) throw new AccountToolError(`Role must be one of: ${ACCOUNT_ROLES.join(', ')}.`)
   const displayName = input.displayName.trim().slice(0, 120)
   if (!displayName) throw new AccountToolError('A display name is required.')
   if (!input.dryRun && !input.passwordHash) throw new AccountToolError('A password hash is required.')
   if (input.passwordHash && !/^\$2[aby]\$12\$/.test(input.passwordHash)) throw new AccountToolError('The hash is not bcrypt cost 12 - use the application hashing.')
 
+  const tenantRole = (TENANT_STAFF_ROLES as readonly string[]).includes(input.role)
+  let tenant: { id: string; slug: string; status: string; defaultOperatorCapacity: number } | null = null
+  if (tenantRole) {
+    const slug = input.tenantSlug?.trim().toLowerCase()
+    if (!slug) throw new AccountToolError(`--tenant <client slug> is required for ${input.role} accounts.`)
+    tenant = await db.tenant.findUnique({ where: { slug }, select: { id: true, slug: true, status: true, defaultOperatorCapacity: true } })
+    if (!tenant) throw new AccountToolError(`No client with the slug "${slug}".`)
+    if ((tenant.id === DEMO_TENANT.id || tenant.slug === DEMO_TENANT.slug) && !input.allowDemoTenant) throw new AccountToolError('That is the demo client; real staff must not be attached to it.')
+    if (tenant.status !== 'ACTIVE') throw new AccountToolError(`That client is ${tenant.status}; accounts can only be added to an ACTIVE client.`)
+  } else if (input.tenantSlug) {
+    throw new AccountToolError(`${input.role} is a global role and does not belong to a client - remove --tenant.`)
+  }
+  let languages: string[] = []
+  if (input.languages && input.languages.length) {
+    if (input.role !== 'OPERATOR') throw new AccountToolError('--languages applies to OPERATOR accounts only.')
+    const bad = input.languages.filter((l) => !normalizeLanguage(l))
+    if (bad.length) throw new AccountToolError(`Use two-letter language codes such as en, es, fr (got: ${bad.join(', ')}).`)
+    languages = normalizeLanguageList(input.languages)
+  }
+
   const existing = await db.user.findUnique({ where: { email } })
   if (existing) {
-    if (existing.tenantId || !(STAFF_ROLES as readonly string[]).includes(existing.role)) throw new AccountToolError('That email belongs to a client/tenant account; this tool only manages global staff accounts.')
-    if (existing.role !== input.role && !input.allowRoleChange) throw new AccountToolError(`That account exists as ${existing.role}. Role changes need --allow-role-change.`)
+    if (!(ACCOUNT_ROLES as readonly string[]).includes(existing.role)) throw new AccountToolError('That email belongs to a client/tenant account; this tool only manages staff accounts.')
+    if ((existing.tenantId ?? null) !== (tenant?.id ?? null)) throw new AccountToolError('That account belongs to a different client (or is a global account). This tool never moves an account between clients.')
+    if (existing.role !== input.role) {
+      if (tenantRole || (TENANT_STAFF_ROLES as readonly string[]).includes(existing.role)) throw new AccountToolError(`That account exists as ${existing.role}; role changes for client staff are not supported - create a new account instead.`)
+      if (!input.allowRoleChange) throw new AccountToolError(`That account exists as ${existing.role}. Role changes need --allow-role-change.`)
+    }
     if (!input.updatePassword) throw new AccountToolError('That account already exists. To set a new password for it, re-run with --update-password.')
-    if (input.dryRun) return { action: 'would_update_password', userId: existing.id, email, role: input.role }
+    if (input.dryRun) return { action: 'would_update_password', userId: existing.id, email, role: input.role, tenantSlug: tenant?.slug ?? null }
     await db.user.update({ where: { id: existing.id }, data: { passwordHash: input.passwordHash!, role: input.role, isActive: true, displayName } })
     // a password change must end every older session
     await db.session.updateMany({ where: { userId: existing.id, revokedAt: null }, data: { revokedAt: new Date() } })
-    await db.auditLog.create({ data: { action: 'staff.password_set', resource: 'user', resourceId: existing.id, metadata: { role: input.role, via: 'ops-cli' } as object } })
-    return { action: 'password_updated', userId: existing.id, email, role: input.role }
+    await db.auditLog.create({ data: { tenantId: tenant?.id ?? null, action: 'staff.password_set', resource: 'user', resourceId: existing.id, metadata: { role: input.role, via: 'ops-cli' } as object } })
+    return { action: 'password_updated', userId: existing.id, email, role: input.role, tenantSlug: tenant?.slug ?? null }
   }
-  if (input.dryRun) return { action: 'would_create', userId: null, email, role: input.role }
-  const user = await db.user.create({ data: { email, displayName, role: input.role, passwordHash: input.passwordHash!, isActive: true } })
-  if (input.role === 'HUNTER') await db.hunterProfile.create({ data: { userId: user.id, commissionPercentage: 10.0 } })
-  await db.auditLog.create({ data: { action: 'staff.account_created', resource: 'user', resourceId: user.id, metadata: { role: input.role, via: 'ops-cli' } as object } })
-  return { action: 'created', userId: user.id, email, role: input.role }
+  if (input.dryRun) return { action: 'would_create', userId: null, email, role: input.role, tenantSlug: tenant?.slug ?? null }
+  const user = await db.$transaction(async (tx) => {
+    const u = await tx.user.create({ data: { email, displayName, role: input.role, passwordHash: input.passwordHash!, isActive: true, tenantId: tenant?.id ?? null } })
+    if (input.role === 'HUNTER') await tx.hunterProfile.create({ data: { userId: u.id, commissionPercentage: 10.0 } })
+    if (input.role === 'OPERATOR') await tx.operator.create({ data: { userId: u.id, tenantId: tenant!.id, status: 'OFFLINE', capacity: tenant!.defaultOperatorCapacity, languages } })
+    await tx.auditLog.create({ data: { tenantId: tenant?.id ?? null, action: 'staff.account_created', resource: 'user', resourceId: u.id, metadata: { role: input.role, via: 'ops-cli', ...(tenant ? { tenant: tenant.slug } : {}), ...(languages.length ? { languages } : {}) } as object } })
+    return u
+  })
+  return { action: 'created', userId: user.id, email, role: input.role, tenantSlug: tenant?.slug ?? null }
 }
 
 export interface ReplacementCheck {

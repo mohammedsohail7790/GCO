@@ -68,8 +68,25 @@ describe('the operator CLI never takes or reads a password from anywhere but a p
     expect(r.stderr).toMatch(/interactive terminal/)
   })
   it('refuses an unknown role and unknown arguments', () => {
-    expect(run(['--role', 'OPERATOR']).stderr).toMatch(/--role is required/)
+    expect(run(['--role', 'CLIENT']).stderr).toMatch(/--role is required/)
+    expect(run(['--role', 'SUPERUSER']).stderr).toMatch(/--role is required/)
     expect(run(['--role', 'CEO_ADMIN', '--bogus']).stderr).toMatch(/Unknown argument/)
+  })
+})
+
+describe('operator/manager accounts need a client and refuse the demo client in production', () => {
+  const run = (args: string[], env: Record<string, string> = {}) => spawnSync('npx', ['tsx', 'prisma/ops/staff-account.ts', ...args], { encoding: 'utf8', timeout: 60_000, env: { ...process.env, NODE_ENV: 'development', ...env } })
+  it('an OPERATOR or MANAGER without --tenant is refused (dry run, nothing changed)', () => {
+    for (const role of ['OPERATOR', 'MANAGER']) {
+      const r = run(['--role', role, '--email', 'someone@example.com', '--name', 'Someone', '--dry-run'])
+      expect(r.status).toBe(1)
+      expect(r.stderr).toMatch(/--tenant <client slug> is required/)
+    }
+  })
+  it('--allow-demo-tenant is not permitted in a production-mode process', () => {
+    const r = run(['--role', 'OPERATOR', '--tenant', 'demo-dating-app', '--allow-demo-tenant', '--email', 'someone@example.com', '--name', 'Someone', '--dry-run'], { NODE_ENV: 'production' })
+    expect(r.status).toBe(1)
+    expect(r.stderr).toMatch(/not permitted in production/)
   })
 })
 

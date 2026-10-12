@@ -47,3 +47,22 @@ Hunter account exists yet, so no real CEO login is possible. Nothing was disable
 create his own account (he types his password privately at the tool's hidden prompt) and confirm he can log in. Actions
 needing the owner: (1) create the CEO account, (2) log in once through the normal login page, (3) approve running
 `disable-demo-accounts.ts --execute`, (4) Hunter creates his own account the same way.
+
+## Operator and manager accounts (tool extension)
+`prisma/ops/staff-account.ts` now also creates **OPERATOR** and **MANAGER** accounts, each belonging to exactly one active client:
+
+```bash
+# operator (created OFFLINE, with the client's default capacity; --languages optional = unrestricted)
+ssh -t gco@<server> 'cd /opt/gco && docker compose exec worker npx tsx prisma/ops/staff-account.ts --role OPERATOR --tenant <client-slug> --languages en,es --email <email> --name "<Name>"'
+# manager
+ssh -t gco@<server> 'cd /opt/gco && docker compose exec worker npx tsx prisma/ops/staff-account.ts --role MANAGER --tenant <client-slug> --email <email> --name "<Name>"'
+```
+- The person types their own password at the hidden prompt, exactly as for CEO/Hunter; nothing about passwords changed.
+- `--tenant` is required for these two roles and refused for global roles. The tenant must exist and be ACTIVE. The seeded demo client
+  (`demo-dating-app`) is refused; `--allow-demo-tenant` exists for local testing only and is refused in a production-mode process.
+- An OPERATOR's user and operator profile are created in one transaction (no half-created account). `--languages` takes ISO codes
+  (`en,es,fr`); managers can change an operator's languages later in the manager dashboard.
+- Existing accounts: `--update-password` rotates (and revokes sessions); the tool never moves an account to another client and does
+  not change roles of client staff.
+- Client (customer) accounts are not created here; they come from the client onboarding/invitation flow.
+- Deployment: code only (worker image); no migration. Not yet deployed to production - see the status in the project notes.
