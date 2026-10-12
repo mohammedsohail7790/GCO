@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { apiFetch } from '@/lib/api/client'
+import { StaffPanel } from './StaffPanel'
+import { TenantSettings } from '@/components/manager/TenantSettings'
 
 interface Row { id: string; status: string; contactEmail: string; lastError: string | null; tenant: { name: string; slug: string } }
 interface Detail {
@@ -124,35 +126,9 @@ function ClientPanel({ id, onChanged }: { id: string; onChanged: () => void }) {
         )}
       </section>
 
-      <section aria-label="Operators for this client" className="space-y-2 rounded border border-slate-200 p-3">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Operators</h3>
-        {detail.operators.length === 0 ? <p className="text-xs text-slate-500">No operator yet.</p> : detail.operators.map((o) => <p key={o.id} className="text-xs text-slate-700">{o.name} · {o.email} · {o.active ? o.status : 'inactive'}</p>)}
-        <form
-          className="grid gap-2 sm:grid-cols-3"
-          onSubmit={async (e) => {
-            e.preventDefault()
-            const f = new FormData(e.currentTarget)
-            setError(null)
-            try {
-              await apiFetch('/admin/users', {
-                method: 'POST',
-                body: JSON.stringify({ role: 'OPERATOR', tenantId: detail.tenant.id, displayName: String(f.get('name')), email: String(f.get('email')), password: String(f.get('password')) }),
-              })
-              ;(e.target as HTMLFormElement).reset()
-              setMsg('Operator created. Share the one-time password securely; the operator signs in and sets themselves AVAILABLE.')
-              load()
-              onChanged()
-            } catch (err) {
-              setError(err instanceof Error ? err.message : 'Could not create the operator (only the CEO can create logins)')
-            }
-          }}
-        >
-          <input name="name" required maxLength={120} placeholder="Operator name" aria-label="Operator name" className="rounded border border-slate-300 px-2 py-1 text-xs" />
-          <input name="email" type="email" required placeholder="Email" aria-label="Operator email" className="rounded border border-slate-300 px-2 py-1 text-xs" />
-          <input name="password" type="password" required minLength={10} autoComplete="new-password" placeholder="One-time password (10+)" aria-label="One-time password" className="rounded border border-slate-300 px-2 py-1 text-xs" />
-          <button className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 sm:col-span-3 sm:justify-self-start">Add operator (CEO)</button>
-        </form>
-      </section>
+      <StaffPanel tenantId={detail.tenant.id} onChanged={() => { load(); onChanged() }} />
+
+      <TenantSettings key={detail.tenant.id} tenantId={detail.tenant.id} editable />
 
       <section aria-label="Client profile" className="space-y-2 rounded border border-slate-200 p-3">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Client profile (non-secret)</h3>

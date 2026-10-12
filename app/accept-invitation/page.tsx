@@ -67,12 +67,12 @@ export default function AcceptInvitationPage() {
           <p className="mt-4 text-sm text-slate-600" role="alert">This invitation link is missing or incomplete. Please use the full link you were sent, or ask your GCO contact for a new one.</p>
         ) : (
           <form onSubmit={submit} className="mt-4 space-y-4">
-            <p className="text-sm text-slate-500">Choose a password for your client workspace.</p>
+            <p className="text-sm text-slate-500">Choose a password for your GCO account.</p>
             {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
             <label className="block text-sm font-medium text-slate-700">
               New password
               <input type="password" autoComplete="new-password" required minLength={10} value={password} onChange={(e) => setPassword(e.target.value)} className={field} />
-              <span className="mt-1 block text-xs font-normal text-slate-500">At least 10 characters.</span>
+              <span className="mt-1 block text-xs font-normal text-slate-500">At least 10 characters (12 or more for staff accounts).</span>
             </label>
             <label className="block text-sm font-medium text-slate-700">
               Repeat password

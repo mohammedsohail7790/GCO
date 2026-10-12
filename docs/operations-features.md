@@ -37,3 +37,12 @@ Status: built and tested locally; **not deployed to production** (see `docs/depl
 ## Not built (and why)
 - Email notifications: no email provider configured; needs an owner decision (see `docs/careers-applications.md`).
 - Real client integration and billing: need the first client's platform details.
+
+## Staff invitations (client onboarding)
+- `POST /api/v1/admin/staff-invitations` (CEO/assistant) creates an INACTIVE OPERATOR or MANAGER for an ACTIVE client (never the demo
+  client) with an unusable password and returns a one-time setup link ONCE. `GET ...?tenantId=` lists staff and invitation states;
+  `POST .../:id/reissue` replaces the link; `POST .../:id/cancel` withdraws an unused one.
+- `/accept-invitation#token=...` (same page as the client flow): the person chooses their own password under the staff policy (a weak
+  password is refused without using up the link); the token is single-use, expires in 7 days, only its SHA-256 is stored, failures are
+  one generic 400. Operators are created OFFLINE with the client's default capacity and the languages given.
+- Table `StaffInvitation` (additive migration `*_staff_invitations`).

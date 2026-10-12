@@ -1021,3 +1021,23 @@ model QaReview {
   @@index([tenantId, createdAt])
   @@index([tenantId, operatorId])
 }
+
+
+// ---------------------------------------------------------------------------
+// Staff invitations: an OPERATOR or MANAGER for one client is created INACTIVE with an unusable password and a one-time
+// setup link; the person chooses their own password (the CEO never knows it). Only a SHA-256 of the token is stored.
+// ---------------------------------------------------------------------------
+model StaffInvitation {
+  id              String    @id @default(cuid())
+  tenantId        String
+  userId          String    @unique
+  role            Role
+  tokenHash       String?   @unique
+  issuedAt        DateTime  @default(now())
+  expiresAt       DateTime
+  acceptedAt      DateTime?
+  cancelledAt     DateTime?
+  createdByUserId String
+
+  @@index([tenantId])
+}

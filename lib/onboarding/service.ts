@@ -326,7 +326,7 @@ export async function computeChecklist(onboardingId: string, client: Reader = db
     // Signed round trip in BOTH directions against the current destination (adapters that cannot be pinged need none).
     { ...mk('integration_verified', 'Integration verified (signed test in both directions)', verState.state === 'pass', 'system', true, verState.detail), state: verState.state },
     mk('webhook_secret_issued', 'Webhook secret issued', withSecret > 0, 'system', false, 'No production-capable integration has a webhook secret.'),
-    mk('operator_assigned', 'Active operator assigned', operators > 0, 'system', false, 'Create an OPERATOR user for this tenant (Admin > users).'),
+    mk('operator_assigned', 'Active operator assigned', operators > 0, 'system', false, 'Invite an operator for this client (Operators and managers > Create invitation); they choose their own password.'),
     mk('supervisor_confirmed', 'Supervisor / team lead confirmed', !!confirmations.supervisor, 'manual', false, manualDetail),
     mk('languages_confirmed', 'Languages confirmed', !!confirmations.languages, 'manual', true, manualDetail),
     mk('coverage_confirmed', 'Coverage confirmed', !!confirmations.coverage, 'manual', true, manualDetail),

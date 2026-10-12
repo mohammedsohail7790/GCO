@@ -69,6 +69,8 @@ export const PERMISSIONS = {
   // NOT included: onboarding exposes client contact data and issues login links.
   ONBOARDING_VIEW: ['CEO_ADMIN', 'ASSISTANT'],
   ONBOARDING_MANAGE: ['CEO_ADMIN', 'ASSISTANT'],
+  // Invite a client's operators/managers by one-time setup link (they choose their own password).
+  STAFF_INVITE: ['CEO_ADMIN', 'ASSISTANT'],
   // Go-live activates the client's integrations - CEO only.
   ONBOARDING_GO_LIVE: ['CEO_ADMIN'],
   // A client's own (client-safe) onboarding progress.
