@@ -31,3 +31,20 @@ app.globalconversationoperations.com {
 
 	reverse_proxy 127.0.0.1:3000
 }
+
+# STAGING (fictional data only; see docs/staging-environment.md). Behind an access gate: the credentials live in
+# /etc/caddy/staging-auth (a hash, written by deploy/staging/set-gate-password.sh). This block fails to load if that
+# file is missing, so create it BEFORE deploying this block. Cloudflare: DNS proxied, SSL Full, like the sites above.
+staging.globalconversationoperations.com {
+	encode gzip
+	header X-Robots-Tag "noindex, nofollow"
+
+	basic_auth {
+		import /etc/caddy/staging-auth
+	}
+
+	@realtime path /realtime*
+	reverse_proxy @realtime 127.0.0.1:3201
+
+	reverse_proxy 127.0.0.1:3200
+}
