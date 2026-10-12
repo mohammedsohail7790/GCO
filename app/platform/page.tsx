@@ -36,6 +36,11 @@ export default function PlatformPage() {
             <Steps items={PLATFORM_FLOW.map((f) => `${f.title}: ${f.body}`)} />
           </div>
         </SectionBlock>
+        <section className="border-b border-paper-border bg-paper-surface py-5">
+          <div className="mx-auto max-w-6xl px-5 text-[14px] text-graphite-secondary sm:px-8">
+            See the platform in use: <Link className="font-semibold text-accent-600 hover:underline" href="/inside-gco">Inside GCO, our technology in action</Link>, with a short video and screens of the operator and supervisor dashboards.
+          </div>
+        </section>
         <HumanAiInfrastructure />
         <PlatformShowcase />
         <SectionBlock eyebrow="AI-assisted human workflow" title="AI assists the operator. The operator replies." description="GCO combines human operators with operational infrastructure and AI-assisted workflows. AI is a drafting aid inside the operator's workspace.">

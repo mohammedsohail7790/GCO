@@ -23,6 +23,7 @@ test.describe('Public website - pages', () => {
     { path: '/industries/ecommerce', heading: 'E-commerce' },
     { path: '/industries/apps-digital-platforms', heading: 'Apps &amp; Digital Platforms' },
     { path: '/platform', heading: 'operations platform behind the workforce' },
+    { path: '/inside-gco', heading: 'Our technology in action' },
     { path: '/how-it-works', heading: 'through a 7-day pilot' },
     { path: '/pilot', heading: 'Test GCO with your real workflow' },
     { path: '/resources', heading: 'Practical guides' },
@@ -70,7 +71,7 @@ test.describe('Public website - pages', () => {
     const res = await anon.get('/sitemap.xml')
     expect(res.status()).toBe(200)
     const body = await res.text()
-    for (const path of ['/pilot', '/services', '/services/chat-moderation', '/industries', '/industries/saas', '/platform', '/how-it-works', '/resources', '/security', '/about', '/careers', '/contact']) {
+    for (const path of ['/pilot', '/services', '/services/chat-moderation', '/industries', '/industries/saas', '/platform', '/inside-gco', '/how-it-works', '/resources', '/security', '/about', '/careers', '/contact']) {
       expect(body).toContain(`<loc>`)
       expect(body).toContain(path)
     }

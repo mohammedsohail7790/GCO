@@ -21,6 +21,7 @@ export function sitemapEntries(): Entry[] {
     { path: '/industries', priority: 0.8 },
     ...INDUSTRIES.map((i) => ({ path: `/industries/${i.slug}`, priority: 0.7 })),
     { path: '/platform', priority: 0.8 },
+    { path: '/inside-gco', priority: 0.8 },
     { path: '/how-it-works', priority: 0.7 },
     { path: '/resources', priority: 0.7 },
     ...articles.map((a) => ({ path: `/resources/${a.slug}`, priority: 0.6, lastModified: new Date(a.publishedAt + 'T00:00:00Z') })),

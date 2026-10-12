@@ -1,0 +1,42 @@
+WEBVTT
+
+1
+00:00:02.176 --> 00:00:11.545
+Operator dashboard: the conversation arrives with a response timer and the customer’s language.
+
+2
+00:00:11.645 --> 00:00:16.942
+The operator writes the reply and sends it. Nothing is sent automatically.
+
+3
+00:00:17.042 --> 00:00:22.388
+Live queue: available operators, queue size and active conversations refresh automatically.
+
+4
+00:00:22.488 --> 00:00:27.791
+Every conversation is listed with its state, language and the operator who holds it.
+
+5
+00:00:27.891 --> 00:00:37.965
+Escalation: an operator who needs a decision escalates to a supervisor with a note.
+
+6
+00:00:38.065 --> 00:00:44.109
+Supervisor dashboard: the escalation appears in the supervisor queue and the supervisor takes it.
+
+7
+00:00:44.209 --> 00:00:55.174
+Quality control: supervisors score sent replies on accuracy, tone and resolution, with a coaching note.
+
+8
+00:00:55.274 --> 00:01:02.535
+Multilingual operations: conversations are routed only to operators who handle the customer’s language, and gaps are flagged.
+
+9
+00:01:02.635 --> 00:01:11.015
+Adding a language to an operator updates coverage straight away.
+
+10
+00:01:11.115 --> 00:01:18.300
+The complete workflow: message in, assigned, answered by a human operator, and kept on record for supervisors.
+
