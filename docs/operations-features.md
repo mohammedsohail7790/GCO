@@ -46,3 +46,12 @@ Status: built and tested locally; **not deployed to production** (see `docs/depl
   password is refused without using up the link); the token is single-use, expires in 7 days, only its SHA-256 is stored, failures are
   one generic 400. Operators are created OFFLINE with the client's default capacity and the languages given.
 - Table `StaffInvitation` (additive migration `*_staff_invitations`).
+
+### Deployment record - staff invitations (2026-10-12, owner-approved)
+- Gate on the deployed code: lint/tsc clean; unit 424/424; integration 165/165; build clean; e2e 255/255.
+- Backup `gco-postgres-20261012T065354Z.dump` (898,225 bytes), B2 upload verified (sha1 7378021d...).
+- Server HEAD `d9af8dc`; `deliverables/` not sent. Rollback tags `gco-web:pre-onboarding`, `gco-worker:pre-onboarding`.
+- Migration `20261012064540_staff_invitations` applied (15 total); only web and worker recreated.
+- Post-deploy (read-only): web healthy, worker up, 0 log errors; `StaffInvitation` has 0 rows; users unchanged (7, 2 active: real CEO and Hunter);
+  pages 200; the four invitation endpoints return 401 to an anonymous caller; a bogus invitation token returns the generic 400.
+  No production data was created.
