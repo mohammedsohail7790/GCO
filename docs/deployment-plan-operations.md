@@ -23,3 +23,10 @@ Do not run until the owner approves in writing. Same procedure as `docs/deployme
 
 ## Rollback
 Retag `gco-web:pre-ops` and `gco-worker:pre-ops` as `latest`, `docker compose up -d --no-deps web worker`. The old code ignores the two new columns; no migration rollback is needed.
+
+## Deployment record (executed 2026-10-12, owner-approved)
+- Local gate on the deployed code: lint, tsc clean; unit 422/422; integration 140/140; build clean; e2e 250/250.
+- Backup: `gco-postgres-20261012T062516Z.dump` (898,008 bytes), B2 upload verified (sha1 1bcd2f66...).
+- Server HEAD after rsync: `bebfdda`; `deliverables/` was not sent. Rollback tags: `gco-web:pre-ops`, `gco-worker:pre-ops`.
+- Migration `20261012061427_tenant_operating_hours` applied (14 total). Only web and worker were recreated; postgres/redis/realtime were not restarted.
+- Post-deploy (read-only): web healthy, worker up, 0 errors in logs; the one tenant has timezone UTC and no operating hours (24/7, unchanged behaviour); no operator over capacity; `/`, `/careers`, `/login`, `/pilot`, `/account` return 200; every new endpoint returns 401 to an anonymous caller; `/manager` redirects when signed out. Only the real CEO and Hunter accounts are active. No production data was created.
