@@ -45,3 +45,16 @@ export function isValidItalianVat(v: string): boolean {
   }
   return (10 - (sum % 10)) % 10 === d[10]
 }
+
+/**
+ * The one-line legal identity shown in the website footer and on documents. Null until EVERY required detail is confirmed -
+ * a partial identity is never published (no half-filled legal notice). Optional parts (REA, PEC) are added only when present.
+ */
+export function legalIdentityLine(b: BusinessDetails = BUSINESS): string | null {
+  if (missingBusinessDetails(b).length > 0) return null
+  if (b.vatNumber && !isValidItalianVat(b.vatNumber)) return null // a mistyped VAT number is not published either
+  const parts = [b.legalName!, b.registeredAddress!, `P.IVA ${b.vatNumber!.replace(/^IT/, '')}`, `C.F. ${b.taxCode!}`]
+  if (b.reaNumber) parts.push(`REA ${b.reaNumber}`)
+  if (b.pecEmail) parts.push(`PEC ${b.pecEmail}`)
+  return parts.join(' · ')
+}

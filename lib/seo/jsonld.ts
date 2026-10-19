@@ -1,5 +1,6 @@
 import { SITE_NAME, SITE_TAGLINE, SITE_URL } from '@/lib/config/site'
 import { PUBLIC_EMAIL } from '@/lib/content/site'
+import { BUSINESS, legalIdentityLine } from '@/lib/config/business'
 
 // Structured data (schema.org JSON-LD). Verified GCO information ONLY: no ratings, reviews, prices, awards,
 // organisation size, social profiles, addresses or phone numbers are emitted because none are verified.
@@ -11,6 +12,8 @@ type Json = Record<string, unknown>
 export const ORG_ID = `${SITE_URL}/#organization`
 
 export function organizationJsonLd(): Json {
+  // Registered identity is added ONLY once the founder's confirmed details are complete and valid (see lib/config/business.ts).
+  const confirmed = legalIdentityLine() ? { legalName: BUSINESS.legalName, vatID: BUSINESS.vatNumber } : {}
   return {
     '@context': 'https://schema.org',
     '@type': 'Organization',
@@ -21,6 +24,7 @@ export function organizationJsonLd(): Json {
     description: 'Human conversation operations: trained operators, supervised and supported by an operations platform and AI-assisted workflows.',
     email: PUBLIC_EMAIL,
     contactPoint: [{ '@type': 'ContactPoint', contactType: 'sales', email: PUBLIC_EMAIL, availableLanguage: ['English'] }],
+    ...confirmed,
   }
 }
 

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { buildLines, totals, invoiceNumber, BillingConfigError, type BillingInputs } from '@/lib/billing/calc'
-import { isValidItalianVat, missingBusinessDetails, BUSINESS } from '@/lib/config/business'
+import { isValidItalianVat, missingBusinessDetails, legalIdentityLine, BUSINESS } from '@/lib/config/business'
 
 const base: BillingInputs = { messages: { count: 1000, amountEurCents: 14000 }, tickets: { resolved: 40 }, hours: 120.456, settings: { pricePerTicketEurCents: 250, pricePerHourEurCents: 1800, monthlyFeeEurCents: 500000 } }
 
@@ -44,5 +44,18 @@ describe('business details', () => {
   it('reports what is still missing until the founder confirms the registration details', () => {
     expect(missingBusinessDetails({ ...BUSINESS, legalName: null, vatNumber: null, taxCode: null, registeredAddress: null })).toHaveLength(4)
     expect(missingBusinessDetails({ ...BUSINESS, legalName: 'X', vatNumber: 'IT00743110157', taxCode: 'Y', registeredAddress: 'Z' })).toEqual([])
+  })
+})
+
+describe('legal identity line (website footer / documents)', () => {
+  const full = { ...BUSINESS, legalName: 'Example S.r.l.', vatNumber: 'IT00743110157', taxCode: '00743110157', registeredAddress: 'Via Roma 1, 00100 Roma RM' }
+  it('is null until every required detail is confirmed - no half-filled legal notice', () => {
+    expect(legalIdentityLine()).toBeNull()
+    expect(legalIdentityLine({ ...full, taxCode: null })).toBeNull()
+  })
+  it('refuses to publish a mistyped VAT number', () => expect(legalIdentityLine({ ...full, vatNumber: 'IT00743110158' })).toBeNull())
+  it('builds the line from confirmed details, adding optional parts only when present', () => {
+    expect(legalIdentityLine(full)).toBe('Example S.r.l. · Via Roma 1, 00100 Roma RM · P.IVA 00743110157 · C.F. 00743110157')
+    expect(legalIdentityLine({ ...full, reaNumber: 'RM-1234567', pecEmail: 'gco@pec.example.it' })).toContain('REA RM-1234567 · PEC gco@pec.example.it')
   })
 })

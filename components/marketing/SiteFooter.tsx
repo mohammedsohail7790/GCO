@@ -3,8 +3,10 @@ import { BookCallTextLink } from '@/components/marketing/CtaLinks'
 import { Container } from './Container'
 import { GCOLockup } from './GCOLogo'
 import { CTA, PUBLIC_EMAIL, PILOT_PATH, getNavItems } from '@/lib/content/site'
+import { legalIdentityLine } from '@/lib/config/business'
 
 export function SiteFooter() {
+  const legal = legalIdentityLine() // null until the founder's confirmed registration details are filled in
   return (
     <footer className="border-t border-white/10 bg-ink">
       <Container className="py-16">
@@ -46,6 +48,8 @@ export function SiteFooter() {
             </div>
           </div>
         </div>
+
+        {legal && <p className="mt-10 text-xs leading-relaxed text-white/35">{legal}</p>}
 
         <div className="mt-14 flex flex-col gap-3 border-t border-white/10 pt-8 text-xs text-white/35 sm:flex-row sm:items-center sm:justify-between">
           <span>© {new Date().getFullYear()} Global Conversation Operations. All rights reserved.</span>
