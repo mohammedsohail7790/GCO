@@ -41,6 +41,14 @@ model Tenant {
   // null = unlimited. Used for controlled pilot volume caps (see docs/GCO_V1_PRODUCT_TECHNICAL_DRAFT.md §18).
   messageCap Int?
 
+  billingModel           BillingModel @default(PER_MESSAGE)
+  pricePerTicketEurCents Int?
+  pricePerHourEurCents   Int?
+  monthlyFeeEurCents     Int?
+  vatRatePercent         Int          @default(22) // Italian standard rate; set 0 with a vatNote for reverse-charge / exempt clients
+  vatNote                String?
+  paymentTermsDays       Int          @default(30)
+
   requireOperatorApproval Boolean @default(false) // operators need an active CLIENT_APPROVAL qualification to go AVAILABLE
 
   industry Industry? // picks the initial workspace template; purchased TenantService rows pick the active modules
@@ -1365,4 +1373,56 @@ model KnowledgeEntry {
   updatedAt       DateTime      @updatedAt
 
   @@index([tenantId, kind, archivedAt])
+}
+
+// ---------------------------------------------------------------------------
+// Client billing: configurable model per client, invoices built from the auditable usage ledger. Invoice lines are an immutable
+// snapshot; numbers are assigned only on issue (gap-free per year); issued invoices are never edited, only voided.
+// NOTE: these are commercial invoices. Italian fiscal e-invoicing (SDI) must be issued through the accountant or a provider.
+// ---------------------------------------------------------------------------
+enum BillingModel {
+  PER_MESSAGE
+  PER_TICKET
+  PER_HOUR
+  MONTHLY_FLAT
+}
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  PAID
+  VOID
+}
+
+model Invoice {
+  id               String        @id @default(cuid())
+  number           String?       @unique // assigned on issue, e.g. GCO-2026-0001
+  tenantId         String
+  periodStart      DateTime
+  periodEnd        DateTime
+  status           InvoiceStatus @default(DRAFT)
+  billingModel     BillingModel
+  lines            Json
+  subtotalEurCents Int
+  vatRatePercent   Int
+  vatEurCents      Int
+  totalEurCents    Int
+  vatNote          String?
+  issuedAt         DateTime?
+  dueAt            DateTime?
+  paidAt           DateTime?
+  paymentReference String?
+  voidedAt         DateTime?
+  voidReason       String?
+  createdByUserId  String
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@index([tenantId, periodStart])
+  @@index([status])
+}
+
+model InvoiceCounter {
+  year Int @id
+  last Int @default(0)
 }

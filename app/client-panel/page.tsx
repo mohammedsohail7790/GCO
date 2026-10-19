@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { apiFetch } from '@/lib/api/client'
 import { ClientDecisions } from '@/components/escalation/ClientDecisions'
 import { ReportsPanel } from '@/components/client/ReportsPanel'
+import { InvoicesPanel } from '@/components/client/InvoicesPanel'
 
 interface Usage {
   messageCount: number
@@ -78,6 +79,8 @@ export default function ClientPanelPage() {
       <ClientDecisions />
 
       <ReportsPanel />
+
+      <InvoicesPanel />
 
       <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-3">
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-card">

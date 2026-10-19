@@ -33,6 +33,9 @@ export const PERMISSIONS = {
   // Client knowledge base: quick replies, articles, standing instructions.
   KNOWLEDGE_MANAGE: ['CEO_ADMIN', 'MANAGER', 'SUPERVISOR', 'ASSISTANT'],
   KNOWLEDGE_VIEW_OWN: ['OPERATOR'],
+  // Client billing: settings, invoices, payment status, reconciliation (CEO only); a client reads its own issued invoices.
+  BILLING_MANAGE: ['CEO_ADMIN'],
+  INVOICE_VIEW_OWN: ['CLIENT'],
   // Billed message count and total for a client (UsageRecord ledger). Margins/costs remain VIEW_REVENUE (CEO only).
   BILLING_VIEW: ['CEO_ADMIN', 'MANAGER', 'CLIENT'],
   VIEW_TENANT_ANALYTICS: ['CEO_ADMIN', 'MANAGER', 'CLIENT', 'SUPERVISOR'],
