@@ -41,6 +41,8 @@ model Tenant {
   // null = unlimited. Used for controlled pilot volume caps (see docs/GCO_V1_PRODUCT_TECHNICAL_DRAFT.md §18).
   messageCap Int?
 
+  requireOperatorApproval Boolean @default(false) // operators need an active CLIENT_APPROVAL qualification to go AVAILABLE
+
   industry Industry? // picks the initial workspace template; purchased TenantService rows pick the active modules
 
   createdAt DateTime @default(now())
@@ -1265,4 +1267,74 @@ model ShiftHandover {
 
   @@index([tenantId, createdAt])
   @@index([toOperatorId])
+}
+
+// ---------------------------------------------------------------------------
+// Training, tests and qualifications. A module is reading material or a scored test; `required` modules gate an operator's
+// ability to go AVAILABLE (enforced in the operator status route). Correct answers never leave the server.
+// ---------------------------------------------------------------------------
+enum TrainingKind {
+  MATERIAL
+  TEST
+}
+
+enum TrainingStatus {
+  ASSIGNED
+  COMPLETED
+  FAILED
+}
+
+model TrainingModule {
+  id              String       @id @default(cuid())
+  tenantId        String? // null = company-wide (all clients)
+  title           String
+  kind            TrainingKind
+  body            String       @db.Text
+  questions       Json? // TEST only: [{ q, options: string[], correct: number }]
+  passMarkPercent Int          @default(80)
+  required        Boolean      @default(false)
+  language        String?
+  createdByUserId String
+  createdAt       DateTime     @default(now())
+  archivedAt      DateTime?
+
+  @@index([tenantId, archivedAt])
+}
+
+model TrainingAssignment {
+  id               String         @id @default(cuid())
+  moduleId         String
+  operatorId       String
+  status           TrainingStatus @default(ASSIGNED)
+  score            Int?
+  attempts         Int            @default(0)
+  assignedByUserId String?
+  assignedAt       DateTime       @default(now())
+  completedAt      DateTime?
+
+  @@unique([moduleId, operatorId])
+  @@index([operatorId, status])
+}
+
+enum QualificationKind {
+  CLIENT_APPROVAL // approved to work for this client
+  SERVICE // approved for a service type (e.g. chat moderation)
+  LANGUAGE // verified in a language
+}
+
+model Qualification {
+  id              String            @id @default(cuid())
+  operatorId      String
+  tenantId        String
+  kind            QualificationKind
+  serviceType     ServiceType?
+  language        String?
+  note            String?
+  grantedByUserId String
+  grantedAt       DateTime          @default(now())
+  revokedAt       DateTime?
+  revokedByUserId String?
+
+  @@index([operatorId, kind])
+  @@index([tenantId])
 }

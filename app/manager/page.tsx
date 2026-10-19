@@ -15,6 +15,7 @@ import { ConversationHistory } from '@/components/manager/ConversationHistory'
 import { TenantSettings } from '@/components/manager/TenantSettings'
 import { WeeklyReports } from '@/components/manager/WeeklyReports'
 import { ShiftPlanner } from '@/components/manager/ShiftPlanner'
+import { TrainingPanel } from '@/components/manager/TrainingPanel'
 
 interface Overview {
   operators: { available: number; busy: number; offline: number; paused: number }
@@ -143,6 +144,8 @@ export default function ManagerPage() {
       <ShiftPlanner />
 
       <WeeklyReports />
+
+      <TrainingPanel canApprove={!isSupervisor} />
 
       <ConversationHistory />
 

@@ -30,6 +30,7 @@ const Patch = z
     operatorCapacity: z.number().int().min(1).max(20).optional(),
     timezone: z.string().max(64).optional(),
     operatingHours: z.unknown().optional(),
+    requireOperatorApproval: z.boolean().optional(),
   })
   .strict()
 
@@ -50,6 +51,7 @@ export async function PATCH(req: NextRequest) {
       ...(body.responseSlaSeconds !== undefined ? { defaultResponseSlaSeconds: body.responseSlaSeconds } : {}),
       ...(body.operatorCapacity !== undefined ? { defaultOperatorCapacity: body.operatorCapacity } : {}),
       ...(body.timezone !== undefined ? { timezone: body.timezone } : {}),
+      ...(body.requireOperatorApproval !== undefined ? { requireOperatorApproval: body.requireOperatorApproval } : {}),
       ...('operatingHours' in body ? { operatingHours: (body.operatingHours ?? null) as never } : {}),
     }
     if (Object.keys(data).length === 0) return fail('Nothing to change', 400)
