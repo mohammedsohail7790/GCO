@@ -1179,3 +1179,90 @@ model OperatorPayout {
 
   @@index([operatorId, createdAt])
 }
+
+// ---------------------------------------------------------------------------
+// Weekly operator reports: a metrics snapshot per operator per ISO week (Monday 00:00 UTC), generated from real data,
+// reviewed by a manager/supervisor who adds feedback. Frozen once reviewed so history stays comparable and auditable.
+// ---------------------------------------------------------------------------
+enum WeeklyReportStatus {
+  DRAFT
+  REVIEWED
+}
+
+model OperatorWeeklyReport {
+  id               String             @id @default(cuid())
+  operatorId       String
+  tenantId         String
+  weekStart        DateTime
+  metrics          Json
+  status           WeeklyReportStatus @default(DRAFT)
+  managerFeedback  String?            @db.Text
+  reviewedByUserId String?
+  reviewedAt       DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  @@unique([operatorId, weekStart])
+  @@index([tenantId, weekStart])
+}
+
+// ---------------------------------------------------------------------------
+// Shift planning, absences and handovers. Shifts are planning data (they never gate routing); coverage and no-show alerts
+// are computed from them, and weekly reports read attendance from them.
+// ---------------------------------------------------------------------------
+enum ShiftStatus {
+  SCHEDULED
+  CANCELLED
+}
+
+model Shift {
+  id              String      @id @default(cuid())
+  tenantId        String
+  operatorId      String
+  startsAt        DateTime
+  endsAt          DateTime
+  status          ShiftStatus @default(SCHEDULED)
+  note            String?
+  createdByUserId String
+  createdAt       DateTime    @default(now())
+
+  @@index([tenantId, startsAt])
+  @@index([operatorId, startsAt])
+}
+
+enum AbsenceKind {
+  SICK
+  LEAVE
+  NO_SHOW
+  OTHER
+}
+
+model Absence {
+  id              String      @id @default(cuid())
+  tenantId        String
+  operatorId      String
+  kind            AbsenceKind
+  startsAt        DateTime
+  endsAt          DateTime
+  note            String?
+  createdByUserId String
+  createdAt       DateTime    @default(now())
+
+  @@index([tenantId, startsAt])
+  @@index([operatorId, startsAt])
+}
+
+model ShiftHandover {
+  id                   String    @id @default(cuid())
+  tenantId             String
+  fromOperatorId       String
+  toOperatorId         String? // null = any operator of the client taking over
+  body                 String    @db.Text
+  conversationIds      String[]  @default([])
+  createdAt            DateTime  @default(now())
+  acknowledgedAt       DateTime?
+  acknowledgedByUserId String?
+
+  @@index([tenantId, createdAt])
+  @@index([toOperatorId])
+}

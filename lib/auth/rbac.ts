@@ -23,6 +23,10 @@ export const PERMISSIONS = {
   VIEW_SYSTEM_METRICS: ['CEO_ADMIN', 'MANAGER', 'ASSISTANT', 'CTO'],
   VIEW_AUDIT_LOGS: ['CEO_ADMIN', 'CTO'],
   VIEW_REVENUE: ['CEO_ADMIN'],
+  // Shift planning (shifts, absences, coverage) for a client's operators; supervisors are further limited to their team in the routes.
+  SHIFT_MANAGE: ['CEO_ADMIN', 'MANAGER', 'SUPERVISOR', 'ASSISTANT'],
+  // An operator's own schedule and shift handover notes.
+  SHIFT_VIEW_OWN: ['OPERATOR'],
   // Billed message count and total for a client (UsageRecord ledger). Margins/costs remain VIEW_REVENUE (CEO only).
   BILLING_VIEW: ['CEO_ADMIN', 'MANAGER', 'CLIENT'],
   VIEW_TENANT_ANALYTICS: ['CEO_ADMIN', 'MANAGER', 'CLIENT', 'SUPERVISOR'],

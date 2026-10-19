@@ -1,6 +1,7 @@
 import { db } from '@/lib/db/client'
 import { languageLabel, operatorCoversLanguage } from '@/lib/languages'
 import { isWithinOperatingHours, type OperatingHours } from '@/lib/tenant/settings'
+import { coverageSlots } from '@/lib/shifts/coverage'
 
 export type AlertSeverity = 'critical' | 'warning' | 'info'
 export interface OpsAlert { id: string; severity: AlertSeverity; title: string; detail: string; count: number }
@@ -52,6 +53,25 @@ export async function computeAlerts(tenantId: string, now: Date = new Date()): P
   if (unclaimed > 0) alerts.push({ id: 'escalation-unclaimed', severity: 'warning', title: 'Escalations waiting for a supervisor', detail: `${unclaimed} unclaimed for more than ${THRESHOLDS.escalationUnclaimedMinutes} minutes.`, count: unclaimed })
   if (expired > 0) alerts.push({ id: 'sla-capped', severity: 'critical', title: 'Conversations stopped after repeated missed deadlines', detail: `${expired} need a manager to resume them.`, count: expired })
   if (qaPending > THRESHOLDS.qaBacklog) alerts.push({ id: 'qa-backlog', severity: 'info', title: 'Quality review backlog', detail: `${qaPending} sent replies have not been reviewed.`, count: qaPending })
+
+  // Shift planning: only when the client actually uses shifts, so unplanned clients get no noise.
+  const horizon = new Date(now.getTime() + 8 * 3_600_000)
+  const [shifts, absences, nowShifts] = await Promise.all([
+    db.shift.findMany({ where: { tenantId, status: 'SCHEDULED', startsAt: { lt: horizon }, endsAt: { gt: now } }, select: { operatorId: true, startsAt: true, endsAt: true } }),
+    db.absence.findMany({ where: { tenantId, startsAt: { lt: horizon }, endsAt: { gt: now } }, select: { operatorId: true, startsAt: true, endsAt: true } }),
+    db.shift.findMany({ where: { tenantId, status: 'SCHEDULED', startsAt: { lte: new Date(now.getTime() - 10 * 60_000) }, endsAt: { gt: now } }, select: { operatorId: true } }),
+  ])
+  if (shifts.length > 0) {
+    const gaps = coverageSlots({ from: new Date(Math.floor(now.getTime() / 3_600_000) * 3_600_000), to: horizon, timezone: tenant.timezone, hours: tenant.operatingHours as OperatingHours | null, shifts, absences }).filter((s) => s.gap).length
+    if (gaps > 0) alerts.push({ id: 'coverage-gap', severity: 'warning', title: 'Missing shift coverage in the next 8 hours', detail: `${gaps} hour${gaps === 1 ? '' : 's'} inside operating hours have nobody scheduled.`, count: gaps })
+  }
+  if (nowShifts.length > 0) {
+    const absentNow = new Set(absences.filter((a) => a.startsAt <= now && a.endsAt > now).map((a) => a.operatorId))
+    const expected = [...new Set(nowShifts.map((s) => s.operatorId))].filter((id) => !absentNow.has(id))
+    const online = await db.operator.findMany({ where: { id: { in: expected }, status: { in: ['AVAILABLE', 'BUSY'] } }, select: { id: true } })
+    const missing = expected.length - online.length
+    if (missing > 0) alerts.push({ id: 'shift-not-online', severity: 'warning', title: 'Operators on shift are not online', detail: `${missing} operator${missing === 1 ? ' is' : 's are'} scheduled now (for more than 10 minutes) but not available.`, count: missing })
+  }
 
   const rank = { critical: 0, warning: 1, info: 2 }
   return alerts.sort((a, b) => rank[a.severity] - rank[b.severity])

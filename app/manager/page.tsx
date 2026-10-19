@@ -13,6 +13,8 @@ import { QaReviewPanel } from '@/components/manager/QaReviewPanel'
 import { AlertsPanel } from '@/components/manager/AlertsPanel'
 import { ConversationHistory } from '@/components/manager/ConversationHistory'
 import { TenantSettings } from '@/components/manager/TenantSettings'
+import { WeeklyReports } from '@/components/manager/WeeklyReports'
+import { ShiftPlanner } from '@/components/manager/ShiftPlanner'
 
 interface Overview {
   operators: { available: number; busy: number; offline: number; paused: number }
@@ -137,6 +139,10 @@ export default function ManagerPage() {
       <LanguageCoverage />
 
       <QaReviewPanel />
+
+      <ShiftPlanner />
+
+      <WeeklyReports />
 
       <ConversationHistory />
 

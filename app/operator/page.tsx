@@ -182,6 +182,8 @@ export default function OperatorPage() {
           </span>
           <a href="/account" className="text-xs font-medium text-brand-600 hover:underline">Account</a>
           <a href="/operator/earnings" className="text-xs font-medium text-brand-600 hover:underline">Earnings</a>
+          <a href="/operator/reports" className="text-xs font-medium text-brand-600 hover:underline">Reports</a>
+          <a href="/operator/schedule" className="text-xs font-medium text-brand-600 hover:underline">Schedule</a>
           {operatorMeta && (
             <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">
               {items.length}/{operatorMeta.capacity} assigned
