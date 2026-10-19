@@ -98,12 +98,14 @@ export async function tryAssignConversation(conversationId: string): Promise<boo
     },
   })
 
+  const onShift = await onShiftOperators(conversation.tenantId, new Date())
   const candidates: OperatorCandidate[] = operators.map((op) => ({
     operatorId: op.id,
     capacity: op.capacity,
     languages: op.languages,
     activeAssignmentCount: op.assignments.length,
     status: op.status,
+    onShift: onShift ? onShift.has(op.id) : undefined,
   }))
 
   // Best candidate first. The counts above are only a pre-filter (they can be stale by the time we act): the
@@ -147,6 +149,18 @@ export async function tryAssignConversation(conversationId: string): Promise<boo
   })
 
   return true
+}
+
+/**
+ * Operators on a scheduled shift right now (and not absent), or null when the client does not plan shifts at all (any scheduled shift
+ * within a day either side of now counts as "plans shifts"). Used only to ORDER candidates, never to exclude one.
+ */
+async function onShiftOperators(tenantId: string, now: Date): Promise<Set<string> | null> {
+  const day = 86_400_000
+  const shifts = await db.shift.findMany({ where: { tenantId, status: 'SCHEDULED', startsAt: { lt: new Date(now.getTime() + day) }, endsAt: { gt: new Date(now.getTime() - day) } }, select: { operatorId: true, startsAt: true, endsAt: true } })
+  if (shifts.length === 0) return null
+  const absent = new Set((await db.absence.findMany({ where: { tenantId, startsAt: { lte: now }, endsAt: { gt: now } }, select: { operatorId: true } })).map((a) => a.operatorId))
+  return new Set(shifts.filter((s) => s.startsAt <= now && s.endsAt > now && !absent.has(s.operatorId)).map((s) => s.operatorId))
 }
 
 /** Called by the operator when they send a reply - closes out the SLA clock cleanly. */

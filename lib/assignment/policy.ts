@@ -8,6 +8,8 @@ export interface OperatorCandidate {
   capacity: number
   activeAssignmentCount: number
   status: 'OFFLINE' | 'AVAILABLE' | 'BUSY' | 'PAUSED'
+  /** Set only for clients that plan shifts: is this operator on a scheduled shift right now (and not absent)? undefined = shifts not used. */
+  onShift?: boolean
 }
 
 /**
@@ -16,6 +18,8 @@ export interface OperatorCandidate {
  *  1. Only AVAILABLE operators are eligible.
  *  2. Operator must have spare capacity (activeAssignmentCount < capacity).
  *  2b. If the conversation has a language, the operator must cover it (or be unrestricted) - see lib/languages.ts.
+ *  2c. A PREFERENCE, never a filter: when the client plans shifts, operators currently on shift come first. An available operator who
+ *     is off-shift can still take work if nobody on shift can - coverage beats the plan.
  *  3. Prefer the operator with the *most* spare capacity (load balancing);
  *     ties broken by whichever has been idle longest is not tracked in V1,
  *     so we fall back to stable input order (lowest operatorId).
@@ -25,6 +29,7 @@ export function rankOperators(candidates: OperatorCandidate[], conversationLangu
     (c) => c.status === 'AVAILABLE' && c.activeAssignmentCount < c.capacity && operatorCoversLanguage(c.languages ?? [], conversationLanguage),
   )
   return eligible.sort((a, b) => {
+    if (a.onShift !== undefined && b.onShift !== undefined && a.onShift !== b.onShift) return a.onShift ? -1 : 1
     const spareA = a.capacity - a.activeAssignmentCount
     const spareB = b.capacity - b.activeAssignmentCount
     if (spareB !== spareA) return spareB - spareA

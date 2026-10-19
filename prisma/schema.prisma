@@ -1645,5 +1645,6 @@ model AlertRoute {
   role        Role     @id
   minSeverity String // 'critical' | 'warning' | 'info'
   enabled     Boolean  @default(true)
+  email       Boolean  @default(false) // also email these alerts (needs SMTP_URL)
   updatedAt   DateTime @updatedAt
 }

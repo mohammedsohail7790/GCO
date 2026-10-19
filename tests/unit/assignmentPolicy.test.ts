@@ -61,3 +61,19 @@ describe('SLA timer', () => {
     expect(isExpired(respondsBy, new Date('2026-01-01T00:02:01Z'))).toBe(true)
   })
 })
+
+describe('shift preference (never a filter)', () => {
+  const c = (id: string, onShift: boolean | undefined, active = 0): OperatorCandidate => ({ operatorId: id, capacity: 2, activeAssignmentCount: active, status: 'AVAILABLE', onShift })
+  it('prefers operators on shift over operators with more spare capacity', () => {
+    expect(pickOperator([c('a', false, 0), c('b', true, 1)])?.operatorId).toBe('b')
+  })
+  it('still uses an off-shift available operator when nobody on shift can take it', () => {
+    expect(pickOperator([c('a', false, 0), c('b', true, 2)])?.operatorId).toBe('a') // b is full
+  })
+  it('behaves exactly as before when the client does not use shifts', () => {
+    expect(pickOperator([c('a', undefined, 1), c('b', undefined, 0)])?.operatorId).toBe('b')
+  })
+  it('among on-shift operators the usual load balancing applies', () => {
+    expect(pickOperator([c('a', true, 1), c('b', true, 0)])?.operatorId).toBe('b')
+  })
+})

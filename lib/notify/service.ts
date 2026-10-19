@@ -1,11 +1,17 @@
 import type { Role } from '@prisma/client'
 import { db } from '@/lib/db/client'
+import { emailConfigured, sendEmail } from './email'
 
 /** In-app notifications (the only channel today). `payload` carries ids and short labels, never conversation content. */
-export async function notifyUsers(userIds: string[], type: string, payload: Record<string, unknown>, tenantId?: string | null) {
+export async function notifyUsers(userIds: string[], type: string, payload: Record<string, unknown>, tenantId?: string | null, opts?: { email?: boolean }) {
   const ids = [...new Set(userIds)]
   if (ids.length === 0) return 0
   const r = await db.notification.createMany({ data: ids.map((userId) => ({ userId, tenantId: tenantId ?? null, type, payload: payload as never })) })
+  if (opts?.email && emailConfigured()) {
+    // Fire and forget after the in-app notification exists; a mail problem never fails the caller.
+    const title = String((payload as { title?: string; subject?: string }).title ?? (payload as { subject?: string }).subject ?? 'New notification')
+    void db.user.findMany({ where: { id: { in: ids }, isActive: true }, select: { email: true } }).then((us) => Promise.all(us.filter((u) => !u.email.endsWith('@anonymised.invalid')).map((u) => sendEmail(u.email, `[GCO] ${title}`, title))))
+  }
   return r.count
 }
 
@@ -38,12 +44,12 @@ export type Severity = 'critical' | 'warning' | 'info'
 const RANK: Record<Severity, number> = { critical: 0, warning: 1, info: 2 }
 
 /** Defaults when nothing is configured: leadership hears about critical alerts, supervisors and managers also about warnings. */
-export const DEFAULT_ROUTES: { role: Role; minSeverity: Severity; enabled: boolean }[] = [
-  { role: 'CEO_ADMIN', minSeverity: 'critical', enabled: true },
-  { role: 'ASSISTANT', minSeverity: 'warning', enabled: true },
-  { role: 'MANAGER', minSeverity: 'warning', enabled: true },
-  { role: 'SUPERVISOR', minSeverity: 'warning', enabled: true },
-  { role: 'CTO', minSeverity: 'critical', enabled: true },
+export const DEFAULT_ROUTES: { role: Role; minSeverity: Severity; enabled: boolean; email: boolean }[] = [
+  { role: 'CEO_ADMIN', minSeverity: 'critical', enabled: true, email: false },
+  { role: 'ASSISTANT', minSeverity: 'warning', enabled: true, email: false },
+  { role: 'MANAGER', minSeverity: 'warning', enabled: true, email: false },
+  { role: 'SUPERVISOR', minSeverity: 'warning', enabled: true, email: false },
+  { role: 'CTO', minSeverity: 'critical', enabled: true, email: false },
 ]
 
 /** Pure: does a route deliver an alert of this severity? */
@@ -70,7 +76,10 @@ export async function dispatchAlerts(tenantId: string, alerts: { id: string; sev
     if (to.length === 0) continue
     const recent = await db.notification.findMany({ where: { tenantId, type: `alert:${a.id}`, userId: { in: to.map((u) => u.id) }, createdAt: { gte: since } }, select: { userId: true } })
     const already = new Set(recent.map((n) => n.userId))
-    sent += await notifyUsers(to.map((u) => u.id).filter((id) => !already.has(id)), `alert:${a.id}`, { severity: a.severity, title: a.title, detail: a.detail }, tenantId)
+    const fresh = to.filter((u) => !already.has(u.id))
+    const mailRoles = new Set(routes.filter((r) => r.email).map((r) => r.role))
+    sent += await notifyUsers(fresh.filter((u) => !mailRoles.has(u.role)).map((u) => u.id), `alert:${a.id}`, { severity: a.severity, title: a.title, detail: a.detail }, tenantId)
+    sent += await notifyUsers(fresh.filter((u) => mailRoles.has(u.role)).map((u) => u.id), `alert:${a.id}`, { severity: a.severity, title: a.title, detail: a.detail }, tenantId, { email: true })
   }
   return sent
 }

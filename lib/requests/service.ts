@@ -19,7 +19,7 @@ export async function createRequest(i: { tenantId: string; userId: string; kind:
     await tx.clientMessage.create({ data: { requestId: req.id, tenantId: i.tenantId, authorUserId: i.userId, fromClient: true, body } })
     return req
   })
-  await notifyUsers(await gcoContactsFor(i.tenantId), 'client_request', { requestId: r.id, kind: r.kind, subject: r.subject }, i.tenantId)
+  await notifyUsers(await gcoContactsFor(i.tenantId), 'client_request', { requestId: r.id, kind: r.kind, subject: r.subject }, i.tenantId, { email: true })
   await writeAuditLog({ tenantId: i.tenantId, actorUserId: i.userId, action: 'client_request.created', resource: 'client_request', resourceId: r.id, metadata: { kind: r.kind } })
   return r
 }
@@ -37,7 +37,7 @@ export async function addMessage(i: { requestId: string; tenantId: string; userI
     return msg
   })
   const to = i.fromClient ? await gcoContactsFor(i.tenantId) : await clientContactsFor(i.tenantId)
-  await notifyUsers(to.filter((u) => u !== i.userId), i.fromClient ? 'client_request_reply' : 'gco_reply', { requestId: req.id, subject: req.subject }, i.tenantId)
+  await notifyUsers(to.filter((u) => u !== i.userId), i.fromClient ? 'client_request_reply' : 'gco_reply', { requestId: req.id, subject: req.subject }, i.tenantId, { email: true })
   return m
 }
 
@@ -48,7 +48,7 @@ export async function setStatus(i: { requestId: string; tenantId: string; userId
   if (i.status === 'DECLINED' && (i.note ?? '').trim().length < 3) throw new RequestError('Say why you are declining')
   await db.clientRequest.update({ where: { id: req.id }, data: { status: i.status, resolvedAt: closing ? new Date() : null } })
   if (i.note?.trim()) await db.clientMessage.create({ data: { requestId: req.id, tenantId: i.tenantId, authorUserId: i.userId, fromClient: false, body: i.note.trim().slice(0, 5000) } })
-  await notifyUsers(await clientContactsFor(i.tenantId), 'client_request_status', { requestId: req.id, subject: req.subject, status: i.status }, i.tenantId)
+  await notifyUsers(await clientContactsFor(i.tenantId), 'client_request_status', { requestId: req.id, subject: req.subject, status: i.status }, i.tenantId, { email: true })
   await writeAuditLog({ tenantId: i.tenantId, actorUserId: i.userId, action: 'client_request.status', resource: 'client_request', resourceId: req.id, metadata: { status: i.status } })
 }
 

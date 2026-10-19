@@ -9,7 +9,7 @@
 
 The sections below were written at commit `80b907d`, **before** this build session; where they say MISSING, check this table first.
 
-**Evidence from this session (local stack, real PostgreSQL/Redis, mock AI, dev-mock client adapter):** typecheck and lint clean; unit tests 513 passed; integration tests 209 passed (clean runs); end-to-end 284 passed, 2 skipped by design (staging-only specs); `npm audit --omit=dev` 0 vulnerabilities at the time of the dependency fix. **Local evidence added:** a backup/restore drill against the local database (PASS, `docs/disaster-recovery.md`) and a 3-minute sustained load run plus a 100-at-once burst (all messages persisted, `docs/load-testing.md`). **Not verified:** Docker build, GitHub Actions run, a drill of the real production backups, a 10-15 minute soak on production-like infrastructure, any real client platform, any real AI provider.
+**Evidence from this session (local stack, real PostgreSQL/Redis, mock AI, dev-mock client adapter):** typecheck and lint clean; unit tests 710 passed; integration tests 212 passed (clean runs); end-to-end 285 passed, 2 skipped by design (staging-only specs); `npm audit --omit=dev` 0 vulnerabilities at the time of the dependency fix. **Local evidence added:** a backup/restore drill against the local database (PASS, `docs/disaster-recovery.md`) and a 3-minute sustained load run plus a 100-at-once burst (all messages persisted, `docs/load-testing.md`). **Not verified:** Docker build, GitHub Actions run, a drill of the real production backups, a 10-15 minute soak on production-like infrastructure, any real client platform, any real AI provider.
 
 | CEO brief | Now | What exists / what is still missing |
 |---|---|---|
@@ -17,7 +17,7 @@ The sections below were written at commit `80b907d`, **before** this build sessi
 | 1A Live chat / support | PARTIAL | + per-client quick replies, articles, instructions by language. Missing: customer/order records via client APIs (needs a real spec). |
 | 1B Chat moderation / 1C Community moderation | **BUILT (internal)** | Signed ingest, claim queue, decisions, escalation, warnings/restrictions, appeals, history, per-client categories (`docs/moderation.md`). Missing: sending verdicts back to the client's platform (needs client API); AI assistance. |
 | 1D Multilingual | PARTIAL | routing, coverage view, language-specific knowledge. Missing: translation tools, per-language reports. |
-| 1E 24/7 coverage | PARTIAL | shifts, absences, handover notes, coverage-gap and "on shift but offline" alerts, SLA reassignment. Missing: assignment driven by the shift plan (touches the protected assignment engine). |
+| 1E 24/7 coverage | PARTIAL | shifts, absences, handover notes, coverage-gap and "on shift but offline" alerts, SLA reassignment. **Assignment now prefers operators who are on shift** (a preference only: an available off-shift operator still takes work when nobody on shift can). |
 | 1F Dedicated teams | PARTIAL | per-client SLA/capacity/hours/billing/knowledge/approval, tenant isolation. Missing: custom workflow builder. |
 | 2 Client setup wizard | **BUILT** | `/admin/clients/new`: company, industry, services, languages, hours, SLA, capacity, billing, operator pay, AI mode, client + staff one-time invitations. Missing: workflow/moderation-rule editor beyond categories and instructions. |
 | 3 Operator workspace | PARTIAL | + knowledge panel, training, schedule/handover, reports, moderation, clear status errors. **operator-to-operator transfer** (to a named available colleague with a free slot; managers can move conversations too). Missing: translation, customer panel from integrations. |
@@ -29,9 +29,11 @@ The sections below were written at commit `80b907d`, **before** this build sessi
 | 9 Training | **BUILT** | modules, scored tests (answers never leave the server), qualifications, client approval, access gating. |
 | 10 AI | PARTIAL | per-client mode (human-only / assisted) enforced for suggestions; **AI + Human is refused until safeguards exist**; mock provider only. |
 | 11 Integrations and billing | PARTIAL | pricing per message/ticket/hour/month, immutable invoices, reconciliation. Missing: **fiscal e-invoicing (SDI)**, email/SMS integrations, real client adapter (BLOCKED on a spec). |
-| 12 Alerts | PARTIAL+ | + shift coverage alerts and **in-app notifications routed by severity and role** (CEO-configurable; `prisma/ops/alerts-dispatch.ts` every 5 min). Missing: email/SMS/paging channel, error tracking (Sentry). |
+| 12 Alerts | PARTIAL+ | + shift coverage alerts and **in-app notifications routed by severity and role** (CEO-configurable; `prisma/ops/alerts-dispatch.ts` every 5 min). **Optional email channel** (set `SMTP_URL`; per-role opt-in; titles and links only, never content). Missing: SMS/paging, error tracking (Sentry). |
 | 13 Security and continuity | PARTIAL | + retention windows, data-subject export/erasure, anonymisation (`docs/privacy-and-compliance.md`). Open: restore drill, incident procedure, IP assignment in writing, legal documents. |
 | 14 Scalability | PARTIAL | designed for it; **not load-tested** at hundreds of operators. |
+
+**Observed flake:** in one full end-to-end run `49-client-live` failed in its setup (0 ms, error text not captured); it passed alone and in the next two full runs. Treat as an intermittent setup issue to watch, not as resolved.
 
 **Founder / external items (unchanged, blocked on people, not code):** confirmed registration details for the VAT number (`docs/business-details-and-vat.md` — site, structured data and invoices switch on automatically once filled), the Google Workspace decision and cut-over (`docs/email-google-workspace-plan.md` — no DNS changed), lawyer-reviewed privacy policy / DPA / terms, accountant for SDI.
 
