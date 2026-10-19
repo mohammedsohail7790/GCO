@@ -7,7 +7,7 @@ import { db } from '../lib/db/client'
 // for real DB state, and reports measured percentiles - see docs/load-testing.md
 // for how to run this and what was actually observed.
 //
-// Usage: npx tsx scripts/loadtest.ts <messagesPerMinute> <durationSeconds>
+// Usage: npx tsx scripts/loadtest.ts <messagesPerMinute> <durationSeconds> [burstSize]
 
 const BASE_URL = process.env.E2E_BASE_URL ?? 'http://localhost:3000'
 const DEV_WEBHOOK_SECRET = process.env.DEV_WEBHOOK_SECRET ?? ''
@@ -38,34 +38,42 @@ async function main() {
   let integration = await db.integration.findFirst({ where: { tenantId: tenant.id, adapterKey: 'dev-mock' } })
   if (!integration) {
     integration = await db.integration.create({
-      data: { tenantId: tenant.id, adapterKey: 'dev-mock', name: '[LOADTEST] Integration', config: {} },
+      data: { tenantId: tenant.id, adapterKey: 'dev-mock', name: '[LOADTEST] Integration', config: {}, webhookSecret: DEV_WEBHOOK_SECRET },
     })
+  } else if (integration.webhookSecret !== DEV_WEBHOOK_SECRET || integration.status !== 'ACTIVE') {
+    // Every integration verifies with its OWN secret (a missing one fails closed with 401), so a stale test integration must be refreshed.
+    integration = await db.integration.update({ where: { id: integration.id }, data: { webhookSecret: DEV_WEBHOOK_SECRET, status: 'ACTIVE' } })
   }
+  if (!DEV_WEBHOOK_SECRET) throw new Error('DEV_WEBHOOK_SECRET must be set (the load test signs requests with it)')
 
   const webhookLatencies: number[] = []
+  const statuses = new Map<number, number>()
   const runId = Date.now()
   const messageIds: string[] = []
 
-  for (let i = 0; i < totalMessages; i++) {
+  // BURST > 1 sends that many requests at the same instant (a thundering herd), then waits so the average rate stays as requested.
+  const burst = Math.max(1, parseInt(process.argv[4] ?? '1', 10))
+  const sendOne = async (i: number) => {
     const messageId = `loadtest-${runId}-${i}`
     messageIds.push(messageId)
     const body = JSON.stringify({
       events: [{ event_id: messageId, message_id: messageId, user_id: `loadtest-user-${runId}-${i}`, text: `load test message ${i}` }],
     })
-
     const start = Date.now()
-    const res = await fetch(`${BASE_URL}/api/v1/webhooks/${integration.id}`, {
+    const res = await fetch(`${BASE_URL}/api/v1/webhooks/${integration!.id}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-GCO-Signature': sign(body) },
       body,
     })
     const elapsed = Date.now() - start
     webhookLatencies.push(elapsed)
-
-    if (!res.ok) console.error(`  webhook ${i} failed: ${res.status}`)
-    if (i % 20 === 0) console.log(`  sent ${i}/${totalMessages}, last webhook latency ${elapsed}ms`)
-
-    await new Promise((r) => setTimeout(r, intervalMs))
+    statuses.set(res.status, (statuses.get(res.status) ?? 0) + 1)
+    if (!res.ok && (statuses.get(res.status) ?? 0) <= 3) console.error(`  webhook ${i} failed: ${res.status}`)
+    if (i % 200 === 0) console.log(`  sent ${i}/${totalMessages}, last webhook latency ${elapsed}ms`)
+  }
+  for (let i = 0; i < totalMessages; i += burst) {
+    await Promise.all(Array.from({ length: Math.min(burst, totalMessages - i) }, (_, k) => sendOne(i + k)))
+    await new Promise((r) => setTimeout(r, intervalMs * burst))
   }
 
   console.log('All webhooks sent. Waiting for full pipeline processing (up to 30s)...')
@@ -85,6 +93,7 @@ async function main() {
 
   console.log('\n=== Results ===')
   console.log(`Messages sent: ${totalMessages}`)
+  console.log(`HTTP statuses: ${[...statuses.entries()].map(([k, v]) => `${k}x${v}`).join(' ')}`)
   console.log(`Messages persisted (Message rows found): ${processedCount}/${totalMessages}`)
   console.log(`Time to drain queue after last send: ${processingElapsed}ms`)
   console.log(`Webhook HTTP response latency (ack, not full processing):`)

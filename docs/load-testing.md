@@ -18,6 +18,19 @@
 
 At all three tiers requested (100/500/1000 msgs/min), 100% of messages were persisted with no measurable queue backlog - the worker keeps up with ingestion in real time on this hardware. Webhook acknowledgment latency stays under 30ms even at the top tier, well within the "return fast" requirement (spec section 18).
 
+## Results (2026-10-19, local stack, re-run this session)
+
+Same caveats as above (one laptop, mock AI, no TLS or network hop, dev-mock adapter). Commit `6c44288` plus the script fix below.
+
+| Run | Sent | Persisted | HTTP | Webhook ack p50 / p95 / p99 / max | Drain after last send |
+|---|---|---|---|---|---|
+| **Sustained** 1000 msgs/min for 180 s | 3000 | 3000 | 202 x 3000 | 15 / 22 / 31 / 71 ms | 32 ms |
+| **Burst** 100 simultaneous requests, repeated, 1200 msgs/min average for 60 s | 1200 | 1200 | 202 x 1200 | 63 / 114 / 170 / 174 ms | 19 ms |
+
+So the previously untested **sustained (3 min)** and **concurrent burst** cases now have evidence at application level: nothing was lost, nothing was rejected, the queue kept up. Still **not** tested: 10-15 minute soak, many operators competing for assignments, a real AI provider, production topology (this remains the recommended next step on a staging host).
+
+**Script fix found by this run:** `scripts/loadtest.ts` created its test integration without a webhook secret, so since per-integration secrets were introduced every request would have been rejected (401) and the run reported `0/3000 persisted`. The script now sets the secret, refreshes a stale test integration, prints the HTTP status distribution, and supports a burst size (third argument: `npx tsx scripts/loadtest.ts 1200 60 100`).
+
 ## A real bug this testing caught
 
 The first 1000/min run failed at 290/333 messages with HTTP 429 - not a pipeline failure, but the **webhook rate limiter I had just added** (`lib/api/rateLimit.ts`) was set to 300 requests/minute per integration, which is *below* the volume tier the business itself wants to support. Fixed by raising the limit to 3000/min (see the code comment in `rateLimit.ts` for the reasoning) and re-running - see the corrected 1000/min row above. This is exactly the kind of thing load testing is supposed to catch before it reaches a real client: a well-intentioned security control that would have silently rejected a fifth of a real customer's legitimate traffic at their stated peak volume.

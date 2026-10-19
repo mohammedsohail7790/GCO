@@ -1,0 +1,11 @@
+[Unit]
+Description=Dispatch GCO operational alerts as notifications
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=gco
+WorkingDirectory=/opt/gco
+# Runs the job inside the worker container, which already has the app, the database URL and the secrets.
+ExecStart=/usr/bin/docker compose exec -T worker npx tsx prisma/ops/alerts-dispatch.ts

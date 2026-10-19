@@ -217,3 +217,10 @@ External uptime monitoring uses UptimeRobot (owner account). Intended monitors: 
 **Unchanged by this work:** Cloudflare, DNS, Caddy, UptimeRobot (not configured), Backblaze B2 (key and retention), PostgreSQL, Redis.
 
 **Open owner decisions:** OpenAI privacy / DPA / data-retention review and a privacy-notice update (customer message text is sent to OpenAI); OpenAI dashboard spending limit (the app has no per-tenant cap beyond `Tenant.messageCap`); B2 least-privilege key replacement and 30-day retention; second SSH key; UptimeRobot.
+
+
+## Restore drill (local, 2026-10-19)
+
+`scripts/restore-drill.sh` dumps a database with `pg_dump -Fc`, checks the archive with `pg_restore --list`, restores into a scratch database, and compares every table's row count and the number of applied migrations. **Result against the local development database: PASS - 61 tables, identical row counts, 28 migrations applied, dump + restore 1 s (620 KB).** The scratch database is dropped afterwards.
+
+This proves the procedure and the tool work. It is **not** a drill of the production backups: it has not been run against a real dump from the Hetzner server or a downloaded Backblaze B2 object. To close that gap: download the latest B2 dump (or `scp` one from `/var/backups/gco-postgres/`), restore it into a throwaway Postgres (`docker run postgres:16`), and run the same row-count/migration comparison against it. Record the date and the dump's age (the RPO actually achieved) here.
