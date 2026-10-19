@@ -41,6 +41,10 @@ model Tenant {
   // null = unlimited. Used for controlled pilot volume caps (see docs/GCO_V1_PRODUCT_TECHNICAL_DRAFT.md §18).
   messageCap Int?
 
+  messageRetentionDays Int? // null = no automatic purge; set per client contract / regulation
+  regulations          String[] @default(["GDPR"]) // privacy regimes that apply to this client's end users
+  dataRegion           String? // where this client's data is hosted/processed, as agreed in the DPA
+
   aiMode AiMode @default(AI_ASSISTED)
 
   billingModel           BillingModel @default(PER_MESSAGE)
@@ -231,6 +235,7 @@ model Conversation {
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
   closedAt            DateTime?
+  redactedAt          DateTime? // personal content removed (retention policy or erasure request)
 
   tenant            Tenant       @relation(fields: [tenantId], references: [id])
   messages          Message[]
@@ -1433,4 +1438,37 @@ model Invoice {
 model InvoiceCounter {
   year Int @id
   last Int @default(0)
+}
+
+// ---------------------------------------------------------------------------
+// Data-subject requests handled by GCO as PROCESSOR on the client's (controller's) instruction: export or erase the data of one
+// end user. Only a hash of the subject reference is stored here, never the subject's data.
+// ---------------------------------------------------------------------------
+enum DataRequestKind {
+  EXPORT
+  ERASURE
+}
+
+enum DataRequestStatus {
+  OPEN
+  COMPLETED
+  REJECTED
+}
+
+model DataRequest {
+  id                String            @id @default(cuid())
+  tenantId          String
+  kind              DataRequestKind
+  subjectRefHash    String // sha256 of the end user's id on the client platform
+  subjectHint       String // last 4 characters only, to recognise the request
+  status            DataRequestStatus @default(OPEN)
+  requestedByUserId String
+  note              String?
+  dueAt             DateTime
+  completedAt       DateTime?
+  completedByUserId String?
+  result            Json? // counts only
+  createdAt         DateTime          @default(now())
+
+  @@index([tenantId, status])
 }

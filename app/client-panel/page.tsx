@@ -5,6 +5,7 @@ import { apiFetch } from '@/lib/api/client'
 import { ClientDecisions } from '@/components/escalation/ClientDecisions'
 import { ReportsPanel } from '@/components/client/ReportsPanel'
 import { InvoicesPanel } from '@/components/client/InvoicesPanel'
+import { DataRequestPanel } from '@/components/client/DataRequestPanel'
 
 interface Usage {
   messageCount: number
@@ -81,6 +82,8 @@ export default function ClientPanelPage() {
       <ReportsPanel />
 
       <InvoicesPanel />
+
+      <DataRequestPanel />
 
       <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-3">
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-card">

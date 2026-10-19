@@ -128,6 +128,7 @@ export default function AdminPage() {
         {IS_STAGING_BUILD && <a href="/admin/staging" className="ml-auto rounded-lg bg-amber-100 px-3 py-1 text-sm font-medium text-amber-900 hover:bg-amber-200">Staging tools</a>}
         <a href="/admin/clients/new" className={`${IS_STAGING_BUILD ? '' : 'ml-auto '}rounded-lg bg-slate-900 px-3 py-1 text-sm font-medium text-white`}>New client</a>
         <a href="/admin/billing" className="text-sm font-medium text-brand-600 hover:underline">Billing</a>
+        <a href="/admin/privacy" className="text-sm font-medium text-brand-600 hover:underline">Privacy</a>
         <a href="/admin/earnings" className="text-sm font-medium text-brand-600 hover:underline">Earnings</a>
         <a href="/account" className={`text-sm font-medium text-brand-600 hover:underline`}>Account</a>
       </div>
