@@ -43,6 +43,10 @@ export const PERMISSIONS = {
   MODERATION_HANDLE: ['OPERATOR'],
   MODERATION_MANAGE: ['CEO_ADMIN', 'MANAGER', 'SUPERVISOR', 'ASSISTANT'],
   MODERATION_VIEW_CLIENT: ['CLIENT'],
+  // Client requests / account-manager thread, and who is notified about alerts.
+  CLIENT_REQUEST_CREATE: ['CLIENT'],
+  CLIENT_REQUEST_MANAGE: ['CEO_ADMIN', 'MANAGER', 'ASSISTANT'],
+  ALERT_ROUTE_MANAGE: ['CEO_ADMIN'],
   // Billed message count and total for a client (UsageRecord ledger). Margins/costs remain VIEW_REVENUE (CEO only).
   BILLING_VIEW: ['CEO_ADMIN', 'MANAGER', 'CLIENT'],
   VIEW_TENANT_ANALYTICS: ['CEO_ADMIN', 'MANAGER', 'CLIENT', 'SUPERVISOR'],

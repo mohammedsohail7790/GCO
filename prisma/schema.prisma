@@ -1593,3 +1593,57 @@ model ModerationAppeal {
   @@index([tenantId, status])
   @@index([itemId])
 }
+
+// ---------------------------------------------------------------------------
+// Client requests and the account-manager thread: a client asks for a workflow/instruction/setting change or sends a message;
+// GCO staff reply in the same thread and move the request through its status. Both sides get in-app notifications.
+// ---------------------------------------------------------------------------
+enum ClientRequestKind {
+  WORKFLOW_CHANGE
+  INSTRUCTION_CHANGE
+  SETTINGS_CHANGE
+  MESSAGE // general note to the account manager
+}
+
+enum ClientRequestStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
+  DECLINED
+}
+
+model ClientRequest {
+  id              String              @id @default(cuid())
+  tenantId        String
+  kind            ClientRequestKind
+  subject         String
+  status          ClientRequestStatus @default(OPEN)
+  createdByUserId String
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  resolvedAt      DateTime?
+
+  @@index([tenantId, status])
+}
+
+model ClientMessage {
+  id           String   @id @default(cuid())
+  requestId    String
+  tenantId     String
+  authorUserId String
+  fromClient   Boolean
+  body         String   @db.Text
+  createdAt    DateTime @default(now())
+
+  @@index([requestId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Who is told about operational alerts: per role, from which severity upward. In-app notifications only (no email/SMS provider yet).
+// ---------------------------------------------------------------------------
+model AlertRoute {
+  role        Role     @id
+  minSeverity String // 'critical' | 'warning' | 'info'
+  enabled     Boolean  @default(true)
+  updatedAt   DateTime @updatedAt
+}

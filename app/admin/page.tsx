@@ -14,6 +14,8 @@ import { AlertsPanel } from '@/components/manager/AlertsPanel'
 import { IS_STAGING_BUILD } from '@/lib/config/environment'
 import { ExecutiveOverview } from '@/components/admin/ExecutiveOverview'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
+import { NotificationBell } from '@/components/ui/NotificationBell'
+import { RequestsInbox } from '@/components/manager/RequestsInbox'
 
 
 interface Tenant {
@@ -128,6 +130,7 @@ export default function AdminPage() {
         </div>
         <h1 className="text-lg font-semibold tracking-tight text-slate-900">Executive dashboard</h1>
         {IS_STAGING_BUILD && <a href="/admin/staging" className="ml-auto rounded-lg bg-amber-100 px-3 py-1 text-sm font-medium text-amber-900 hover:bg-amber-200">Staging tools</a>}
+        <NotificationBell />
         <ThemeToggle />
         <a href="/admin/clients/new" className={`${IS_STAGING_BUILD ? '' : 'ml-auto '}rounded-lg bg-slate-900 px-3 py-1 text-sm font-medium text-white`}>New client</a>
         <a href="/admin/billing" className="text-sm font-medium text-brand-600 hover:underline">Billing</a>
@@ -137,6 +140,8 @@ export default function AdminPage() {
       </div>
 
       <ExecutiveOverview />
+
+      <RequestsInbox />
 
       <div className="mb-8">
         <EscalationQueue mode="management" />

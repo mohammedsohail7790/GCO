@@ -14,6 +14,8 @@ import { AlertsPanel } from '@/components/manager/AlertsPanel'
 import { ConversationHistory } from '@/components/manager/ConversationHistory'
 import { TenantSettings } from '@/components/manager/TenantSettings'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
+import { NotificationBell } from '@/components/ui/NotificationBell'
+import { RequestsInbox } from '@/components/manager/RequestsInbox'
 import { WeeklyReports } from '@/components/manager/WeeklyReports'
 import { ShiftPlanner } from '@/components/manager/ShiftPlanner'
 import { TrainingPanel } from '@/components/manager/TrainingPanel'
@@ -110,6 +112,7 @@ export default function ManagerPage() {
         </div>
         <h1 className="text-lg font-semibold tracking-tight text-slate-900">{isSupervisor ? 'Supervisor dashboard' : 'Manager dashboard'}</h1>
         {isSupervisor ? <span className="ml-auto text-xs font-medium text-slate-500">Supervisor - your team</span> : <a href="/manager/earnings" className="ml-auto text-sm font-medium text-brand-600 hover:underline">Earnings</a>}
+        <NotificationBell />
         <ThemeToggle />
         <a href="/account" className="text-sm font-medium text-brand-600 hover:underline">Account</a>
       </div>
@@ -144,6 +147,8 @@ export default function ManagerPage() {
       <LanguageCoverage />
 
       <QaReviewPanel />
+
+      <RequestsInbox />
 
       <ModerationPanel />
 
