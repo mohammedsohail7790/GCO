@@ -126,7 +126,8 @@ export default function AdminPage() {
         </div>
         <h1 className="text-lg font-semibold tracking-tight text-slate-900">Executive dashboard</h1>
         {IS_STAGING_BUILD && <a href="/admin/staging" className="ml-auto rounded-lg bg-amber-100 px-3 py-1 text-sm font-medium text-amber-900 hover:bg-amber-200">Staging tools</a>}
-        <a href="/account" className={`${IS_STAGING_BUILD ? '' : 'ml-auto '}text-sm font-medium text-brand-600 hover:underline`}>Account</a>
+        <a href="/admin/earnings" className={`${IS_STAGING_BUILD ? '' : 'ml-auto '}text-sm font-medium text-brand-600 hover:underline`}>Earnings</a>
+        <a href="/account" className={`text-sm font-medium text-brand-600 hover:underline`}>Account</a>
       </div>
 
       <div className="mb-8">

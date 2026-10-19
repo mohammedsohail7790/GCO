@@ -81,3 +81,36 @@ export async function listRecentLines(operatorId: string, take = 50) {
     select: { id: true, messageId: true, rateEurCents: true, state: true, stateReason: true, messageAt: true, payoutId: true },
   })
 }
+
+/** One row per operator (optionally one tenant) with what is owed - the CEO's payment-obligation overview. */
+export async function getObligations(tenantId?: string) {
+  const operators = await db.operator.findMany({
+    where: tenantId ? { tenantId } : {},
+    orderBy: { operatorNumber: 'asc' },
+    select: { id: true, operatorNumber: true, tenantId: true, user: { select: { displayName: true, isActive: true } }, tenant: { select: { name: true } } },
+  })
+  const ids = operators.map((o) => o.id)
+  const [lineGroups, adjGroups, payoutGroups] = await Promise.all([
+    db.operatorEarningLine.groupBy({ by: ['operatorId', 'state', 'payoutId'], where: { operatorId: { in: ids } }, _count: { _all: true }, _sum: { rateEurCents: true } }),
+    db.operatorEarningAdjustment.groupBy({ by: ['operatorId', 'payoutId'], where: { operatorId: { in: ids } }, _sum: { amountEurCents: true } }),
+    db.operatorPayout.groupBy({ by: ['operatorId', 'status'], where: { operatorId: { in: ids } }, _sum: { totalEurCents: true } }),
+  ])
+  return operators.map((o) => {
+    const mine = lineGroups.filter((g) => g.operatorId === o.id)
+    const payableUnpaid = mine.filter((g) => g.state === 'PAYABLE' && !g.payoutId).reduce((a, g) => a + (g._sum.rateEurCents ?? 0), 0)
+    const adjUnsettled = adjGroups.filter((g) => g.operatorId === o.id && !g.payoutId).reduce((a, g) => a + (g._sum.amountEurCents ?? 0), 0)
+    const payouts = payoutGroups.filter((g) => g.operatorId === o.id)
+    return {
+      operatorId: o.id,
+      operatorNumber: o.operatorNumber,
+      name: o.user.displayName,
+      active: o.user.isActive,
+      tenantId: o.tenantId,
+      tenantName: o.tenant.name,
+      awaitingPayoutEurCents: payableUnpaid + adjUnsettled,
+      pendingPaymentEurCents: payouts.filter((p) => p.status === 'PENDING').reduce((a, p) => a + (p._sum.totalEurCents ?? 0), 0),
+      paidEurCents: payouts.filter((p) => p.status === 'PAID').reduce((a, p) => a + (p._sum.totalEurCents ?? 0), 0),
+      pendingMessages: mine.filter((g) => g.state === 'PENDING').reduce((a, g) => a + g._count._all, 0),
+    }
+  })
+}

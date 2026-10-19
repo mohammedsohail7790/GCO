@@ -96,7 +96,8 @@ export default function ManagerPage() {
           <span className="text-xs font-bold text-white">G</span>
         </div>
         <h1 className="text-lg font-semibold tracking-tight text-slate-900">Manager dashboard</h1>
-        <a href="/account" className="ml-auto text-sm font-medium text-brand-600 hover:underline">Account</a>
+        <a href="/manager/earnings" className="ml-auto text-sm font-medium text-brand-600 hover:underline">Earnings</a>
+        <a href="/account" className="text-sm font-medium text-brand-600 hover:underline">Account</a>
       </div>
 
       {error && (

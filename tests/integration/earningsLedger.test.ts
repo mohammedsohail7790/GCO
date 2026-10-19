@@ -1,7 +1,7 @@
 import { describe, it, expect, afterAll } from 'vitest'
 import { db } from '@/lib/db/client'
 import { syncEarnings, createRateCard, createAdjustment, createPayout, markPayoutPaid, EarningsError } from '@/lib/earnings/ledger'
-import { getEarningsSummary } from '@/lib/earnings/summary'
+import { getEarningsSummary, getObligations } from '@/lib/earnings/summary'
 
 describe('operator earnings ledger (real database)', () => {
   const base = `el-${Date.now()}`
@@ -129,5 +129,21 @@ describe('operator earnings ledger (real database)', () => {
     const c = await mkConv(t, 'c'); await msg(t, c, other, 'DELIVERED'); await syncEarnings(other)
     const line = await db.operatorEarningLine.findFirstOrThrow({ where: { operatorId: other } })
     await expect(createAdjustment({ operatorId: op, amountEurCents: 5, reason: 'wrong operator line', lineId: line.id, actorUserId: admin })).rejects.toBeInstanceOf(EarningsError)
+  })
+
+  it('the obligations overview is per tenant, and reports owed / in progress / paid per operator', async () => {
+    const t = await mkTenant('obl'); const other = await mkTenant('obl2'); const op = await mkOp(t, 'op'); await mkOp(other, 'op'); const c = await mkConv(t, 'c')
+    const admin = await mkUser(t, 'admin', 'CEO_ADMIN')
+    await createRateCard({ tenantId: t, amountEurCents: 10, basis: 'DELIVERED', effectiveFrom: new Date(Date.now() - 86_400_000), actorUserId: admin })
+    await msg(t, c, op, 'DELIVERED'); await msg(t, c, op, 'DELIVERED'); await msg(t, c, op, 'SENT')
+    await syncEarnings(op)
+    let rows = await getObligations(t)
+    expect(rows).toHaveLength(1) // another client's operator never appears in this scope
+    expect(rows[0]).toMatchObject({ operatorId: op, awaitingPayoutEurCents: 20, pendingPaymentEurCents: 0, paidEurCents: 0, pendingMessages: 1 })
+    const payout = await createPayout({ operatorId: op, periodEnd: new Date(), actorUserId: admin })
+    rows = await getObligations(t)
+    expect(rows[0]).toMatchObject({ awaitingPayoutEurCents: 0, pendingPaymentEurCents: 20 })
+    await markPayoutPaid({ payoutId: payout.id, actorUserId: admin })
+    expect((await getObligations(t))[0]).toMatchObject({ pendingPaymentEurCents: 0, paidEurCents: 20 })
   })
 })
