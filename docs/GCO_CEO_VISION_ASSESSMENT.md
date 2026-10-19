@@ -9,7 +9,7 @@
 
 The sections below were written at commit `80b907d`, **before** this build session; where they say MISSING, check this table first.
 
-**Evidence from this session (local stack, real PostgreSQL/Redis, mock AI, dev-mock client adapter):** typecheck and lint clean; unit tests 513 passed; integration tests 209 passed (clean runs); end-to-end 282 passed, 2 skipped by design (staging-only specs); `npm audit --omit=dev` 0 vulnerabilities at the time of the dependency fix. **Not verified:** Docker build, GitHub Actions run, backup **restore drill**, load/soak test, any real client platform, any real AI provider.
+**Evidence from this session (local stack, real PostgreSQL/Redis, mock AI, dev-mock client adapter):** typecheck and lint clean; unit tests 513 passed; integration tests 209 passed (clean runs); end-to-end 283 passed, 2 skipped by design (staging-only specs); `npm audit --omit=dev` 0 vulnerabilities at the time of the dependency fix. **Not verified:** Docker build, GitHub Actions run, backup **restore drill**, load/soak test, any real client platform, any real AI provider.
 
 | CEO brief | Now | What exists / what is still missing |
 |---|---|---|
@@ -23,7 +23,7 @@ The sections below were written at commit `80b907d`, **before** this build sessi
 | 3 Operator workspace | PARTIAL | + knowledge panel, training, schedule/handover, reports, moderation, clear status errors. Missing: translation, customer panel from integrations, operator-to-operator transfer screen. |
 | 4 Earnings and history | **BUILT** | effective-dated rate cards, per-message payable state, adjustments, payouts, daily/weekly/monthly figures, full history, CEO and manager screens. |
 | 5 Manager / supervisor | **BUILT** | planner, reports with feedback, training, QA, alerts, moderation oversight; SUPERVISOR is team-scoped. |
-| 6 Client portal | PARTIAL+ | + invoices, privacy requests, moderation counts, **change requests and a conversation with the account team (notified both ways)**. Missing: live operations view for the client. |
+| 6 Client portal | **BUILT** | + invoices, privacy requests, moderation counts, **change requests and a conversation with the account team (notified both ways)**. **live operations view** (queue, team availability by first name, reply-time compliance, no content). |
 | 7 Founder dashboard + roles | **BUILT (v2)** | profitability per client, charts, run-rate projection, capacity, obligations, search, widgets, dark mode; SUPERVISOR and CTO roles. Sales pipeline stays in the existing CRM panels. |
 | 8 Conversation integrity | VERIFIED (dev-mock) | unchanged; not validated against a real client. |
 | 9 Training | **BUILT** | modules, scored tests (answers never leave the server), qualifications, client approval, access gating. |

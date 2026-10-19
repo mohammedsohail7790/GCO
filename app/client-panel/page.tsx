@@ -7,6 +7,7 @@ import { ReportsPanel } from '@/components/client/ReportsPanel'
 import { InvoicesPanel } from '@/components/client/InvoicesPanel'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
 import { NotificationBell } from '@/components/ui/NotificationBell'
+import { LivePanel } from '@/components/client/LivePanel'
 import { RequestsPanel } from '@/components/client/RequestsPanel'
 import { DataRequestPanel } from '@/components/client/DataRequestPanel'
 
@@ -80,6 +81,8 @@ export default function ClientPanelPage() {
           {error}
         </div>
       )}
+
+      <LivePanel />
 
       <ClientDecisions />
 
