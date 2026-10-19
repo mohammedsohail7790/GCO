@@ -86,3 +86,28 @@ select:focus-visible,
 *::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* ---------------------------------------------------------------------------------------------
+   Optional dark mode for the signed-in product (admin / manager / operator / client / hunter).
+   Applied by <ThemeToggle> as class "app-dark" on <html>; the public marketing site never sets it.
+   Remaps the slate/white utilities the product pages already use, so no page needs per-class dark: variants.
+   --------------------------------------------------------------------------------------------- */
+html.app-dark { color-scheme: dark; }
+html.app-dark body { background: #0b1220; color: #e2e8f0; }
+html.app-dark .bg-white { background-color: #111a2e; }
+html.app-dark .bg-slate-50 { background-color: #0b1220; }
+html.app-dark .bg-slate-100 { background-color: #1a2540; }
+html.app-dark .bg-slate-200 { background-color: #243252; }
+html.app-dark .hover\:bg-slate-50:hover { background-color: #17213a; }
+html.app-dark .text-slate-900, html.app-dark .text-slate-800 { color: #f1f5f9; }
+html.app-dark .text-slate-700, html.app-dark .text-slate-600 { color: #cbd5e1; }
+html.app-dark .text-slate-500 { color: #94a3b8; }
+html.app-dark .text-slate-400, html.app-dark .text-slate-300 { color: #7c8aa5; }
+html.app-dark .border-slate-100, html.app-dark .border-slate-200, html.app-dark .border-slate-300,
+html.app-dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]), html.app-dark .divide-slate-200 > :not([hidden]) ~ :not([hidden]) { border-color: #26334f; }
+html.app-dark input, html.app-dark select, html.app-dark textarea { background-color: #0b1220; color: #e2e8f0; }
+html.app-dark .bg-slate-900 { background-color: #3563e9; }
+html.app-dark .bg-emerald-50 { background-color: #0f2a22; } html.app-dark .text-emerald-700 { color: #6ee7b7; }
+html.app-dark .bg-red-50 { background-color: #2f1518; } html.app-dark .text-red-700 { color: #fca5a5; }
+html.app-dark .bg-amber-50 { background-color: #2c2210; } html.app-dark .text-amber-800, html.app-dark .text-amber-900, html.app-dark .text-amber-700 { color: #fcd34d; }
+html.app-dark .shadow-card, html.app-dark .shadow-sm { box-shadow: none; }

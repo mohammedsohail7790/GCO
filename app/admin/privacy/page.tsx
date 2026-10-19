@@ -19,7 +19,7 @@ export default function PrivacyPage() {
   const [exported, setExported] = useState<string | null>(null)
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
 
-  useEffect(() => { apiFetch<Tenant[]>('/admin/tenants').then((t) => { setTenants(t); if (t[0]) setTenantId(t[0].id) }).catch(() => {}) }, [])
+  useEffect(() => { apiFetch<Tenant[]>('/admin/tenants').then((t) => { setTenants(t); const want = new URLSearchParams(window.location.search).get('tenantId'); const pick = t.find((x) => x.id === want) ?? t[0]; if (pick) setTenantId(pick.id) }).catch(() => {}) }, [])
   const load = useCallback(() => Promise.all([tenantId ? apiFetch<Policy>(`/admin/privacy/policy?tenantId=${tenantId}`) : null, apiFetch<Req[]>('/admin/privacy/requests')]).then(([p, r]) => { if (p) { setPolicy(p); setForm({ days: p.messageRetentionDays === null ? '' : String(p.messageRetentionDays), region: p.dataRegion ?? '', regs: p.regulations }) } setReqs(r) }).catch((e) => setMsg({ kind: 'err', text: e instanceof Error ? e.message : 'Failed to load' })), [tenantId])
   useEffect(() => { load() }, [load])
   const act = (fn: () => Promise<unknown>, ok: string) => fn().then(() => { setMsg({ kind: 'ok', text: ok }); return load() }).catch((e) => setMsg({ kind: 'err', text: e instanceof Error ? e.message : 'Failed' }))

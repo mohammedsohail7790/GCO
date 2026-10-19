@@ -5,6 +5,7 @@ import { apiFetch } from '@/lib/api/client'
 import { ClientDecisions } from '@/components/escalation/ClientDecisions'
 import { ReportsPanel } from '@/components/client/ReportsPanel'
 import { InvoicesPanel } from '@/components/client/InvoicesPanel'
+import { ThemeToggle } from '@/components/ui/ThemeToggle'
 import { DataRequestPanel } from '@/components/client/DataRequestPanel'
 
 interface Usage {
@@ -65,7 +66,8 @@ export default function ClientPanelPage() {
           <span className="text-xs font-bold text-white">G</span>
         </div>
         <h1 className="text-lg font-semibold tracking-tight text-slate-900">Client dashboard</h1>
-        <a href="/account" className="ml-auto text-sm font-medium text-brand-600 hover:underline">Account</a>
+        <span className="ml-auto"><ThemeToggle /></span>
+        <a href="/account" className="text-sm font-medium text-brand-600 hover:underline">Account</a>
       </div>
 
       {error && (

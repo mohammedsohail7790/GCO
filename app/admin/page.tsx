@@ -12,6 +12,8 @@ import { IntegrationConsole } from '@/components/onboarding/IntegrationConsole'
 import { TenantSettings } from '@/components/manager/TenantSettings'
 import { AlertsPanel } from '@/components/manager/AlertsPanel'
 import { IS_STAGING_BUILD } from '@/lib/config/environment'
+import { ExecutiveOverview } from '@/components/admin/ExecutiveOverview'
+import { ThemeToggle } from '@/components/ui/ThemeToggle'
 
 
 interface Tenant {
@@ -120,18 +122,21 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 p-6">
-      <div className="mb-6 flex items-center gap-2.5">
+      <div className="mb-6 flex flex-wrap items-center gap-x-3 gap-y-2">
         <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-500">
           <span className="text-xs font-bold text-white">G</span>
         </div>
         <h1 className="text-lg font-semibold tracking-tight text-slate-900">Executive dashboard</h1>
         {IS_STAGING_BUILD && <a href="/admin/staging" className="ml-auto rounded-lg bg-amber-100 px-3 py-1 text-sm font-medium text-amber-900 hover:bg-amber-200">Staging tools</a>}
+        <ThemeToggle />
         <a href="/admin/clients/new" className={`${IS_STAGING_BUILD ? '' : 'ml-auto '}rounded-lg bg-slate-900 px-3 py-1 text-sm font-medium text-white`}>New client</a>
         <a href="/admin/billing" className="text-sm font-medium text-brand-600 hover:underline">Billing</a>
         <a href="/admin/privacy" className="text-sm font-medium text-brand-600 hover:underline">Privacy</a>
         <a href="/admin/earnings" className="text-sm font-medium text-brand-600 hover:underline">Earnings</a>
         <a href="/account" className={`text-sm font-medium text-brand-600 hover:underline`}>Account</a>
       </div>
+
+      <ExecutiveOverview />
 
       <div className="mb-8">
         <EscalationQueue mode="management" />

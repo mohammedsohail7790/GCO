@@ -22,7 +22,7 @@ export default function BillingPage() {
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
   const [form, setForm] = useState({ model: 'PER_MESSAGE', msg: '', cost: '', ticket: '', hour: '', monthly: '', vat: '22', vatNote: '', terms: '30' })
 
-  useEffect(() => { apiFetch<Tenant[]>('/admin/tenants').then((t) => { setTenants(t); if (t[0]) setTenantId(t[0].id) }).catch(() => {}) }, [])
+  useEffect(() => { apiFetch<Tenant[]>('/admin/tenants').then((t) => { setTenants(t); const want = new URLSearchParams(window.location.search).get('tenantId'); const pick = t.find((x) => x.id === want) ?? t[0]; if (pick) setTenantId(pick.id) }).catch(() => {}) }, [])
   const load = useCallback(() => {
     if (!tenantId) return Promise.resolve()
     return Promise.all([apiFetch<Settings>(`/admin/billing/settings?tenantId=${tenantId}`), apiFetch<Invoice[]>(`/admin/billing/invoices?tenantId=${tenantId}`)])
