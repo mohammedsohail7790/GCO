@@ -24,10 +24,11 @@ export class QaError extends Error {
 }
 
 /** Sent replies from the last 14 days that nobody has reviewed yet, each with the customer message it answered. */
-export async function qaQueue(tenantId: string, limit = 20) {
+/** `operatorIds` limits the queue to those operators' replies (a supervisor's team). */
+export async function qaQueue(tenantId: string, limit = 20, operatorIds?: string[]) {
   const since = new Date(Date.now() - QUEUE_DAYS * 24 * 3600 * 1000)
   const sent = await db.message.findMany({
-    where: { tenantId, direction: 'OUTBOUND', status: { in: [...REVIEWABLE] }, createdAt: { gte: since } },
+    where: { tenantId, direction: 'OUTBOUND', status: { in: [...REVIEWABLE] }, createdAt: { gte: since }, ...(operatorIds ? { operatorId: { in: operatorIds } } : {}) },
     orderBy: { createdAt: 'desc' },
     take: 200,
   })

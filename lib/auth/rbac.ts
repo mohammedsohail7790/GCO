@@ -2,6 +2,12 @@ import type { Role } from '@prisma/client'
 
 // Central permission matrix. Backend is the sole enforcement point - the
 // frontend may also read this to hide UI, but that is a UX convenience only.
+// Role notes (see docs/GCO_CEO_VISION_ASSESSMENT.md):
+//  - SUPERVISOR: a tenant-scoped team lead. Operator-centric data (roster, languages, QA, reassignment, escalations raised by
+//    operators) is further limited to the supervisor's own team (Operator.supervisorUserId, lib/auth/teamScope.ts).
+//    No money, CRM, onboarding or staff-management permissions.
+//  - CTO: a global technical role - system health, audit logs, integrations, queue inspection/recovery, alerts. No revenue,
+//    earnings, payouts, commissions or CRM; go-live and account management stay with the CEO.
 export const PERMISSIONS = {
   // Tenant / org administration
   TENANT_MANAGE: ['CEO_ADMIN'],
@@ -10,28 +16,28 @@ export const PERMISSIONS = {
   PERMISSION_MANAGE: ['CEO_ADMIN'],
   AI_CONFIG_MANAGE: ['CEO_ADMIN'],
   FEATURE_FLAG_MANAGE: ['CEO_ADMIN'],
-  INTEGRATION_MANAGE: ['CEO_ADMIN'],
+  INTEGRATION_MANAGE: ['CEO_ADMIN', 'CTO'],
 
   // Visibility
   VIEW_ALL_TENANTS: ['CEO_ADMIN'],
-  VIEW_SYSTEM_METRICS: ['CEO_ADMIN', 'MANAGER', 'ASSISTANT'],
-  VIEW_AUDIT_LOGS: ['CEO_ADMIN'],
+  VIEW_SYSTEM_METRICS: ['CEO_ADMIN', 'MANAGER', 'ASSISTANT', 'CTO'],
+  VIEW_AUDIT_LOGS: ['CEO_ADMIN', 'CTO'],
   VIEW_REVENUE: ['CEO_ADMIN'],
-  VIEW_TENANT_ANALYTICS: ['CEO_ADMIN', 'MANAGER', 'CLIENT'],
-  VIEW_OPERATOR_DETAIL: ['CEO_ADMIN', 'MANAGER'],
-  VIEW_CONVERSATION_CONTENT: ['CEO_ADMIN', 'MANAGER', 'OPERATOR'],
+  VIEW_TENANT_ANALYTICS: ['CEO_ADMIN', 'MANAGER', 'CLIENT', 'SUPERVISOR'],
+  VIEW_OPERATOR_DETAIL: ['CEO_ADMIN', 'MANAGER', 'SUPERVISOR'],
+  VIEW_CONVERSATION_CONTENT: ['CEO_ADMIN', 'MANAGER', 'OPERATOR', 'SUPERVISOR'],
 
   // Operations
   CONVERSATION_HANDLE: ['OPERATOR'],
-  CONVERSATION_REASSIGN: ['CEO_ADMIN', 'MANAGER', 'ASSISTANT'],
-  QUEUE_INSPECT: ['CEO_ADMIN', 'MANAGER', 'ASSISTANT'],
-  QUEUE_RECOVER: ['CEO_ADMIN', 'ASSISTANT'],
+  CONVERSATION_REASSIGN: ['CEO_ADMIN', 'MANAGER', 'ASSISTANT', 'SUPERVISOR'],
+  QUEUE_INSPECT: ['CEO_ADMIN', 'MANAGER', 'ASSISTANT', 'SUPERVISOR', 'CTO'],
+  QUEUE_RECOVER: ['CEO_ADMIN', 'ASSISTANT', 'CTO'],
   EMERGENCY_ACTIONS: ['CEO_ADMIN', 'ASSISTANT'],
 
   // Operational escalation (Operator -> Supervisor/Team Lead -> GCO Management / Client contact)
   ESCALATION_CREATE: ['OPERATOR'],
   // Supervisor / team-lead level: view queue, claim, internal notes, resolve, escalate to client decision.
-  ESCALATION_HANDLE: ['MANAGER', 'ASSISTANT', 'CEO_ADMIN'],
+  ESCALATION_HANDLE: ['MANAGER', 'ASSISTANT', 'CEO_ADMIN', 'SUPERVISOR'],
   // GCO management / client-contact level: handle CLIENT_DECISION escalations.
   ESCALATION_MANAGE_CLIENT_DECISION: ['CEO_ADMIN', 'ASSISTANT'],
   // Clients see only client-facing information on escalations awaiting their decision.
@@ -82,17 +88,17 @@ export const PERMISSIONS = {
 
   // Language coverage (which languages each operator handles) and quality review of sent replies. Tenant-scoped via
   // resolveTenantScope: MANAGER is pinned to its own tenant; CEO_ADMIN/ASSISTANT may target a tenant.
-  LANGUAGE_MANAGE: ['CEO_ADMIN', 'MANAGER', 'ASSISTANT'],
-  QA_REVIEW: ['CEO_ADMIN', 'MANAGER', 'ASSISTANT'],
+  LANGUAGE_MANAGE: ['CEO_ADMIN', 'MANAGER', 'ASSISTANT', 'SUPERVISOR'],
+  QA_REVIEW: ['CEO_ADMIN', 'MANAGER', 'ASSISTANT', 'SUPERVISOR'],
 
   // Conversation lifecycle, history and operations visibility
-  CONVERSATION_RESOLVE: ['OPERATOR', 'MANAGER', 'CEO_ADMIN', 'ASSISTANT'],
-  CONVERSATION_REOPEN: ['MANAGER', 'CEO_ADMIN', 'ASSISTANT'],
-  CONVERSATION_NOTE_ADD: ['OPERATOR', 'MANAGER', 'CEO_ADMIN', 'ASSISTANT'],
-  CONVERSATION_SEARCH: ['MANAGER', 'CEO_ADMIN', 'ASSISTANT'],
-  OPS_ALERTS_VIEW: ['MANAGER', 'CEO_ADMIN', 'ASSISTANT'],
+  CONVERSATION_RESOLVE: ['OPERATOR', 'MANAGER', 'CEO_ADMIN', 'ASSISTANT', 'SUPERVISOR'],
+  CONVERSATION_REOPEN: ['MANAGER', 'CEO_ADMIN', 'ASSISTANT', 'SUPERVISOR'],
+  CONVERSATION_NOTE_ADD: ['OPERATOR', 'MANAGER', 'CEO_ADMIN', 'ASSISTANT', 'SUPERVISOR'],
+  CONVERSATION_SEARCH: ['MANAGER', 'CEO_ADMIN', 'ASSISTANT', 'SUPERVISOR'],
+  OPS_ALERTS_VIEW: ['MANAGER', 'CEO_ADMIN', 'ASSISTANT', 'SUPERVISOR', 'CTO'],
   // Per-client SLA / capacity / operating hours. Managers and clients can read; only CEO/assistant change them.
-  TENANT_SETTINGS_VIEW: ['CEO_ADMIN', 'ASSISTANT', 'MANAGER', 'CLIENT'],
+  TENANT_SETTINGS_VIEW: ['CEO_ADMIN', 'ASSISTANT', 'MANAGER', 'CLIENT', 'SUPERVISOR'],
   TENANT_SETTINGS_MANAGE: ['CEO_ADMIN', 'ASSISTANT'],
 
   // Public website - careers applications

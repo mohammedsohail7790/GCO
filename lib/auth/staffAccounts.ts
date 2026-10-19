@@ -9,10 +9,10 @@ import { normalizeLanguage, normalizeLanguageList } from '@/lib/languages'
 
 type Db = Pick<PrismaClient, 'user' | 'session' | 'auditLog' | 'hunterProfile' | 'tenant' | 'operator' | '$transaction'>
 
-export const STAFF_ROLES = ['CEO_ADMIN', 'ASSISTANT', 'HUNTER'] as const
+export const STAFF_ROLES = ['CEO_ADMIN', 'ASSISTANT', 'HUNTER', 'CTO'] as const
 export type StaffRole = (typeof STAFF_ROLES)[number]
 /** Accounts that belong to exactly one client (tenant): they are created with --tenant <slug>. */
-export const TENANT_STAFF_ROLES = ['OPERATOR', 'MANAGER'] as const
+export const TENANT_STAFF_ROLES = ['OPERATOR', 'MANAGER', 'SUPERVISOR'] as const
 export const ACCOUNT_ROLES = [...STAFF_ROLES, ...TENANT_STAFF_ROLES] as const
 export type AccountRole = (typeof ACCOUNT_ROLES)[number]
 /** The seeded demo client: real people must never be attached to it (override only with an explicit flag, outside production). */

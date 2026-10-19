@@ -1,6 +1,7 @@
 import type { Role } from '@prisma/client'
 import { db } from '@/lib/db/client'
 import { can } from '@/lib/auth/rbac'
+import { supervisorTeam } from '@/lib/auth/teamScope'
 import { writeAuditLog } from '@/lib/audit/log'
 import { publishRealtimeEvent } from '@/lib/realtime/publish'
 
@@ -36,6 +37,12 @@ export interface Actor {
 
 const isGlobal = (r: Role) => r === 'CEO_ADMIN' || r === 'ASSISTANT'
 
+/** Only a SUPERVISOR has a team; everyone else gets undefined. */
+async function actorTeam(actor: Actor): Promise<string[] | undefined> {
+  if (actor.role !== 'SUPERVISOR' || !actor.tenantId) return undefined
+  return (await supervisorTeam(actor.sub, actor.tenantId)).userIds
+}
+
 // Unknown/foreign escalations are reported as 404, not 403, so existence never leaks across tenants.
 const notFound = () => new EscalationError('Escalation not found', 404)
 
@@ -67,9 +74,11 @@ interface EventRow {
 }
 
 /** Who may see this escalation at all (row-level scope). */
-function canSee(actor: Actor, e: EscalationRow): boolean {
+/** `team` = user ids of a SUPERVISOR's operators (see actorTeam); a supervisor sees only escalations their own team raised. */
+function canSee(actor: Actor, e: EscalationRow, team?: readonly string[]): boolean {
   if (isGlobal(actor.role)) return true
   if (actor.role === 'MANAGER') return !!actor.tenantId && actor.tenantId === e.tenantId
+  if (actor.role === 'SUPERVISOR') return !!actor.tenantId && actor.tenantId === e.tenantId && !!team?.includes(e.raisedByUserId)
   if (actor.role === 'OPERATOR') return e.raisedByUserId === actor.sub
   if (actor.role === 'CLIENT') return !!actor.tenantId && actor.tenantId === e.tenantId && e.level === 'CLIENT_DECISION'
   return false
@@ -173,6 +182,10 @@ export async function listEscalations(
   } else if (actor.role === 'MANAGER') {
     if (!actor.tenantId) throw new EscalationError('Forbidden', 403)
     where.tenantId = actor.tenantId
+  } else if (actor.role === 'SUPERVISOR') {
+    if (!actor.tenantId) throw new EscalationError('Forbidden', 403)
+    where.tenantId = actor.tenantId
+    where.raisedByUserId = { in: (await actorTeam(actor)) ?? [] }
   } else if (isGlobal(actor.role)) {
     if (filters.tenantId) where.tenantId = filters.tenantId
   } else {
@@ -199,7 +212,7 @@ export async function listEscalations(
 
 export async function getEscalation(actor: Actor, id: string) {
   const e = await db.escalation.findUnique({ where: { id }, include: { events: { orderBy: { createdAt: 'asc' } }, conversation: { select: { externalUserId: true, state: true } } } })
-  if (!e || !canSee(actor, e as unknown as EscalationRow)) throw notFound()
+  if (!e || !canSee(actor, e as unknown as EscalationRow, await actorTeam(actor))) throw notFound()
   const base = view(actor, e as unknown as EscalationRow, e.events as unknown as EventRow[])
   if (actor.role === 'CLIENT' || actor.role === 'OPERATOR') return base
 
@@ -232,7 +245,7 @@ function canHandle(actor: Actor, level: EscalationRow['level']): boolean {
 
 export async function transitionEscalation(actor: Actor, id: string, input: EscalationAction) {
   const existing = await db.escalation.findUnique({ where: { id } })
-  if (!existing || !canSee(actor, existing as unknown as EscalationRow)) throw notFound()
+  if (!existing || !canSee(actor, existing as unknown as EscalationRow, await actorTeam(actor))) throw notFound()
   const e = existing as unknown as EscalationRow
   if (e.status === 'RESOLVED') throw new EscalationError('Escalation is already resolved', 409)
 

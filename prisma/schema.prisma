@@ -77,6 +77,8 @@ enum Role {
   OPERATOR
   CLIENT
   HUNTER
+  SUPERVISOR
+  CTO
 }
 
 model User {
@@ -138,18 +140,19 @@ enum OperatorStatus {
 }
 
 model Operator {
-  id             String         @id @default(cuid())
-  operatorNumber Int            @unique @default(autoincrement())
-  userId         String         @unique
-  tenantId       String // primary tenant; cross-tenant assignment via OperatorService
-  status         OperatorStatus @default(OFFLINE)
-  capacity       Int            @default(2) // configurable, default matches Tenant.defaultOperatorCapacity
+  id               String         @id @default(cuid())
+  operatorNumber   Int            @unique @default(autoincrement())
+  userId           String         @unique
+  tenantId         String // primary tenant; cross-tenant assignment via OperatorService
+  status           OperatorStatus @default(OFFLINE)
+  supervisorUserId String? // team lead (a SUPERVISOR of the same tenant); null = no team
+  capacity         Int            @default(2) // configurable, default matches Tenant.defaultOperatorCapacity
   // ISO 639-1 codes this operator handles (e.g. ["en","es"]). Empty = unrestricted (takes any language) - the
   // pre-existing behaviour. A conversation with a language is only assigned to an operator that lists it (or is
   // unrestricted). See lib/assignment/policy.ts and lib/languages.ts.
-  languages      String[]       @default([])
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  languages        String[]       @default([])
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
 
   user            User                     @relation(fields: [userId], references: [id])
   tenant          Tenant                   @relation(fields: [tenantId], references: [id])
@@ -158,6 +161,7 @@ model Operator {
   metricSnapshots OperatorMetricSnapshot[]
 
   @@index([tenantId, status])
+  @@index([supervisorUserId])
 }
 
 // Which tenants/clients an operator is authorized to handle

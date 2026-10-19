@@ -4,6 +4,8 @@ import { getSession } from '@/lib/auth/session'
 import { assertCan } from '@/lib/auth/rbac'
 import { resolveTenantScope } from '@/lib/auth/tenantGuard'
 import { created, fail, handleRouteError } from '@/lib/api/response'
+import { db } from '@/lib/db/client'
+import { assertOperatorInTeam } from '@/lib/auth/teamScope'
 import { QA_FLAGS, QaError, submitQaReview } from '@/lib/qa/reviews'
 
 const score = z.number().int().min(1).max(5)
@@ -25,6 +27,8 @@ export async function POST(req: NextRequest) {
     assertCan(session.role, 'QA_REVIEW')
     const body = Schema.parse(await req.json())
     const tenantId = resolveTenantScope(session, body.tenantId ?? null)
+    const target = await db.message.findFirst({ where: { id: body.messageId, tenantId }, select: { operatorId: true } })
+    await assertOperatorInTeam(session, target?.operatorId) // supervisors review only their own team's replies
     try {
       const review = await submitQaReview({ ...body, tenantId, reviewerUserId: session.sub })
       return created({ id: review.id, outcome: review.outcome })

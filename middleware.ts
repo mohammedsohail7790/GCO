@@ -9,7 +9,8 @@ import { jwtVerify } from 'jose'
 
 const ROLE_PREFIXES: Record<string, string[]> = {
   '/admin': ['CEO_ADMIN'],
-  '/manager': ['MANAGER', 'ASSISTANT', 'CEO_ADMIN'],
+  '/manager': ['MANAGER', 'SUPERVISOR', 'ASSISTANT', 'CEO_ADMIN'],
+  '/cto': ['CTO', 'CEO_ADMIN'],
   '/operator': ['OPERATOR'],
   '/client-panel': ['CLIENT'],
   '/hunter': ['HUNTER'],
@@ -46,5 +47,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/manager/:path*', '/operator/:path*', '/client-panel/:path*', '/hunter/:path*'],
+  matcher: ['/admin/:path*', '/cto/:path*', '/manager/:path*', '/operator/:path*', '/client-panel/:path*', '/hunter/:path*'],
 }

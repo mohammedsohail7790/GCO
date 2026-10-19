@@ -12,7 +12,7 @@ const CreateSchema = z.object({
   email: z.string().email(),
   password: z.string().min(10),
   displayName: z.string().min(1).max(120),
-  role: z.enum(['CEO_ADMIN', 'MANAGER', 'ASSISTANT', 'OPERATOR', 'CLIENT', 'HUNTER']),
+  role: z.enum(['CEO_ADMIN', 'MANAGER', 'ASSISTANT', 'OPERATOR', 'CLIENT', 'HUNTER', 'SUPERVISOR', 'CTO']),
   tenantId: z.string().nullable().optional(),
   operatorCapacity: z.number().int().positive().optional(),
   commissionPercentage: z.number().min(0).max(100).optional(),
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     // CLIENT/OPERATOR/MANAGER are tenant-scoped roles (they manage or belong to
     // one client relationship - see lib/auth/tenantGuard.ts::resolveTenantScope).
     // CEO_ADMIN and ASSISTANT are global/operational roles with no single tenant.
-    const tenantScopedRoles = ['CLIENT', 'OPERATOR', 'MANAGER']
+    const tenantScopedRoles = ['CLIENT', 'OPERATOR', 'MANAGER', 'SUPERVISOR']
     if (tenantScopedRoles.includes(body.role) && !body.tenantId) {
       return fail(`role ${body.role} requires a tenantId`, 400)
     }

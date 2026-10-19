@@ -7,6 +7,7 @@ import { db } from '@/lib/db/client'
 import { writeAuditLog } from '@/lib/audit/log'
 import { ok, fail, handleRouteError } from '@/lib/api/response'
 import { normalizeLanguage, normalizeLanguageList } from '@/lib/languages'
+import { assertOperatorInTeam } from '@/lib/auth/teamScope'
 import { tryAssignConversation } from '@/lib/assignment/engine'
 
 const Schema = z.object({ languages: z.array(z.string().max(10)).max(12) }).strict()
@@ -24,6 +25,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     // Tenant scope: a MANAGER can only touch operators of their own tenant (resolveTenantScope refuses others with 403).
     const scope = resolveTenantScope(session, operator?.tenantId ?? null)
     if (!operator || operator.tenantId !== scope) return fail('Operator not found', 404)
+    await assertOperatorInTeam(session, id)
     await db.operator.update({ where: { id }, data: { languages } })
     await writeAuditLog({ tenantId: operator.tenantId, actorUserId: session.sub, action: 'operator.languages_set', resource: 'operator', resourceId: id, metadata: { languages } })
     const queued = await db.conversation.findMany({ where: { tenantId: operator.tenantId, state: { in: ['QUEUED', 'REASSIGNING'] } }, select: { id: true }, take: 50 })

@@ -12,12 +12,12 @@ export class ForbiddenError extends Error {
  * or request body. This is the server-side enforcement point; never trust
  * a tenantId supplied by the client for a CLIENT-role caller.
  *
- * MANAGER and OPERATOR are tenant-scoped roles (they belong to, or run
+ * MANAGER, SUPERVISOR and OPERATOR are tenant-scoped roles (they belong to, or run
  * operations for, exactly one client relationship - see the User model:
  * these roles always carry a tenantId). They may not cross into another
  * tenant's data even if a tenantId is supplied in the request.
  *
- * CEO_ADMIN and ASSISTANT are global/operational roles (their permissions -
+ * CEO_ADMIN, ASSISTANT and CTO are global/operational roles (their permissions -
  * system health, queue recovery, cross-tenant ticket triage - are inherently
  * cross-tenant, and their User rows carry no tenantId). They may target any
  * tenant explicitly via the request, or omit it for a global view.
@@ -33,11 +33,11 @@ export function resolveTenantScope(
     return session.tenantId
   }
 
-  if (session.role === 'CEO_ADMIN' || session.role === 'ASSISTANT') {
+  if (session.role === 'CEO_ADMIN' || session.role === 'ASSISTANT' || session.role === 'CTO') {
     return requestedTenantId ?? session.tenantId ?? ''
   }
 
-  // MANAGER / OPERATOR: tenant-scoped internal staff.
+  // MANAGER / SUPERVISOR / OPERATOR: tenant-scoped internal staff.
   if (requestedTenantId && session.tenantId && requestedTenantId !== session.tenantId) {
     throw new ForbiddenError('Cannot access another tenant\'s data')
   }

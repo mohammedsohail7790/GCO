@@ -4,6 +4,7 @@ import { assertCan } from '@/lib/auth/rbac'
 import { resolveTenantScope } from '@/lib/auth/tenantGuard'
 import { db } from '@/lib/db/client'
 import { ok, handleRouteError } from '@/lib/api/response'
+import { operatorTeamFilter } from '@/lib/auth/teamScope'
 import { languageLabel, operatorCoversLanguage } from '@/lib/languages'
 
 /** Per language: conversations being handled (active) and waiting for an operator (queued), and whether any AVAILABLE operator can take them. Answered/closed conversations are not counted. */
@@ -35,7 +36,8 @@ export async function GET(req: NextRequest) {
           covered: available.some((o) => operatorCoversLanguage(o.languages, code || null)),
         }))
         .sort((a, b) => b.queued + b.active - (a.queued + a.active)),
-      operators: operators.map((o) => ({ id: o.id, name: o.user.displayName, status: o.status, languages: o.languages })),
+      // A supervisor lists only their own team (the coverage figures above stay tenant-wide: queues are not owned by a team).
+      operators: operators.filter((o) => !operatorTeamFilter(session).supervisorUserId || o.supervisorUserId === session.sub).map((o) => ({ id: o.id, name: o.user.displayName, status: o.status, languages: o.languages })),
     })
   } catch (err) {
     return handleRouteError(err)

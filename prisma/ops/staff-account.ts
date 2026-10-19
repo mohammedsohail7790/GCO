@@ -5,9 +5,9 @@
 //   ssh -t gco@<server> 'cd /opt/gco && docker compose exec worker npx tsx prisma/ops/staff-account.ts --role OPERATOR --tenant <client-slug> --languages en,es'
 //
 // You are prompted for the email, a display name, and the password (hidden, typed twice). Only a bcrypt hash is stored.
-// Flags: --role CEO_ADMIN|ASSISTANT|HUNTER|OPERATOR|MANAGER (required) - --email x - --name "x" - --dry-run (validate, change
+// Flags: --role CEO_ADMIN|ASSISTANT|HUNTER|CTO|OPERATOR|MANAGER|SUPERVISOR (required) - --email x - --name "x" - --dry-run (validate, change
 // nothing, ask for no password) - --update-password (rotate an EXISTING account) - --allow-role-change.
-// OPERATOR and MANAGER belong to one active client: --tenant <client slug> is required (never the demo client; an
+// OPERATOR, MANAGER and SUPERVISOR belong to one active client (CTO is global): --tenant <client slug> is required (never the demo client; an
 // OPERATOR is created OFFLINE with the client's default capacity). --languages en,es (OPERATOR only) records the languages
 // the operator handles; omit it for an unrestricted operator. --allow-demo-tenant exists for local testing only.
 import 'dotenv/config'

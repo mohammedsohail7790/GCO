@@ -55,6 +55,9 @@ export default function ManagerPage() {
   const [crm, setCrm] = useState<ManagerCrmDashboard | null>(null)
   const [approvals, setApprovals] = useState<Approval[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [role, setRole] = useState<string | null>(null)
+  // A supervisor sees their own team only and has no sales/earnings access (enforced by the API; hidden here to avoid dead panels).
+  const isSupervisor = role === 'SUPERVISOR'
 
   const load = useCallback(() => {
     apiFetch<Overview>('/analytics/overview')
@@ -66,6 +69,10 @@ export default function ManagerPage() {
     apiFetch<OperatorRow[]>('/operators').then(setOperators).catch(() => {})
     apiFetch<ManagerCrmDashboard>('/crm/dashboard/manager').then(setCrm).catch(() => {})
     apiFetch<Approval[]>('/crm/approvals').then(setApprovals).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    apiFetch<{ user: { role: string } }>('/auth/me').then((d) => setRole(d.user.role)).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -95,8 +102,8 @@ export default function ManagerPage() {
         <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-500">
           <span className="text-xs font-bold text-white">G</span>
         </div>
-        <h1 className="text-lg font-semibold tracking-tight text-slate-900">Manager dashboard</h1>
-        <a href="/manager/earnings" className="ml-auto text-sm font-medium text-brand-600 hover:underline">Earnings</a>
+        <h1 className="text-lg font-semibold tracking-tight text-slate-900">{isSupervisor ? 'Supervisor dashboard' : 'Manager dashboard'}</h1>
+        {isSupervisor ? <span className="ml-auto text-xs font-medium text-slate-500">Supervisor - your team</span> : <a href="/manager/earnings" className="ml-auto text-sm font-medium text-brand-600 hover:underline">Earnings</a>}
         <a href="/account" className="text-sm font-medium text-brand-600 hover:underline">Account</a>
       </div>
 
@@ -135,7 +142,7 @@ export default function ManagerPage() {
 
       <TenantSettings editable={false} />
 
-      <SalesConsole />
+      {!isSupervisor && <SalesConsole />}
 
       <div className="mb-8">
         <EscalationQueue mode="supervisor" />
@@ -178,6 +185,8 @@ export default function ManagerPage() {
         </table>
       </div>
 
+      {!isSupervisor && (
+        <>
       {/* Sales CRM - team visibility. Financial figures beyond team commission
           totals (MRR, net margin, payout control) remain CEO-only, per RBAC. */}
       <div className="mt-8 mb-6 flex items-center gap-2.5">
@@ -226,6 +235,8 @@ export default function ManagerPage() {
           {approvals.length === 0 && <li className="p-4 text-sm text-slate-400">No pending approvals.</li>}
         </ul>
       </div>
+        </>
+      )}
     </div>
   )
 }

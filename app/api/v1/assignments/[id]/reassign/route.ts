@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { requirePermission } from '@/lib/api/guard'
 import { db } from '@/lib/db/client'
 import { manualReassign } from '@/lib/assignment/engine'
+import { assertOperatorInTeam } from '@/lib/auth/teamScope'
 import { ok, fail, handleRouteError } from '@/lib/api/response'
 import { isRateLimited, RATE_LIMITS } from '@/lib/api/rateLimit'
 
@@ -29,6 +30,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return fail('Forbidden', 403)
     }
 
+    await assertOperatorInTeam(session, assignment.operatorId) // supervisors: only conversations currently held by their own team
     const reassigned = await manualReassign(assignment.conversationId, session.sub, reason)
     return ok({ reassigned })
   } catch (err) {

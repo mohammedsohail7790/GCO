@@ -9,6 +9,8 @@ import { tryGetSession } from '@/lib/auth/session'
 const ROLE_HOME: Record<string, string> = {
   CEO_ADMIN: '/admin',
   MANAGER: '/manager',
+  SUPERVISOR: '/manager',
+  CTO: '/cto',
   ASSISTANT: '/manager',
   OPERATOR: '/operator',
   CLIENT: '/client-panel',

@@ -4,6 +4,7 @@ import { resolveTenantScope } from '@/lib/auth/tenantGuard'
 import { assertCan } from '@/lib/auth/rbac'
 import { db } from '@/lib/db/client'
 import { ok, handleRouteError } from '@/lib/api/response'
+import { operatorTeamFilter } from '@/lib/auth/teamScope'
 
 /** Manager/CEO_ADMIN operator roster with live workload, for QC and monitoring. */
 export async function GET(req: NextRequest) {
@@ -14,7 +15,7 @@ export async function GET(req: NextRequest) {
     const tenantId = resolveTenantScope(session, url.searchParams.get('tenantId'))
 
     const operators = await db.operator.findMany({
-      where: { tenantId },
+      where: { tenantId, ...operatorTeamFilter(session) },
       include: {
         user: { select: { displayName: true, email: true, isActive: true } },
         assignments: { where: { status: 'ACTIVE' } },
