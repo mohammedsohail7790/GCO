@@ -41,6 +41,8 @@ model Tenant {
   // null = unlimited. Used for controlled pilot volume caps (see docs/GCO_V1_PRODUCT_TECHNICAL_DRAFT.md §18).
   messageCap Int?
 
+  industry Industry? // picks the initial workspace template; purchased TenantService rows pick the active modules
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -63,6 +65,7 @@ model Tenant {
   bpoHandoffs      BpoHandoff[]
   escalations      Escalation[]
   onboarding       ClientOnboarding?
+  services         TenantService[]
 
   @@index([status])
 }
@@ -1046,5 +1049,42 @@ model StaffInvitation {
   cancelledAt     DateTime?
   createdByUserId String
 
+  @@index([tenantId])
+}
+
+// ---------------------------------------------------------------------------
+// Service entitlements: ONE platform, six GCO services. A tenant may hold several at once; each row
+// switches a service's modules on/off and carries service-specific, data-driven configuration.
+// ---------------------------------------------------------------------------
+enum Industry {
+  DATING
+  ECOMMERCE
+  SAAS
+  GAMING
+  SOCIAL_PLATFORM
+  OTHER
+}
+
+enum ServiceType {
+  LIVE_CHAT_SUPPORT
+  CHAT_MODERATION
+  COMMUNITY_MODERATION
+  MULTILINGUAL_CHAT
+  COVERAGE_24_7
+  DEDICATED_TEAM
+}
+
+model TenantService {
+  id          String      @id @default(cuid())
+  tenantId    String
+  serviceType ServiceType
+  enabled     Boolean     @default(true)
+  config      Json        @default("{}")
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, serviceType])
   @@index([tenantId])
 }
