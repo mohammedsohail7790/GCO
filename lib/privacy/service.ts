@@ -42,7 +42,18 @@ async function purgeWebhookPayloads(tenantId: string, before: Date) {
   return db.$executeRaw`UPDATE "WebhookEvent" SET "rawPayload" = '{}'::jsonb WHERE "tenantId" = ${tenantId} AND "createdAt" < ${before} AND "rawPayload" <> '{}'::jsonb`
 }
 
-export type Counts = Awaited<ReturnType<typeof redactConversations>> & { webhookPayloads: number }
+/** Moderation content (text, media link) is personal data too: blank it past the window or for an erased person; decisions stay. */
+async function redactModeration(tenantId: string, where: { before?: Date; subject?: string; erasedAs?: string }) {
+  const itemWhere = { tenantId, ...(where.before ? { createdAt: { lt: where.before }, status: { in: ['DECIDED' as const] } } : {}), ...(where.subject ? { subjectExternalId: where.subject } : {}), redactedAt: null }
+  const ids = (await db.moderationItem.findMany({ where: itemWhere, select: { id: true } })).map((x) => x.id)
+  if (ids.length === 0) return 0
+  await db.moderationItem.updateMany({ where: { id: { in: ids } }, data: { content: null, mediaUrl: null, flagReason: null, redactedAt: new Date(), ...(where.erasedAs ? { subjectExternalId: where.erasedAs, reporterExternalId: null } : {}) } })
+  await db.moderationAppeal.updateMany({ where: { itemId: { in: ids } }, data: { reason: REMOVED, ...(where.erasedAs ? { subjectExternalId: where.erasedAs } : {}) } })
+  if (where.subject && where.erasedAs) await db.moderationAction.updateMany({ where: { tenantId, subjectExternalId: where.subject }, data: { subjectExternalId: where.erasedAs, reason: REMOVED } })
+  return ids.length
+}
+
+export type Counts = Awaited<ReturnType<typeof redactConversations>> & { webhookPayloads: number; moderationItems?: number }
 
 /**
  * Applies each client's retention window: conversations closed (or last active) more than N days ago lose their personal
@@ -62,8 +73,9 @@ export async function runRetention(opts: { tenantId?: string; now?: Date; dryRun
     if (opts.dryRun) { out.push({ tenantId: t.id, retentionDays: t.messageRetentionDays!, counts: { wouldRedactConversations: due.length } }); continue }
     const counts = await redactConversations(t.id, due.map((c) => c.id))
     const webhookPayloads = Number(await purgeWebhookPayloads(t.id, cutoff))
-    out.push({ tenantId: t.id, retentionDays: t.messageRetentionDays!, counts: { ...counts, webhookPayloads } })
-    await writeAuditLog({ tenantId: t.id, actorUserId: opts.actorUserId ?? null, action: 'privacy.retention_run', resource: 'tenant', resourceId: t.id, metadata: { retentionDays: t.messageRetentionDays, ...counts, webhookPayloads } })
+    const moderationItems = await redactModeration(t.id, { before: cutoff })
+    out.push({ tenantId: t.id, retentionDays: t.messageRetentionDays!, counts: { ...counts, webhookPayloads, moderationItems } })
+    await writeAuditLog({ tenantId: t.id, actorUserId: opts.actorUserId ?? null, action: 'privacy.retention_run', resource: 'tenant', resourceId: t.id, metadata: { retentionDays: t.messageRetentionDays, ...counts, webhookPayloads, moderationItems } })
   }
   return out
 }
@@ -105,7 +117,8 @@ export async function exportSubject(tenantId: string, externalUserId: string) {
     orderBy: { createdAt: 'asc' },
     include: { messages: { orderBy: { createdAt: 'asc' }, select: { id: true, direction: true, content: true, status: true, createdAt: true, deliveredAt: true } }, notes: { select: { body: true, createdAt: true } }, aiMemories: { where: { isDeleted: false }, select: { type: true, value: true, createdAt: true } } },
   })
-  return { tenantId, externalUserId, generatedAt: new Date().toISOString(), conversations: convs.map((c) => ({ id: c.id, language: c.language, state: c.state, createdAt: c.createdAt, closedAt: c.closedAt, messages: c.messages, notes: c.notes, extractedFacts: c.aiMemories })) }
+  const moderation = await db.moderationItem.findMany({ where: { tenantId, subjectExternalId: externalUserId }, orderBy: { createdAt: 'asc' }, select: { kind: true, content: true, flagReason: true, status: true, createdAt: true } })
+  return { tenantId, externalUserId, generatedAt: new Date().toISOString(), moderationItems: moderation, conversations: convs.map((c) => ({ id: c.id, language: c.language, state: c.state, createdAt: c.createdAt, closedAt: c.closedAt, messages: c.messages, notes: c.notes, extractedFacts: c.aiMemories })) }
 }
 
 /** Redacts the conversations of one end user and replaces the platform id with an unlinkable placeholder. */
@@ -113,9 +126,10 @@ export async function eraseSubject(tenantId: string, externalUserId: string) {
   const convs = await conversationsOf(tenantId, externalUserId)
   const counts = await redactConversations(tenantId, convs.map((c) => c.id), `erased-${crypto.randomBytes(6).toString('hex')}`)
   for (const c of convs) await db.conversation.update({ where: { id: c.id }, data: { externalUserId: `erased-${crypto.randomBytes(6).toString('hex')}` } })
+  const moderationItems = await redactModeration(tenantId, { subject: externalUserId, erasedAs: `erased-${crypto.randomBytes(6).toString('hex')}` })
   const escaped = escapeLike(externalUserId)
   const webhookPayloads = Number(await db.$executeRaw`UPDATE "WebhookEvent" SET "rawPayload" = '{}'::jsonb WHERE "tenantId" = ${tenantId} AND "rawPayload"::text LIKE ${`%${escaped}%`} ESCAPE '\\' AND "rawPayload" <> '{}'::jsonb`)
-  return { ...counts, webhookPayloads, conversationsFound: convs.length }
+  return { ...counts, webhookPayloads, moderationItems, conversationsFound: convs.length }
 }
 
 /** Executes an open request. The subject reference must be supplied again - only its hash is stored, so a typo cannot hit another person. */

@@ -18,6 +18,7 @@ import { WeeklyReports } from '@/components/manager/WeeklyReports'
 import { ShiftPlanner } from '@/components/manager/ShiftPlanner'
 import { TrainingPanel } from '@/components/manager/TrainingPanel'
 import { ManagerKnowledgePanel } from '@/components/manager/KnowledgePanel'
+import { ModerationPanel } from '@/components/manager/ModerationPanel'
 
 interface Overview {
   operators: { available: number; busy: number; offline: number; paused: number }
@@ -143,6 +144,8 @@ export default function ManagerPage() {
       <LanguageCoverage />
 
       <QaReviewPanel />
+
+      <ModerationPanel />
 
       <ShiftPlanner />
 

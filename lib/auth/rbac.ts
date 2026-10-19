@@ -39,6 +39,10 @@ export const PERMISSIONS = {
   // Privacy: retention policy, data-subject requests, anonymisation (CEO only); a client may raise a request for its own end users.
   PRIVACY_MANAGE: ['CEO_ADMIN'],
   DATA_REQUEST_CREATE: ['CLIENT'],
+  // Moderation: operators review claimed items; supervisors/managers resolve escalations, actions and appeals; clients see their summary.
+  MODERATION_HANDLE: ['OPERATOR'],
+  MODERATION_MANAGE: ['CEO_ADMIN', 'MANAGER', 'SUPERVISOR', 'ASSISTANT'],
+  MODERATION_VIEW_CLIENT: ['CLIENT'],
   // Billed message count and total for a client (UsageRecord ledger). Margins/costs remain VIEW_REVENUE (CEO only).
   BILLING_VIEW: ['CEO_ADMIN', 'MANAGER', 'CLIENT'],
   VIEW_TENANT_ANALYTICS: ['CEO_ADMIN', 'MANAGER', 'CLIENT', 'SUPERVISOR'],

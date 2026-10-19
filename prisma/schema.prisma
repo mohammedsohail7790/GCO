@@ -41,6 +41,8 @@ model Tenant {
   // null = unlimited. Used for controlled pilot volume caps (see docs/GCO_V1_PRODUCT_TECHNICAL_DRAFT.md §18).
   messageCap Int?
 
+  moderationCategories String[] @default(["spam", "harassment", "nudity", "hate", "violence", "scam", "underage", "other"]) // violation categories operators pick from, per client
+
   messageRetentionDays Int? // null = no automatic purge; set per client contract / regulation
   regulations          String[] @default(["GDPR"]) // privacy regimes that apply to this client's end users
   dataRegion           String? // where this client's data is hosted/processed, as agreed in the DPA
@@ -1471,4 +1473,123 @@ model DataRequest {
   createdAt         DateTime          @default(now())
 
   @@index([tenantId, status])
+}
+
+// ---------------------------------------------------------------------------
+// Moderation (chat moderation and community moderation): content items arrive from the client platform, operators claim a batch,
+// decide (approve / reject / escalate) with a category and note, request warnings or restrictions, and appeals are reviewed by a
+// DIFFERENT person than the original decider. Decisions are append-only. Items are keyed by the client's own id (idempotent).
+// Delivery of verdicts back to a client platform needs that client's API and is NOT implemented (see docs).
+// ---------------------------------------------------------------------------
+enum ModerationItemKind {
+  MESSAGE
+  IMAGE
+  PROFILE
+  POST
+  COMMENT
+  REPORT // a user report about content or a person
+}
+
+enum ModerationItemStatus {
+  PENDING
+  IN_REVIEW
+  DECIDED
+  ESCALATED
+}
+
+enum ModerationVerdict {
+  APPROVE
+  REJECT
+  ESCALATE
+}
+
+model ModerationItem {
+  id                 String               @id @default(cuid())
+  tenantId           String
+  kind               ModerationItemKind
+  externalItemId     String
+  subjectExternalId  String // the author / reported person on the client platform
+  reporterExternalId String?
+  content            String?              @db.Text
+  mediaUrl           String? // https reference only; never fetched by GCO
+  flagReason         String? // why it is in the queue (auto-flag, user report, ...)
+  language           String?
+  priority           Int                  @default(0)
+  status             ModerationItemStatus @default(PENDING)
+  assignedOperatorId String?
+  claimedAt          DateTime?
+  decidedAt          DateTime?
+  redactedAt         DateTime?
+  createdAt          DateTime             @default(now())
+
+  @@unique([tenantId, kind, externalItemId])
+  @@index([tenantId, status, priority, createdAt])
+  @@index([tenantId, subjectExternalId])
+  @@index([assignedOperatorId, status])
+}
+
+model ModerationDecision {
+  id         String            @id @default(cuid())
+  itemId     String
+  tenantId   String
+  operatorId String? // null when a manager/supervisor decided
+  userId     String
+  verdict    ModerationVerdict
+  category   String?
+  note       String?           @db.Text
+  createdAt  DateTime          @default(now())
+
+  @@index([itemId])
+  @@index([tenantId, operatorId, createdAt])
+}
+
+enum ModerationActionKind {
+  WARNING
+  RESTRICTION
+  BAN
+}
+
+enum ModerationActionStatus {
+  REQUESTED
+  APPLIED
+  REJECTED
+}
+
+model ModerationAction {
+  id                String                 @id @default(cuid())
+  tenantId          String
+  subjectExternalId String
+  kind              ModerationActionKind
+  itemId            String?
+  reason            String                 @db.Text
+  status            ModerationActionStatus @default(REQUESTED)
+  requestedByUserId String
+  decidedByUserId   String?
+  decidedAt         DateTime?
+  createdAt         DateTime               @default(now())
+
+  @@index([tenantId, status])
+  @@index([tenantId, subjectExternalId])
+}
+
+enum AppealStatus {
+  OPEN
+  UPHELD // original decision stands
+  OVERTURNED
+}
+
+model ModerationAppeal {
+  id                String       @id @default(cuid())
+  tenantId          String
+  itemId            String
+  subjectExternalId String
+  reason            String       @db.Text
+  status            AppealStatus @default(OPEN)
+  decidedByUserId   String?
+  note              String?      @db.Text
+  decidedAt         DateTime?
+  createdAt         DateTime     @default(now())
+
+  @@index([tenantId, status])
+  @@index([itemId])
 }

@@ -191,6 +191,7 @@ export default function OperatorPage() {
           </span>
           <a href="/account" className="text-xs font-medium text-brand-600 hover:underline">Account</a>
           <a href="/operator/earnings" className="text-xs font-medium text-brand-600 hover:underline">Earnings</a>
+          <a href="/operator/moderation" className="text-xs font-medium text-brand-600 hover:underline">Moderation</a>
           <a href="/operator/training" className="text-xs font-medium text-brand-600 hover:underline">Training</a>
           <a href="/operator/reports" className="text-xs font-medium text-brand-600 hover:underline">Reports</a>
           <a href="/operator/schedule" className="text-xs font-medium text-brand-600 hover:underline">Schedule</a>
