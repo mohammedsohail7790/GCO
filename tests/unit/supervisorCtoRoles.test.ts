@@ -19,7 +19,7 @@ describe('SUPERVISOR and CTO permission sets (exact - any drift fails this test)
     expect(holding('CTO')).toEqual(['VIEW_SYSTEM_METRICS', 'VIEW_AUDIT_LOGS', 'INTEGRATION_MANAGE', 'QUEUE_INSPECT', 'QUEUE_RECOVER', 'OPS_ALERTS_VIEW'].sort())
   })
   it('neither role touches money, sales, onboarding, staff management or personal applicant data', () => {
-    const forbidden: PermissionKey[] = ['VIEW_REVENUE', 'PAYOUT_MANAGE', 'EARNINGS_VIEW_OPERATOR', 'EARNINGS_VIEW_OWN', 'COMMISSION_VIEW_TEAM', 'REVENUE_RECORD', 'USER_MANAGE', 'OPERATOR_MANAGE', 'ONBOARDING_VIEW', 'ONBOARDING_MANAGE', 'ONBOARDING_GO_LIVE', 'STAFF_INVITE', 'CAREER_VIEW', 'TENANT_MANAGE', 'TENANT_SETTINGS_MANAGE', 'VIEW_ALL_TENANTS']
+    const forbidden: PermissionKey[] = ['VIEW_REVENUE', 'PAYOUT_MANAGE', 'EARNINGS_VIEW_OPERATOR', 'EARNINGS_VIEW_OWN', 'COMMISSION_VIEW_TEAM', 'REVENUE_RECORD', 'USER_MANAGE', 'OPERATOR_MANAGE', 'ONBOARDING_VIEW', 'ONBOARDING_MANAGE', 'ONBOARDING_GO_LIVE', 'STAFF_INVITE', 'CAREER_VIEW', 'TENANT_MANAGE', 'TENANT_SETTINGS_MANAGE', 'VIEW_ALL_TENANTS', 'BILLING_VIEW']
     for (const role of ['SUPERVISOR', 'CTO'] as const) for (const k of forbidden) expect(can(role, k), `${role} must not hold ${k}`).toBe(false)
   })
   it('the CTO cannot read conversation content', () => {
@@ -38,5 +38,11 @@ describe('tenant scope for the new roles', () => {
   })
   it('the CTO may target any tenant (global technical role)', () => {
     expect(resolveTenantScope(claims({ role: 'CTO', tenantId: null }), 'tenant-b')).toBe('tenant-b')
+  })
+})
+
+describe('billing view', () => {
+  it('is limited to CEO, manager and client', () => {
+    expect((['CEO_ADMIN', 'MANAGER', 'ASSISTANT', 'OPERATOR', 'CLIENT', 'HUNTER', 'SUPERVISOR', 'CTO'] as const).filter((r) => can(r, 'BILLING_VIEW'))).toEqual(['CEO_ADMIN', 'MANAGER', 'CLIENT'])
   })
 })

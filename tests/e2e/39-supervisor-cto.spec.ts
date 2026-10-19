@@ -51,11 +51,9 @@ test.describe('supervisor and CTO roles', () => {
     expect((await sup.get(`/api/v1/operators?tenantId=${b.tenantId}`)).status()).toBe(403)
   })
 
-  // KNOWN GAP (pre-existing, not asserted here): GET /api/v1/usage/summary has no permission check, so any signed-in role can read
-  // its tenant's message count and billed total. See the security review notes in the session summary.
   test('a supervisor has no money, sales, onboarding, account or system access', async () => {
     const sup = await loginAs(emails.sup2, PASSWORD)
-    for (const path of ['/api/v1/admin/earnings/overview', '/api/v1/admin/earnings/rate-cards', '/api/v1/operators/me/earnings', '/api/v1/crm/dashboard/manager', '/api/v1/admin/onboarding', '/api/v1/admin/audit-logs', '/api/v1/admin/system-health']) {
+    for (const path of ['/api/v1/admin/earnings/overview', '/api/v1/admin/earnings/rate-cards', '/api/v1/operators/me/earnings', '/api/v1/crm/dashboard/manager', '/api/v1/admin/onboarding', '/api/v1/admin/audit-logs', '/api/v1/admin/system-health', '/api/v1/usage/summary']) {
       expect([401, 403], path).toContain((await sup.get(path)).status())
     }
     expect((await sup.post('/api/v1/admin/users', { data: { email: `x-${Date.now()}@e2e.gco`, password: 'Harbor-Quiet-Lantern-2026', displayName: 'x', role: 'CEO_ADMIN' } })).status()).toBe(403) // cannot create accounts
@@ -66,11 +64,17 @@ test.describe('supervisor and CTO roles', () => {
     expect((await sup.get('/api/v1/escalations')).status()).toBe(200)
   })
 
+  test('billing totals: operators are refused; manager and client of the same client still read them', async () => {
+    expect((await a.operatorCtx.get('/api/v1/usage/summary')).status()).toBe(403)
+    expect((await a.managerCtx.get('/api/v1/usage/summary')).status()).toBe(200)
+    expect((await a.clientCtx.get('/api/v1/usage/summary')).status()).toBe(200)
+  })
+
   test('the CTO reaches technical views only', async () => {
     const cto = await loginAs(emails.cto, PASSWORD)
     expect((await cto.get('/api/v1/auth/me').then((r) => r.json())).data.user).toMatchObject({ role: 'CTO', tenantId: null })
     for (const path of ['/api/v1/admin/system-health', '/api/v1/admin/audit-logs', `/api/v1/ops/alerts?tenantId=${a.tenantId}`]) expect((await cto.get(path)).status(), path).toBe(200)
-    for (const path of ['/api/v1/admin/earnings/overview', '/api/v1/admin/earnings/payouts', '/api/v1/crm/dashboard/ceo', '/api/v1/admin/tenants', '/api/v1/conversations/search?q=a', '/api/v1/operators', '/api/v1/escalations', '/api/v1/admin/onboarding']) {
+    for (const path of ['/api/v1/admin/earnings/overview', '/api/v1/admin/earnings/payouts', '/api/v1/crm/dashboard/ceo', '/api/v1/admin/tenants', '/api/v1/conversations/search?q=a', '/api/v1/operators', '/api/v1/escalations', '/api/v1/admin/onboarding', '/api/v1/usage/summary']) {
       expect([401, 403], path).toContain((await cto.get(path)).status())
     }
     expect((await cto.post('/api/v1/admin/earnings/sync')).status()).toBe(403)

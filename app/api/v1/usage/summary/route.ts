@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { getSession } from '@/lib/auth/session'
+import { requirePermission } from '@/lib/api/guard'
 import { resolveTenantScope } from '@/lib/auth/tenantGuard'
 import { can } from '@/lib/auth/rbac'
 import { db } from '@/lib/db/client'
@@ -13,7 +13,7 @@ import { defaults } from '@/lib/config/flags'
  */
 export async function GET(req: NextRequest) {
   try {
-    const session = await getSession(req)
+    const session = await requirePermission(req, 'BILLING_VIEW')
     const url = new URL(req.url)
     const tenantId = resolveTenantScope(session, url.searchParams.get('tenantId'))
 
