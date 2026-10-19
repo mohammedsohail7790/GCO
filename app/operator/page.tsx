@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { apiFetch } from '@/lib/api/client'
 import { useRealtime } from '@/lib/realtime/useRealtime'
 import { languageLabel, normalizeLanguage } from '@/lib/languages'
+import { TransferButton } from '@/components/operator/TransferButton'
 import { KnowledgePanel } from '@/components/operator/KnowledgePanel'
 import { NoteForm, ResolveButton } from '@/components/operator/ConversationActions'
 import { OperatorEscalate, type ActiveEscalation } from '@/components/escalation/OperatorEscalate'
@@ -314,6 +315,7 @@ export default function OperatorPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <ResolveButton conversationId={active.conversation.id} onDone={load} />
+                  <TransferButton assignmentId={active.assignmentId} language={active.conversation.language ?? null} onDone={load} />
                   <OperatorEscalate conversationId={active.conversation.id} active={active.conversation.escalations?.[0] ?? null} onDone={load} />
                   <Timer respondsBy={active.respondsBy} />
                 </div>

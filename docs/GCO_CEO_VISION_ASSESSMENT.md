@@ -9,7 +9,7 @@
 
 The sections below were written at commit `80b907d`, **before** this build session; where they say MISSING, check this table first.
 
-**Evidence from this session (local stack, real PostgreSQL/Redis, mock AI, dev-mock client adapter):** typecheck and lint clean; unit tests 513 passed; integration tests 209 passed (clean runs); end-to-end 283 passed, 2 skipped by design (staging-only specs); `npm audit --omit=dev` 0 vulnerabilities at the time of the dependency fix. **Not verified:** Docker build, GitHub Actions run, backup **restore drill**, load/soak test, any real client platform, any real AI provider.
+**Evidence from this session (local stack, real PostgreSQL/Redis, mock AI, dev-mock client adapter):** typecheck and lint clean; unit tests 513 passed; integration tests 209 passed (clean runs); end-to-end 284 passed, 2 skipped by design (staging-only specs); `npm audit --omit=dev` 0 vulnerabilities at the time of the dependency fix. **Local evidence added:** a backup/restore drill against the local database (PASS, `docs/disaster-recovery.md`) and a 3-minute sustained load run plus a 100-at-once burst (all messages persisted, `docs/load-testing.md`). **Not verified:** Docker build, GitHub Actions run, a drill of the real production backups, a 10-15 minute soak on production-like infrastructure, any real client platform, any real AI provider.
 
 | CEO brief | Now | What exists / what is still missing |
 |---|---|---|
@@ -20,7 +20,7 @@ The sections below were written at commit `80b907d`, **before** this build sessi
 | 1E 24/7 coverage | PARTIAL | shifts, absences, handover notes, coverage-gap and "on shift but offline" alerts, SLA reassignment. Missing: assignment driven by the shift plan (touches the protected assignment engine). |
 | 1F Dedicated teams | PARTIAL | per-client SLA/capacity/hours/billing/knowledge/approval, tenant isolation. Missing: custom workflow builder. |
 | 2 Client setup wizard | **BUILT** | `/admin/clients/new`: company, industry, services, languages, hours, SLA, capacity, billing, operator pay, AI mode, client + staff one-time invitations. Missing: workflow/moderation-rule editor beyond categories and instructions. |
-| 3 Operator workspace | PARTIAL | + knowledge panel, training, schedule/handover, reports, moderation, clear status errors. Missing: translation, customer panel from integrations, operator-to-operator transfer screen. |
+| 3 Operator workspace | PARTIAL | + knowledge panel, training, schedule/handover, reports, moderation, clear status errors. **operator-to-operator transfer** (to a named available colleague with a free slot; managers can move conversations too). Missing: translation, customer panel from integrations. |
 | 4 Earnings and history | **BUILT** | effective-dated rate cards, per-message payable state, adjustments, payouts, daily/weekly/monthly figures, full history, CEO and manager screens. |
 | 5 Manager / supervisor | **BUILT** | planner, reports with feedback, training, QA, alerts, moderation oversight; SUPERVISOR is team-scoped. |
 | 6 Client portal | **BUILT** | + invoices, privacy requests, moderation counts, **change requests and a conversation with the account team (notified both ways)**. **live operations view** (queue, team availability by first name, reply-time compliance, no content). |

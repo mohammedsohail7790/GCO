@@ -281,3 +281,44 @@ export async function manualReassign(conversationId: string, actorUserId: string
 
   return tryAssignConversation(conversationId)
 }
+
+export type TransferResult = { transferred: true; assignmentId: string } | { transferred: false; reason: 'not_holder' | 'target_unavailable' | 'target_full' }
+
+/**
+ * Hands a conversation the operator currently holds to a named colleague of the same client (an operator-initiated transfer,
+ * or a manager moving work between people). The target must be AVAILABLE, cover the conversation's language and have a free
+ * slot - the capacity check is the same locked one used for normal assignment. The old assignment is CANCELLED with its
+ * history, the new one starts a fresh response clock, and if the target cannot take it the conversation is put back into the
+ * normal assignment flow instead of being lost.
+ */
+export async function transferConversation(p: { conversationId: string; fromOperatorId: string | null; toOperatorId: string; actorUserId: string; reason: string }): Promise<TransferResult> {
+  const conversation = await db.conversation.findUniqueOrThrow({ where: { id: p.conversationId } })
+  const current = conversation.currentAssignmentId ? await db.assignment.findUnique({ where: { id: conversation.currentAssignmentId } }) : null
+  if (!current || current.status !== 'ACTIVE' || (p.fromOperatorId && current.operatorId !== p.fromOperatorId) || current.operatorId === p.toOperatorId) return { transferred: false, reason: 'not_holder' }
+  const target = await db.operator.findFirst({ where: { id: p.toOperatorId, tenantId: conversation.tenantId, status: 'AVAILABLE' }, select: { capacity: true, languages: true } })
+  if (!target || !operatorCoversLanguage(target.languages, conversation.language)) return { transferred: false, reason: 'target_unavailable' }
+  if ((await db.assignment.count({ where: { operatorId: p.toOperatorId, status: 'ACTIVE' } })) >= target.capacity) return { transferred: false, reason: 'target_full' }
+
+  const released = await db.$transaction(async (tx) => {
+    const r = await tx.assignment.updateMany({ where: { id: current.id, status: 'ACTIVE' }, data: { status: 'CANCELLED', expiredAt: new Date(), releaseReason: 'transferred' } })
+    if (r.count === 0) return false
+    await tx.assignmentHistoryEntry.create({ data: { assignmentId: current.id, event: 'transferred', actorUserId: p.actorUserId, metadata: { reason: p.reason, toOperatorId: p.toOperatorId } } })
+    await tx.conversation.update({ where: { id: conversation.id }, data: { currentAssignmentId: null, state: 'REASSIGNING' } })
+    return true
+  })
+  if (!released) return { transferred: false, reason: 'not_holder' }
+  await cancelAssignmentTimeoutCheck(current.id)
+
+  const tenant = await db.tenant.findUniqueOrThrow({ where: { id: conversation.tenantId }, select: { defaultResponseSlaSeconds: true } })
+  const now = new Date()
+  const respondsBy = computeRespondsBy(now, tenant.defaultResponseSlaSeconds)
+  const outcome = await assignToOperator({ tenantId: conversation.tenantId, conversationId: conversation.id, operatorId: p.toOperatorId, slaSeconds: tenant.defaultResponseSlaSeconds, now, respondsBy, language: conversation.language })
+  if (typeof outcome === 'string') {
+    await tryAssignConversation(conversation.id) // target filled up in the meantime: back into the normal flow, never stranded
+    return { transferred: false, reason: 'target_full' }
+  }
+  await scheduleAssignmentTimeoutCheck(outcome.id, respondsBy.getTime() - Date.now())
+  await publishRealtimeEvent(conversation.tenantId, 'assignment.created', { conversationId: conversation.id, assignmentId: outcome.id, operatorId: p.toOperatorId })
+  await writeAuditLog({ tenantId: conversation.tenantId, actorUserId: p.actorUserId, action: 'conversation.transferred', resource: 'conversation', resourceId: conversation.id, metadata: { from: current.operatorId, to: p.toOperatorId, reason: p.reason } })
+  return { transferred: true, assignmentId: outcome.id }
+}
