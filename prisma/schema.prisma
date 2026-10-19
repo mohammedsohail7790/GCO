@@ -1338,3 +1338,31 @@ model Qualification {
   @@index([operatorId, kind])
   @@index([tenantId])
 }
+
+// ---------------------------------------------------------------------------
+// Per-client knowledge: quick replies, articles and standing instructions, optionally per language and service.
+// Operators read them in the workspace; managers maintain them - no code change per client.
+// ---------------------------------------------------------------------------
+enum KnowledgeKind {
+  QUICK_REPLY
+  ARTICLE
+  INSTRUCTION
+}
+
+model KnowledgeEntry {
+  id              String        @id @default(cuid())
+  tenantId        String
+  kind            KnowledgeKind
+  title           String
+  body            String        @db.Text
+  language        String? // null = any language
+  serviceType     ServiceType?
+  tags            String[]      @default([])
+  archivedAt      DateTime?
+  createdByUserId String
+  updatedByUserId String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([tenantId, kind, archivedAt])
+}

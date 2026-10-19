@@ -16,6 +16,7 @@ import { TenantSettings } from '@/components/manager/TenantSettings'
 import { WeeklyReports } from '@/components/manager/WeeklyReports'
 import { ShiftPlanner } from '@/components/manager/ShiftPlanner'
 import { TrainingPanel } from '@/components/manager/TrainingPanel'
+import { ManagerKnowledgePanel } from '@/components/manager/KnowledgePanel'
 
 interface Overview {
   operators: { available: number; busy: number; offline: number; paused: number }
@@ -146,6 +147,8 @@ export default function ManagerPage() {
       <WeeklyReports />
 
       <TrainingPanel canApprove={!isSupervisor} />
+
+      <ManagerKnowledgePanel />
 
       <ConversationHistory />
 

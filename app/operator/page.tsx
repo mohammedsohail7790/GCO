@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { apiFetch } from '@/lib/api/client'
 import { useRealtime } from '@/lib/realtime/useRealtime'
 import { languageLabel, normalizeLanguage } from '@/lib/languages'
+import { KnowledgePanel } from '@/components/operator/KnowledgePanel'
 import { NoteForm, ResolveButton } from '@/components/operator/ConversationActions'
 import { OperatorEscalate, type ActiveEscalation } from '@/components/escalation/OperatorEscalate'
 
@@ -139,8 +140,16 @@ export default function OperatorPage() {
   }, [active?.conversation.id])
 
   async function setOperatorStatus(next: typeof status) {
+    const previous = status
     setStatus(next)
-    await apiFetch('/operators/me/status', { method: 'PATCH', body: JSON.stringify({ status: next }) })
+    try {
+      await apiFetch('/operators/me/status', { method: 'PATCH', body: JSON.stringify({ status: next }) })
+      setError(null)
+    } catch (err) {
+      // e.g. required training or client approval still outstanding: show why and put the selector back.
+      setStatus(previous)
+      setError(err instanceof Error ? err.message : 'Could not change status')
+    }
     load()
   }
 
@@ -443,6 +452,7 @@ export default function OperatorPage() {
               ))}
             </ul>
             <NoteForm conversationId={active.conversation.id} onDone={load} />
+            <KnowledgePanel language={active.conversation.language ?? null} onInsert={(t) => setDraft((d) => (d.trim() ? `${d.trimEnd()}\n${t}` : t))} />
           </aside>
         )}
       </div>

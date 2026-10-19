@@ -30,6 +30,9 @@ export const PERMISSIONS = {
   // Training modules, tests, qualifications and progress (supervisors act on their own team only in the routes).
   TRAINING_MANAGE: ['CEO_ADMIN', 'MANAGER', 'SUPERVISOR', 'ASSISTANT'],
   TRAINING_VIEW_OWN: ['OPERATOR'],
+  // Client knowledge base: quick replies, articles, standing instructions.
+  KNOWLEDGE_MANAGE: ['CEO_ADMIN', 'MANAGER', 'SUPERVISOR', 'ASSISTANT'],
+  KNOWLEDGE_VIEW_OWN: ['OPERATOR'],
   // Billed message count and total for a client (UsageRecord ledger). Margins/costs remain VIEW_REVENUE (CEO only).
   BILLING_VIEW: ['CEO_ADMIN', 'MANAGER', 'CLIENT'],
   VIEW_TENANT_ANALYTICS: ['CEO_ADMIN', 'MANAGER', 'CLIENT', 'SUPERVISOR'],
