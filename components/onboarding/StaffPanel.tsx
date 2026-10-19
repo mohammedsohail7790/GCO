@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { apiFetch } from '@/lib/api/client'
 
-interface Person { userId: string; invitationId: string | null; email: string; name: string; role: 'OPERATOR' | 'MANAGER'; state: 'active' | 'invited' | 'expired' | 'cancelled' | 'disabled'; expiresAt: string | null; operatorStatus: string | null; languages: string[] }
+interface Person { userId: string; invitationId: string | null; email: string; name: string; role: 'OPERATOR' | 'MANAGER' | 'SUPERVISOR'; state: 'active' | 'invited' | 'expired' | 'cancelled' | 'disabled'; expiresAt: string | null; operatorStatus: string | null; languages: string[] }
 const STATE: Record<Person['state'], string> = { active: 'bg-emerald-100 text-emerald-700', invited: 'bg-amber-100 text-amber-800', expired: 'bg-slate-100 text-slate-500', cancelled: 'bg-slate-100 text-slate-500', disabled: 'bg-red-100 text-red-700' }
 
 /** A client's operators and managers. People are invited by a one-time link and choose their own password. */
@@ -66,7 +66,7 @@ export function StaffPanel({ tenantId, onChanged }: { tenantId: string; onChange
       <form className="grid gap-2 sm:grid-cols-4" onSubmit={invite}>
         <input name="name" required maxLength={120} placeholder="Name" aria-label="Staff name" className="rounded border border-slate-300 px-2 py-1 text-xs" />
         <input name="email" type="email" required placeholder="Email" aria-label="Staff email" className="rounded border border-slate-300 px-2 py-1 text-xs" />
-        <select name="role" aria-label="Role" className="rounded border border-slate-300 px-2 py-1 text-xs"><option value="OPERATOR">Operator</option><option value="MANAGER">Manager</option></select>
+        <select name="role" aria-label="Role" className="rounded border border-slate-300 px-2 py-1 text-xs"><option value="OPERATOR">Operator</option><option value="MANAGER">Manager</option><option value="SUPERVISOR">Supervisor</option></select>
         <input name="languages" placeholder="Languages (en, es) — operators" aria-label="Languages" className="rounded border border-slate-300 px-2 py-1 text-xs" />
         <button className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 sm:col-span-4 sm:justify-self-start">Create invitation</button>
       </form>

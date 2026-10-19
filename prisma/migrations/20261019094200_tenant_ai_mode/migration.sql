@@ -1,0 +1,5 @@
+-- CreateEnum
+CREATE TYPE "AiMode" AS ENUM ('HUMAN_ONLY', 'AI_ASSISTED', 'AI_PLUS_HUMAN');
+
+-- AlterTable
+ALTER TABLE "Tenant" ADD COLUMN     "aiMode" "AiMode" NOT NULL DEFAULT 'AI_ASSISTED';

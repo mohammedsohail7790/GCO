@@ -41,6 +41,8 @@ model Tenant {
   // null = unlimited. Used for controlled pilot volume caps (see docs/GCO_V1_PRODUCT_TECHNICAL_DRAFT.md §18).
   messageCap Int?
 
+  aiMode AiMode @default(AI_ASSISTED)
+
   billingModel           BillingModel @default(PER_MESSAGE)
   pricePerTicketEurCents Int?
   pricePerHourEurCents   Int?
@@ -1348,6 +1350,12 @@ model Qualification {
 }
 
 // ---------------------------------------------------------------------------
+enum AiMode {
+  HUMAN_ONLY // no AI suggestions are shown to operators
+  AI_ASSISTED // AI suggests, the operator reviews and sends (today's behaviour)
+  AI_PLUS_HUMAN // AI handles suitable conversations itself - NOT available yet (needs safeguards, oversight and cost limits)
+}
+
 // Per-client knowledge: quick replies, articles and standing instructions, optionally per language and service.
 // Operators read them in the workspace; managers maintain them - no code change per client.
 // ---------------------------------------------------------------------------

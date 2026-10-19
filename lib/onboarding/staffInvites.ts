@@ -12,7 +12,7 @@ import { INVITE_TTL_MS, OnboardingError, sha256 } from './service'
 // The invited person chooses their own password (staff password policy); GCO staff never see or choose it. Only a SHA-256 of
 // the token is stored, it is single-use, expires in 7 days, and every failure to redeem it is the same generic 400.
 
-export const INVITABLE_ROLES = ['OPERATOR', 'MANAGER'] as const
+export const INVITABLE_ROLES = ['OPERATOR', 'MANAGER', 'SUPERVISOR'] as const
 type InvitableRole = (typeof INVITABLE_ROLES)[number]
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const INVALID = 'This invitation link is invalid or has expired'
@@ -22,7 +22,7 @@ const newToken = () => crypto.randomBytes(32).toString('hex')
 const setupUrl = (token: string) => `${SITE_URL}/accept-invitation#token=${token}`
 
 export async function inviteStaff(p: { tenantId: string; email: string; displayName: string; role: string; languages?: string[]; actorUserId: string }) {
-  if (!(INVITABLE_ROLES as readonly string[]).includes(p.role)) throw new OnboardingError('Role must be OPERATOR or MANAGER', 400)
+  if (!(INVITABLE_ROLES as readonly string[]).includes(p.role)) throw new OnboardingError('Role must be OPERATOR or MANAGER (or SUPERVISOR)', 400)
   const role = p.role as InvitableRole
   const email = p.email.trim().toLowerCase()
   if (!EMAIL.test(email) || email.length > 200) throw new OnboardingError('That does not look like a valid email address', 400)

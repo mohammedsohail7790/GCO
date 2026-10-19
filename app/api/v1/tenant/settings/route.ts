@@ -31,6 +31,7 @@ const Patch = z
     timezone: z.string().max(64).optional(),
     operatingHours: z.unknown().optional(),
     requireOperatorApproval: z.boolean().optional(),
+    aiMode: z.enum(['HUMAN_ONLY', 'AI_ASSISTED']).optional(), // AI_PLUS_HUMAN is not available yet
   })
   .strict()
 
@@ -52,6 +53,7 @@ export async function PATCH(req: NextRequest) {
       ...(body.operatorCapacity !== undefined ? { defaultOperatorCapacity: body.operatorCapacity } : {}),
       ...(body.timezone !== undefined ? { timezone: body.timezone } : {}),
       ...(body.requireOperatorApproval !== undefined ? { requireOperatorApproval: body.requireOperatorApproval } : {}),
+      ...(body.aiMode !== undefined ? { aiMode: body.aiMode } : {}),
       ...('operatingHours' in body ? { operatingHours: (body.operatingHours ?? null) as never } : {}),
     }
     if (Object.keys(data).length === 0) return fail('Nothing to change', 400)

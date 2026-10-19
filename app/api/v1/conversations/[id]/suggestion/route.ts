@@ -21,6 +21,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       return fail('Forbidden', 403)
     }
 
+    // Human-only clients never see AI suggestions (the operator works without them).
+    const tenant = await db.tenant.findUnique({ where: { id: conversation.tenantId }, select: { aiMode: true } })
+    if (tenant?.aiMode === 'HUMAN_ONLY') return ok({ generation: null, aiMode: 'HUMAN_ONLY' })
+
     const generation = await db.aiGeneration.findFirst({
       where: { conversationId: id },
       orderBy: { createdAt: 'desc' },
