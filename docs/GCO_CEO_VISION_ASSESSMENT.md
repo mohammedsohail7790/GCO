@@ -5,6 +5,40 @@
 
 ---
 
+## STATUS UPDATE — after the build session (2026-10-19)
+
+The sections below were written at commit `80b907d`, **before** this build session; where they say MISSING, check this table first.
+
+**Evidence from this session (local stack, real PostgreSQL/Redis, mock AI, dev-mock client adapter):** typecheck and lint clean; unit tests 511 passed; integration tests 207 passed (three consecutive clean runs); end-to-end 280 passed, 2 skipped by design (staging-only specs); `npm audit --omit=dev` 0 vulnerabilities at the time of the dependency fix. **Not verified:** Docker build, GitHub Actions run, backup **restore drill**, load/soak test, any real client platform, any real AI provider.
+
+| CEO brief | Now | What exists / what is still missing |
+|---|---|---|
+| 1 One platform, six services | **BUILT** | `TenantService` entitlements + industry templates + module registry; several services per client. Modules flagged "planned" are not sold as live. |
+| 1A Live chat / support | PARTIAL | + per-client quick replies, articles, instructions by language. Missing: customer/order records via client APIs (needs a real spec). |
+| 1B Chat moderation / 1C Community moderation | **BUILT (internal)** | Signed ingest, claim queue, decisions, escalation, warnings/restrictions, appeals, history, per-client categories (`docs/moderation.md`). Missing: sending verdicts back to the client's platform (needs client API); AI assistance. |
+| 1D Multilingual | PARTIAL | routing, coverage view, language-specific knowledge. Missing: translation tools, per-language reports. |
+| 1E 24/7 coverage | PARTIAL | shifts, absences, handover notes, coverage-gap and "on shift but offline" alerts, SLA reassignment. Missing: assignment driven by the shift plan (touches the protected assignment engine). |
+| 1F Dedicated teams | PARTIAL | per-client SLA/capacity/hours/billing/knowledge/approval, tenant isolation. Missing: custom workflow builder. |
+| 2 Client setup wizard | **BUILT** | `/admin/clients/new`: company, industry, services, languages, hours, SLA, capacity, billing, operator pay, AI mode, client + staff one-time invitations. Missing: workflow/moderation-rule editor beyond categories and instructions. |
+| 3 Operator workspace | PARTIAL | + knowledge panel, training, schedule/handover, reports, moderation, clear status errors. Missing: translation, customer panel from integrations, operator-to-operator transfer screen. |
+| 4 Earnings and history | **BUILT** | effective-dated rate cards, per-message payable state, adjustments, payouts, daily/weekly/monthly figures, full history, CEO and manager screens. |
+| 5 Manager / supervisor | **BUILT** | planner, reports with feedback, training, QA, alerts, moderation oversight; SUPERVISOR is team-scoped. |
+| 6 Client portal | PARTIAL | + invoices, privacy requests, moderation counts. Missing: live operations view, change requests, account-manager messaging. |
+| 7 Founder dashboard + roles | **BUILT (v2)** | profitability per client, charts, run-rate projection, capacity, obligations, search, widgets, dark mode; SUPERVISOR and CTO roles. Sales pipeline stays in the existing CRM panels. |
+| 8 Conversation integrity | VERIFIED (dev-mock) | unchanged; not validated against a real client. |
+| 9 Training | **BUILT** | modules, scored tests (answers never leave the server), qualifications, client approval, access gating. |
+| 10 AI | PARTIAL | per-client mode (human-only / assisted) enforced for suggestions; **AI + Human is refused until safeguards exist**; mock provider only. |
+| 11 Integrations and billing | PARTIAL | pricing per message/ticket/hour/month, immutable invoices, reconciliation. Missing: **fiscal e-invoicing (SDI)**, email/SMS integrations, real client adapter (BLOCKED on a spec). |
+| 12 Alerts | PARTIAL | + shift coverage alerts. Missing: paging, severity/role routing, error tracking (Sentry). |
+| 13 Security and continuity | PARTIAL | + retention windows, data-subject export/erasure, anonymisation (`docs/privacy-and-compliance.md`). Open: restore drill, incident procedure, IP assignment in writing, legal documents. |
+| 14 Scalability | PARTIAL | designed for it; **not load-tested** at hundreds of operators. |
+
+**Founder / external items (unchanged, blocked on people, not code):** confirmed registration details for the VAT number (`docs/business-details-and-vat.md` — site, structured data and invoices switch on automatically once filled), the Google Workspace decision and cut-over (`docs/email-google-workspace-plan.md` — no DNS changed), lawyer-reviewed privacy policy / DPA / terms, accountant for SDI.
+
+**Suggested next steps:** (1) a real client API spec → real adapter and verdict callbacks; (2) restore drill + Docker host + first CI run; (3) alert routing and error tracking; (4) legal pack and VAT details; (5) translation and customer-record panel; (6) load test; (7) AI phase with a real key under per-client cost limits.
+
+---
+
 ## 1. Fresh evidence gathered this session
 
 | Check | Result |
