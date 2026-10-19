@@ -33,7 +33,7 @@ The sections below were written at commit `80b907d`, **before** this build sessi
 | 13 Security and continuity | PARTIAL | + retention windows, data-subject export/erasure, anonymisation (`docs/privacy-and-compliance.md`). Open: restore drill, incident procedure, IP assignment in writing, legal documents. |
 | 14 Scalability | PARTIAL | designed for it; **not load-tested** at hundreds of operators. |
 
-**Observed flake:** in one full end-to-end run `49-client-live` failed in its setup (0 ms, error text not captured); it passed alone and in the next two full runs. Treat as an intermittent setup issue to watch, not as resolved.
+**Observed flake:** in one full end-to-end run `49-client-live` failed in its setup (0 ms, error text not captured); it passed alone and in the next two full runs. **Suspected cause (not proven):** the shared admin session used to seed test tenants can hit the app's own 120-writes-per-minute limit during a long run; the E2E helper now waits out a 429 instead of failing. If it recurs, capture the error text first.
 
 **Founder / external items (unchanged, blocked on people, not code):** confirmed registration details for the VAT number (`docs/business-details-and-vat.md` — site, structured data and invoices switch on automatically once filled), the Google Workspace decision and cut-over (`docs/email-google-workspace-plan.md` — no DNS changed), lawyer-reviewed privacy policy / DPA / terms, accountant for SDI.
 

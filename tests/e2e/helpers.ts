@@ -46,6 +46,20 @@ export async function anonymousContext(): Promise<APIRequestContext> {
 // IP+email - see app/api/v1/auth/login/route.ts) once the suite grew past a
 // handful of files. Share one admin session across the whole run instead.
 let sharedAdminPromise: Promise<APIRequestContext> | null = null
+/**
+ * POST that waits out the app's own write rate limit (120 writes/min per user, fixed window) instead of failing. A full suite run seeds
+ * many tenants through ONE shared admin session, so a burst of seeding can legitimately hit the limiter; that is the limiter working,
+ * not a defect, and it made a setup step fail intermittently.
+ */
+async function adminPost(admin: APIRequestContext, url: string, data: unknown) {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const res = await admin.post(url, { data })
+    if (res.status() !== 429) return res
+    await new Promise((r) => setTimeout(r, 16_000))
+  }
+  return admin.post(url, { data })
+}
+
 export function sharedAdminContext(): Promise<APIRequestContext> {
   if (!sharedAdminPromise) sharedAdminPromise = loginAs('admin@demo.gco')
   return sharedAdminPromise
@@ -73,9 +87,7 @@ export async function seedIsolatedTenant(namePrefix: string): Promise<SeededTena
   const unique = `${namePrefix}-${Date.now()}-${Math.floor(Math.random() * 10000)}`
   const slug = unique.toLowerCase().replace(/[^a-z0-9-]/g, '-')
 
-  const tenantRes = await admin.post('/api/v1/admin/tenants', {
-    data: { name: `[E2E] ${unique}`, slug, defaultResponseSlaSeconds: 120 },
-  })
+  const tenantRes = await adminPost(admin, '/api/v1/admin/tenants', { name: `[E2E] ${unique}`, slug, defaultResponseSlaSeconds: 120 })
   if (!tenantRes.ok()) throw new Error(`tenant create failed: ${await tenantRes.text()}`)
   const tenant = (await tenantRes.json()).data
   const tenantId: string = tenant.id
@@ -86,9 +98,7 @@ export async function seedIsolatedTenant(namePrefix: string): Promise<SeededTena
   const clientEmail = `client-${unique}@e2e.gco`
 
   const createUser = async (email: string, role: string) => {
-    const res = await admin.post('/api/v1/admin/users', {
-      data: { email, password, displayName: `[E2E] ${role} ${unique}`, role, tenantId },
-    })
+    const res = await adminPost(admin, '/api/v1/admin/users', { email, password, displayName: `[E2E] ${role} ${unique}`, role, tenantId })
     if (!res.ok()) throw new Error(`user create failed (${role}): ${await res.text()}`)
   }
   await createUser(operatorEmail, 'OPERATOR')
@@ -105,9 +115,7 @@ export async function seedIsolatedTenant(namePrefix: string): Promise<SeededTena
   // reads the integration's OWN stored secret rather than a hardcoded env
   // var (see tests/e2e/18-webhook-security.spec.ts for the "two
   // integrations, two different secrets" case specifically).
-  const integrationRes = await admin.post('/api/v1/admin/integrations', {
-    data: { tenantId, adapterKey: 'dev-mock', name: `[E2E] Integration ${unique}`, config: {}, secret: DEV_WEBHOOK_SECRET },
-  })
+  const integrationRes = await adminPost(admin, '/api/v1/admin/integrations', { tenantId, adapterKey: 'dev-mock', name: `[E2E] Integration ${unique}`, config: {}, secret: DEV_WEBHOOK_SECRET })
   if (!integrationRes.ok()) throw new Error(`integration create failed: ${await integrationRes.text()}`)
   const integration = (await integrationRes.json()).data
 
