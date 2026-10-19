@@ -93,10 +93,10 @@ model User {
 
   // Two-factor sign-in (TOTP, RFC 6238). The secret is stored ENCRYPTED (lib/auth/secretBox.ts); recovery codes only as SHA-256 hashes.
   // totpEnabledAt null with a secret present = enrolment started but not confirmed (not enforced at login).
-  totpSecretEnc       String?
-  totpEnabledAt       DateTime?
-  totpLastStep        Int? // last accepted 30-second time step: a code can never be reused
-  totpRecoveryHashes  String[]  @default([])
+  totpSecretEnc      String?
+  totpEnabledAt      DateTime?
+  totpLastStep       Int? // last accepted 30-second time step: a code can never be reused
+  totpRecoveryHashes String[]  @default([])
 
   tenant             Tenant?            @relation(fields: [tenantId], references: [id])
   operator           Operator?
@@ -864,20 +864,20 @@ enum CareerApplicationStatus {
 }
 
 model CareerApplication {
-  id               String                  @id @default(cuid())
-  fullName         String
-  email            String
-  phone            String?
-  country          String?
-  languages        String?
-  message          String?                 @db.Text
-  createdAt        DateTime                @default(now())
-  status           CareerApplicationStatus @default(NEW)
-  statusUpdatedAt  DateTime?
-  statusUpdatedBy  String? // User id (plain string, like Note.authorUserId)
-  reviewNote       String?                 @db.Text
-  submissionCount  Int                     @default(1)
-  lastSubmittedAt  DateTime                @default(now())
+  id              String                  @id @default(cuid())
+  fullName        String
+  email           String
+  phone           String?
+  country         String?
+  languages       String?
+  message         String?                 @db.Text
+  createdAt       DateTime                @default(now())
+  status          CareerApplicationStatus @default(NEW)
+  statusUpdatedAt DateTime?
+  statusUpdatedBy String? // User id (plain string, like Note.authorUserId)
+  reviewNote      String?                 @db.Text
+  submissionCount Int                     @default(1)
+  lastSubmittedAt DateTime                @default(now())
 
   @@index([createdAt])
   @@index([status, createdAt])
@@ -1001,7 +1001,6 @@ model ClientOnboarding {
   @@index([status])
 }
 
-
 // ---------------------------------------------------------------------------
 // Quality review: a supervisor scores a sent operator reply. Only real reviews feed the QA summary - there are no
 // automatic or AI-generated scores. User/operator ids are plain strings (no FK), like Note.authorUserId.
@@ -1031,7 +1030,6 @@ model QaReview {
   @@index([tenantId, createdAt])
   @@index([tenantId, operatorId])
 }
-
 
 // ---------------------------------------------------------------------------
 // Staff invitations: an OPERATOR or MANAGER for one client is created INACTIVE with an unusable password and a one-time
@@ -1087,4 +1085,93 @@ model TenantService {
 
   @@unique([tenantId, serviceType])
   @@index([tenantId])
+}
+
+// ---------------------------------------------------------------------------
+// Operator earnings ledger. Append-only by design: rates are never edited (a new, later-effective row
+// supersedes), every paid message keeps a snapshot of the rate used, corrections are separate signed
+// adjustments, and payouts lock what they settle. Keyed by Operator.id, which is never reassigned or deleted
+// when an operator changes project/team, so history follows the person.
+// ---------------------------------------------------------------------------
+enum PayableBasis {
+  DELIVERED // payable once the client platform confirmed delivery (unless a review rejects it)
+  APPROVED // payable only after a PASS/COACHING quality review
+}
+
+model OperatorRateCard {
+  id              String       @id @default(cuid())
+  tenantId        String? // null = company-wide default
+  operatorId      String? // null = every operator in scope
+  amountEurCents  Int // per payable message
+  basis           PayableBasis @default(DELIVERED)
+  effectiveFrom   DateTime
+  note            String?
+  createdByUserId String
+  createdAt       DateTime     @default(now())
+
+  @@index([tenantId, operatorId, effectiveFrom])
+}
+
+enum EarningState {
+  PENDING // written but not yet payable (awaiting delivery or approval)
+  PAYABLE
+  REJECTED // failed delivery or failed quality review - not paid
+}
+
+model OperatorEarningLine {
+  id           String       @id @default(cuid())
+  operatorId   String
+  tenantId     String
+  messageId    String       @unique
+  rateCardId   String
+  rateEurCents Int // snapshot of the rate when the line was created
+  basis        PayableBasis
+  state        EarningState @default(PENDING)
+  stateReason  String?
+  messageAt    DateTime // when the operator wrote the message (the earning date)
+  payoutId     String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([operatorId, messageAt])
+  @@index([operatorId, state, payoutId])
+  @@index([tenantId, messageAt])
+}
+
+model OperatorEarningAdjustment {
+  id              String   @id @default(cuid())
+  operatorId      String
+  tenantId        String?
+  amountEurCents  Int // signed: positive = bonus/correction in favour, negative = deduction
+  reason          String   @db.Text // shown to the operator
+  lineId          String?
+  payoutId        String?
+  createdByUserId String
+  createdAt       DateTime @default(now())
+
+  @@index([operatorId, createdAt])
+  @@index([operatorId, payoutId])
+}
+
+enum PayoutStatus {
+  PENDING
+  PAID
+}
+
+model OperatorPayout {
+  id                  String       @id @default(cuid())
+  operatorId          String
+  periodEnd           DateTime // everything earned up to here at creation time
+  lineCount           Int
+  linesEurCents       Int
+  adjustmentsEurCents Int
+  totalEurCents       Int
+  status              PayoutStatus @default(PENDING)
+  reference           String? // bank/transfer reference, set when marked paid
+  createdByUserId     String
+  createdAt           DateTime     @default(now())
+  paidAt              DateTime?
+  paidByUserId        String?
+
+  @@index([operatorId, createdAt])
 }

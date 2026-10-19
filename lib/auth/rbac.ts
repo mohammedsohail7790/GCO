@@ -61,6 +61,9 @@ export const PERMISSIONS = {
   COMMISSION_VIEW_TEAM: ['MANAGER', 'CEO_ADMIN'],
   COMMISSION_CONFIGURE: ['CEO_ADMIN'],
   PAYOUT_MANAGE: ['CEO_ADMIN'],
+  // Operators read their own earnings; managers see earnings of operators in their own tenant; rates, adjustments and payouts are CEO-only (PAYOUT_MANAGE).
+  EARNINGS_VIEW_OWN: ['OPERATOR'],
+  EARNINGS_VIEW_OPERATOR: ['CEO_ADMIN', 'MANAGER'],
   REVENUE_RECORD: ['MANAGER', 'CEO_ADMIN'],
 
   // Sales CRM - BPO handoff recovery
