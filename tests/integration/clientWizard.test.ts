@@ -59,12 +59,13 @@ describe('client setup wizard (real database)', () => {
   it('validates everything first: nothing is created for an invalid, duplicate or taken request', async () => {
     const i = input('dup'); slugs.push(i.company.slug)
     await runWizard({ ...i, staff: [], clientContact: null }, 'actor')
-    const before = await db.tenant.count()
+    const mine = () => db.tenant.count({ where: { slug: { startsWith: base } } }) // only this test's clients: other test files create tenants in parallel
+    const before = await mine()
     await expect(runWizard({ ...i, staff: [], clientContact: null }, 'actor')).rejects.toThrow(/already used/) // slug taken
     const j = input('bad'); slugs.push(j.company.slug)
     await expect(runWizard({ ...j, aiMode: 'AI_PLUS_HUMAN' }, 'actor')).rejects.toThrow(/not available yet/)
     await expect(runWizard({ ...j, staff: [{ email: `${base}-dup-client@test.gco`, name: 'x', role: 'OPERATOR' }], clientContact: { email: `${base}-dup-client@test.gco`, name: 'x' } }, 'actor')).rejects.toThrow(/twice/)
-    expect(await db.tenant.count()).toBe(before)
+    expect(await mine()).toBe(before)
     // an email that already has an account blocks the whole request before anything is written
     const k = input('taken'); slugs.push(k.company.slug)
     const first = input('taken0'); slugs.push(first.company.slug)
