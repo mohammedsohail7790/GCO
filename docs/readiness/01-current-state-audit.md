@@ -14,7 +14,7 @@ Status vocabulary (used in every readiness document): **Verified** · **Implemen
 | Integration tests (real PostgreSQL/Redis) | `npm run test:integration` | 33 files, **212 passed**, 0 failed |
 | Dependency audit | `npm audit --omit=dev` | **0 vulnerabilities** (production dependencies; tool: npm 11 audit; scope: `package-lock.json`; limitation: advisory database only, no licence or malware scan) |
 | Migrations | `npx prisma migrate status` | 29 migrations, "Database schema is up to date" (local DB) |
-| End-to-end (real HTTP) | `npx playwright test` | run on the previous commit: 285 passed, 2 skipped by design; re-run after this work's changes is in `10-ceo-readiness-report.md` |
+| End-to-end (real HTTP) | `npx playwright test` | re-run after this work's changes: 285 passed / 5 skipped (AI-on stack) and 286 passed / 2 expected AI-feature failures (AI-off stack) — see `09-go-live-checklist.md` |
 
 Not executable here, therefore **NOT TESTED**: Docker build/run (no Docker on this machine), the GitHub Actions workflow (no run history available), anything on the production server.
 
