@@ -12,7 +12,7 @@
 | Unit tests | PASS | 47 files, 720 passed |
 | Integration tests | PASS | 34 files, 216 passed (serial, real PostgreSQL/Redis) |
 | End-to-end tests | PASS | AI-on (mock opt-in) stack: **285 passed, 5 skipped** by design (2 staging-only, 3 AI-off specs); AI-off stack: **286 passed, 2 failed, 2 skipped** — the 2 failures are the specs that test AI features themselves (`01` suggestion step, `08` memory), expected and documented |
-| Database migration compatibility | PASS (local) | 29 migrations apply to a clean database and a restored copy reports "up to date"; **production migration NOT TESTED** |
+| Database migration compatibility | PASS (local) | `scripts/migration-check.sh`: all 29 migrations apply to an **empty** database and the result matches `prisma/schema.prisma` exactly (no drift; the check was shown to fail on an empty database, exit 2); a restored copy reports "up to date"; **production migration NOT TESTED** |
 | Authentication and authorization | PASS | E2E `06`, `07`, `16`, `35`, `39`; route-guard test (193 cases) |
 | Tenant isolation | PASS (application layer) | E2E `05` and specs `39`–`51`; restore integrity checks for tenant consistency |
 | Core CRM and operator workflows | PASS (simulated client) | E2E `13`–`16`, `23`, `24`, `27`, `28`, `01`–`04`, `20`, `26` |
