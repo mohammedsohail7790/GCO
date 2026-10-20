@@ -36,6 +36,7 @@ jobs:
       AUTH_SECRET: ci-only-secret-not-for-production-use-1234567890
       DEV_WEBHOOK_SECRET: ci-only-webhook-secret-1234567890
       AI_PROVIDER: mock
+      AI_MASTER_SWITCH: enabled # TESTS ONLY: exercises the MOCK provider path; the guard tests prove the default is disabled
       NODE_ENV: test
 
     steps:

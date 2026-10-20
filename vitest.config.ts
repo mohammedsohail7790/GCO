@@ -9,6 +9,8 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
+    // Tests that exercise the MOCK AI path opt in explicitly; the guard tests (aiMasterSwitch) clear it to prove the default is OFF.
+    env: { AI_MASTER_SWITCH: 'enabled', AI_PROVIDER: 'mock' },
     // Several integration files hash passwords with bcrypt cost 12 while others run in parallel against one database; the default
     // 5 s timed out intermittently under that load (a different test each run, always passing alone). A real hang still fails.
     testTimeout: 30_000,

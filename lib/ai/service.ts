@@ -1,5 +1,6 @@
 import { db } from '@/lib/db/client'
 import { getAiProvider } from './provider'
+import { AiDisabledError } from './guard'
 import type { ConversationContext } from './types'
 import { flags } from '@/lib/config/flags'
 import { describeAiError } from './observability'
@@ -48,7 +49,13 @@ export async function generateSuggestionForMessage(messageId: string) {
 
   if (!flags.aiSuggestions) return null
 
-  const provider = getAiProvider()
+  let provider
+  try {
+    provider = getAiProvider()
+  } catch (err) {
+    if (err instanceof AiDisabledError) return null // AI switched off (or external provider not approved): no generation, no row, no call
+    throw err
+  }
   const context = await buildConversationContext(message.conversationId, message.tenantId)
 
   try {

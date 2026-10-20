@@ -93,6 +93,9 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-gco}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-gco}?schema=public
       REDIS_URL: redis://redis:6379
+      # AI is DISABLED by direction of the CEO. Set here (not in .env) so enabling it needs a reviewed change to this committed file;
+      # a missing/edited .env value, a restart or a redeploy can never switch it on. See docs/technical-security-pack/08.
+      AI_MASTER_SWITCH: disabled
     # Bound to loopback only - the reverse proxy (added when the domain/HTTPS
     # phase happens) runs on the same host and reaches this over 127.0.0.1;
     # the public internet should only ever reach the app via 80/443 on the
@@ -145,6 +148,9 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-gco}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-gco}?schema=public
       REDIS_URL: redis://redis:6379
+      # AI is DISABLED by direction of the CEO. Set here (not in .env) so enabling it needs a reviewed change to this committed file;
+      # a missing/edited .env value, a restart or a redeploy can never switch it on. See docs/technical-security-pack/08.
+      AI_MASTER_SWITCH: disabled
     # workers/index.ts is never compiled to JS anywhere in this build
     # (tsconfig.json has noEmit: true; the Dockerfile only runs `next build`,
     # which builds the app, not the workers) - `node workers/index.js` would
@@ -182,6 +188,9 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-gco}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-gco}?schema=public
       REDIS_URL: redis://redis:6379
+      # AI is DISABLED by direction of the CEO. Set here (not in .env) so enabling it needs a reviewed change to this committed file;
+      # a missing/edited .env value, a restart or a redeploy can never switch it on. See docs/technical-security-pack/08.
+      AI_MASTER_SWITCH: disabled
     # Previously entirely absent from this compose file - the realtime
     # WebSocket server (workers/realtime-server.ts) never ran in a
     # docker-compose deployment, silently breaking the realtime feature

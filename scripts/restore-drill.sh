@@ -33,9 +33,21 @@ counts() { "$(p psql)" -At -h "$HOST" -p "$PORT" -U "$DBUSER" -d "$1" -c "SELECT
 A="$(counts "${SRC_QUERY##*/}")"; B="$(counts "$SCRATCH_DB")"
 MIG_SRC="$("$(p psql)" -At -h "$HOST" -p "$PORT" -U "$DBUSER" -d "${SRC_QUERY##*/}" -c 'select count(*) from _prisma_migrations where finished_at is not null')"
 MIG_DST="$("$(p psql)" -At -h "$HOST" -p "$PORT" -U "$DBUSER" -d "$SCRATCH_DB" -c 'select count(*) from _prisma_migrations where finished_at is not null')"
+# Application-level check: the app's own migration tool must recognise the restored schema as up to date.
+APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PRISMA_STATUS="skipped (npx not available)"
+if command -v npx >/dev/null 2>&1 && [ -f "$APP_DIR/prisma/schema.prisma" ]; then
+  if (cd "$APP_DIR" && DATABASE_URL="${RESTORE_URL}?schema=public" npx --no-install prisma migrate status >/tmp/gco-drill-prisma.log 2>&1); then PRISMA_STATUS="up to date"; else PRISMA_STATUS="NOT up to date (see /tmp/gco-drill-prisma.log)"; fi
+fi
+echo "[drill] prisma migrate status against the restored copy: $PRISMA_STATUS"
 TABLES="$(echo "$B" | wc -l | tr -d ' ')"
-if [ "$A" = "$B" ] && [ "$MIG_SRC" = "$MIG_DST" ]; then
-  echo "[drill] PASS: $TABLES tables, identical row counts, $MIG_DST migrations applied, dump+restore took $((END-START))s"
+VERIFY="$(dirname "${BASH_SOURCE[0]}")/restore-verify.sql"
+echo "[drill] integrity and tenant-boundary checks on the restored copy:"
+CHECKS="$("$(p psql)" -At -F ' | ' -h "$HOST" -p "$PORT" -U "$DBUSER" -d "$SCRATCH_DB" -f "$VERIFY")"
+echo "$CHECKS" | sed 's/^/[drill]   /'
+VIOLATIONS="$(echo "$CHECKS" | awk -F' [|] ' '{s+=$2} END {print s+0}')"
+if [ "$A" = "$B" ] && [ "$MIG_SRC" = "$MIG_DST" ] && [ "$VIOLATIONS" = "0" ] && [[ "$PRISMA_STATUS" == "up to date" || "$PRISMA_STATUS" == skipped* ]]; then
+  echo "[drill] PASS: $TABLES tables, identical row counts, $MIG_DST migrations applied, 0 integrity violations, dump+restore took $((END-START))s"
 else
-  echo "[drill] FAIL: row counts or migrations differ"; diff <(echo "$A") <(echo "$B") || true; exit 1
+  echo "[drill] FAIL: row counts, migrations or integrity checks differ (violations=$VIOLATIONS)"; diff <(echo "$A") <(echo "$B") || true; exit 1
 fi

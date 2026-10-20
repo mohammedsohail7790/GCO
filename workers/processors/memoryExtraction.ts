@@ -1,6 +1,7 @@
 import type { Job } from 'bullmq'
 import { db } from '@/lib/db/client'
 import { getAiProvider } from '@/lib/ai/provider'
+import { AiDisabledError, isAiEnabled } from '@/lib/ai/guard'
 import { buildConversationContext } from '@/lib/ai/service'
 import { categorizeAiError } from '@/lib/ai/observability'
 import { logger } from '@/lib/observability/logger'
@@ -9,6 +10,8 @@ export async function memoryExtractionProcessor(
   job: Job<{ conversationId: string; triggerMessageId: string }>,
 ) {
   const { conversationId, triggerMessageId } = job.data
+  // Jobs queued before AI was switched off must not run the provider (the queue can still hold them).
+  if (!isAiEnabled()) return
   const conversation = await db.conversation.findUniqueOrThrow({ where: { id: conversationId } })
   // tenantId is derived from the trusted conversation row, never from job input.
   const tenantId = conversation.tenantId
@@ -24,7 +27,13 @@ export async function memoryExtractionProcessor(
     return
   }
 
-  const provider = getAiProvider()
+  let provider
+  try {
+    provider = getAiProvider()
+  } catch (err) {
+    if (err instanceof AiDisabledError) return
+    throw err
+  }
   const context = await buildConversationContext(conversationId, tenantId)
 
   let facts

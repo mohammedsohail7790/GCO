@@ -24,6 +24,7 @@ x-app-env: &app-env
   GCO_ENVIRONMENT: staging
   ALLOW_DEV_ADAPTERS: 'true'
   AI_PROVIDER: mock
+  AI_MASTER_SWITCH: disabled # AI is disabled in staging too (CEO direction); the mock provider is never reached
 
 services:
   postgres:

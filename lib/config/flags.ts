@@ -16,9 +16,11 @@ function intEnv(key: string, fallback: number): number {
   return Number.isNaN(n) ? fallback : n
 }
 
+// AI features are gated by the master switch (lib/ai/guard.ts) FIRST: unless AI_MASTER_SWITCH is exactly "enabled" they are off whatever
+// the individual FEATURE_AI_* values say. Getters, so the answer follows the environment at call time.
 export const flags = {
-  aiSuggestions: boolEnv('FEATURE_AI_SUGGESTIONS', true),
-  aiMemory: boolEnv('FEATURE_AI_MEMORY', true),
+  get aiSuggestions() { return process.env.AI_MASTER_SWITCH === 'enabled' && boolEnv('FEATURE_AI_SUGGESTIONS', true) },
+  get aiMemory() { return process.env.AI_MASTER_SWITCH === 'enabled' && boolEnv('FEATURE_AI_MEMORY', true) },
   autoReassignment: boolEnv('FEATURE_AUTO_REASSIGNMENT', true),
   clientTickets: boolEnv('FEATURE_CLIENT_TICKETS', true),
   emergencyControls: boolEnv('FEATURE_EMERGENCY_CONTROLS', true),
