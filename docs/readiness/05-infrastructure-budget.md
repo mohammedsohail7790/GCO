@@ -9,17 +9,17 @@ The CEO confirmed the Hetzner invoice lines and the subscription estimates. Figu
 | 1 | Hetzner CPX32 server | €35.49 | CEO | |
 | 2 | Hetzner server backups option | €7.10 | CEO | |
 | 3 | Hetzner primary IPv4 | €0.50 | CEO | subtotal Hetzner **€43.09** (matches the CEO's figure) |
-| 4 | Google Workspace, 2 mailboxes | ≈ €14–16 | CEO (estimate) | confirm EUR price on the sign-up page; annual vs flexible billing changes it |
+| 4 | Google Workspace, 2 mailboxes | **€16.20** (2 × €8.10) | CEO, read from the sign-up page 2026-10-21 | before taxes; confirm plan name and billing period |
 | 5 | Claude Pro | ≈ €20 | CEO (estimate) | |
 | 6 | ChatGPT Plus | ≈ €20 | CEO (estimate) | |
 | 7 | Backblaze B2 (offsite dumps) | ≈ €0 now | vendor page | first 10 GB free; see row 3 below |
 | 8 | Cloudflare Free, Zoho Mail Free (until migration), GitHub Free | €0 | repository docs | Zoho ends after migration; GitHub org plan must be Free |
 | 9 | Domain `globalconversationoperations.com` | **unknown** — annual price ÷ 12 | not supplied | typically €1–2 per month spread over a year; read the registrar invoice |
 | 10 | UptimeRobot, Calendly | unknown (free tiers likely) | not supplied | |
-| | **Subtotal before VAT (items 1–6)** | **€97.09 – €99.09** | | €43.09 + €14–16 + €20 + €20 |
+| | **Subtotal before VAT (items 1–6)** | **≈ €99.29** | | €43.09 + €16.20 + €20 + €20 |
 | | + domain (assume ≤ €2) | **≈ €99 – €101** | | |
 
-**Headroom against €150: about €49–€51 before VAT**, i.e. the target is met on the figures supplied, with room for the domain, monitoring and a possible error-tracking plan. This is an estimate built from the CEO's numbers; it becomes a confirmed budget when the domain, UptimeRobot/Calendly and the first real invoices are in.
+**Headroom against €150: about €49–€51 before VAT** (Workspace now confirmed at €16.20), i.e. the target is met on the figures supplied, with room for the domain, monitoring and a possible error-tracking plan. This is an estimate built from the CEO's numbers; it becomes a confirmed budget when the domain, UptimeRobot/Calendly and the first real invoices are in.
 
 ### VAT — what changes the total and what is not yet known
 
