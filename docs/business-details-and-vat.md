@@ -1,6 +1,6 @@
 # Official business details and the Italian VAT number
 
-**Status:** the platform is ready to carry the details; **the confirmed registration details have not been supplied yet, so nothing is published.** I will not guess any of them.
+**Status (2026-10-21):** legal name (Osarunwense Cristian Idiaghe, sole proprietor) and VAT number (IT03228830307, check digit valid) are recorded. **Tax code and registered address are intentionally not recorded yet** — the tax code is personal data and the registered business address is to be confirmed with the accountant (the home address is not assumed). Nothing is published until all required fields are present.
 
 ## 1. Where the details live (one place)
 

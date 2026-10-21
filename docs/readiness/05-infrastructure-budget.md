@@ -1,5 +1,57 @@
 # 05 — Infrastructure budget (target €150 / month, **all-inclusive**)
 
+## 0. Update 2026-10-21 — CEO-confirmed figures and the all-inclusive monthly picture
+
+The CEO confirmed the Hetzner invoice lines and the subscription estimates. Figures marked *CEO* are taken from the CEO's message, not from an invoice I could see. Nothing was purchased, upgraded or changed.
+
+| # | Item | Monthly, before VAT | Source | Notes |
+|---|---|---|---|---|
+| 1 | Hetzner CPX32 server | €35.49 | CEO | |
+| 2 | Hetzner server backups option | €7.10 | CEO | |
+| 3 | Hetzner primary IPv4 | €0.50 | CEO | subtotal Hetzner **€43.09** (matches the CEO's figure) |
+| 4 | Google Workspace, 2 mailboxes | ≈ €14–16 | CEO (estimate) | confirm EUR price on the sign-up page; annual vs flexible billing changes it |
+| 5 | Claude Pro | ≈ €20 | CEO (estimate) | |
+| 6 | ChatGPT Plus | ≈ €20 | CEO (estimate) | |
+| 7 | Backblaze B2 (offsite dumps) | ≈ €0 now | vendor page | first 10 GB free; see row 3 below |
+| 8 | Cloudflare Free, Zoho Mail Free (until migration), GitHub Free | €0 | repository docs | Zoho ends after migration; GitHub org plan must be Free |
+| 9 | Domain `globalconversationoperations.com` | **unknown** — annual price ÷ 12 | not supplied | typically €1–2 per month spread over a year; read the registrar invoice |
+| 10 | UptimeRobot, Calendly | unknown (free tiers likely) | not supplied | |
+| | **Subtotal before VAT (items 1–6)** | **€97.09 – €99.09** | | €43.09 + €14–16 + €20 + €20 |
+| | + domain (assume ≤ €2) | **≈ €99 – €101** | | |
+
+**Headroom against €150: about €49–€51 before VAT**, i.e. the target is met on the figures supplied, with room for the domain, monitoring and a possible error-tracking plan. This is an estimate built from the CEO's numbers; it becomes a confirmed budget when the domain, UptimeRobot/Calendly and the first real invoices are in.
+
+### VAT — what changes the total and what is not yet known
+
+VAT depends on how the business is taxed, which only the accountant (Fiscozen) can confirm. Three cases:
+
+| Case | Effect |
+|---|---|
+| Vendor charges VAT and it is **deductible** (ordinary regime) | VAT is not a real cost; cash-out is higher, net cost is the before-VAT number |
+| Vendor charges VAT and it is **not deductible** (e.g. flat-rate "forfettario" regime — to be confirmed) | VAT is a real cost — use the worst case below |
+| Business customer with a valid EU VAT ID in the vendor's account | Hetzner (Germany) / Google (Ireland) can invoice **without** local VAT and the Italian reverse charge applies; the VAT ID must be entered in each vendor account |
+
+Worst case, VAT fully non-deductible and charged on everything: Hetzner at German 19% = €51.27; Workspace €16 × 1.22 = €19.52; Claude Pro and ChatGPT Plus (consumer plans — their displayed EU price may already include VAT; if not, ×1.22 = €48.80). Total ≈ **€110.8 – €119.6 plus domain**, still below €150. Rates quoted are the standard statutory rates (Germany 19%, Italy 22%) and should be confirmed by the accountant.
+
+### Questions to put to the accountant (Fiscozen)
+
+1. Which tax regime applies (ordinario vs forfettario) — decides whether VAT on these costs is deductible.
+2. Should the VAT ID be entered in the Hetzner and Google accounts (reverse charge)?
+3. Can the Claude Pro / ChatGPT Plus subscriptions be invoiced to the business (consumer plans normally invoice the individual; business plans cost more).
+4. Registered business address for invoices (see `docs/business-details-and-vat.md`).
+
+### Other costs not in the monthly sum
+
+| Cost | Status |
+|---|---|
+| Accountant (Fiscozen) | excluded; CEO already pays it |
+| Lawyer review of contracts | not budgeted (CEO: no lawyer budget) — drafts are provided, see `docs/legal-drafts/` |
+| Error tracking / paging | optional; free tiers exist; not enabled |
+| AI usage | €0 — disabled; a spending cap is required before enabling |
+| Second server for staging | not needed yet; staging can run on demand on the production host only after the memory check in `03-staging-setup.md` |
+
+---
+
 **CEO clarification (2026-10-20):** the €150 per month target covers **all existing infrastructure and services together**, not only new ones. The CEO will supply the missing billing information. When it arrives, fill the *Monthly estimate* column of the table below for every row (including rows that look free) and add the rows' sum; compare the sum with €150 before approving any new spend (Google Workspace seats, a staging server, monitoring).
 
 **Bottom line: the €150 target can neither be confirmed nor rejected yet.** Only two things were verifiable from here (the repository and public vendor pages): the services in use, and that several of them are on free plans. **No invoice, billing page or account was accessible, and the vendor pricing pages checked did not show EUR prices to the tool used** (Google showed INR, Hetzner showed "from … /month" without an amount, Zoho showed no paid prices). **No price below has been inferred from a resource name.** Nothing was purchased, upgraded, cancelled or resized.

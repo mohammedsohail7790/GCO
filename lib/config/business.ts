@@ -16,8 +16,10 @@ export interface BusinessDetails {
 
 export const BUSINESS: BusinessDetails = {
   tradingName: 'Global Conversation Operations',
-  legalName: null,
-  vatNumber: null,
+  legalName: 'Osarunwense Cristian Idiaghe', // sole proprietor (ditta individuale) - confirmed by the founder
+  vatNumber: 'IT03228830307', // public business identifier; checksum verified in tests
+  // Deliberately null: the tax code is personal data (not needed for a public footer; goes on invoices only if the accountant says so),
+  // and the registered business address is still to be confirmed with the accountant (Fiscozen) - the founder's home address is NOT assumed.
   taxCode: null,
   registeredAddress: null,
   reaNumber: null,

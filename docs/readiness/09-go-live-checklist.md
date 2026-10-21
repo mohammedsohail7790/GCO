@@ -49,8 +49,9 @@
 | Deployment and rollback documented | PASS (documented) / NOT TESTED (rollback drill) | `09` pack document, `docs/recovery-runbook.md` |
 | Access ownership agreed | BLOCKED | `07`, `08`, `12` — GitHub organization transfer runbook and ownership-agreement checklist written; CEO + CTO + lawyer must act |
 | Incident escalation documented | PARTIAL | `docs/client-incident-process.md`; no breach-notification procedure or on-call rota |
-| Infrastructure budget reviewed | BLOCKED | `05` — needs invoices/quotes; CEO review |
-| Email migration plan reviewed | BLOCKED | `06` — CEO review and decision |
+| Infrastructure budget reviewed | PARTIAL | `05` §0 — CEO-confirmed figures: ≈ €97–€101 of €150 before VAT; domain, UptimeRobot/Calendly, VAT regime and invoices still to confirm |
+| Email migration plan reviewed | PARTIAL | CEO approved (no history, both mailboxes verified before Zoho off, CEO super admin); execution steps in `14`; waiting for the CEO's accounts and a cut-over window |
+| Legal drafts (privacy notice, DPA, term sheet, confidentiality, retention, transfers) | PARTIAL | written as unreviewed drafts in `docs/legal-drafts/`; **review required for DPA and transfer policy**; fictional data only until then |
 | Data retention approved | BLOCKED | provisional 30 days / 6 months pending legal review; job not activated |
 | Scheduled jobs installed on the server | BLOCKED | units written (`deploy/systemd`), installation needs approval |
 

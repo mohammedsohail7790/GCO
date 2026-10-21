@@ -47,6 +47,14 @@ describe('business details', () => {
   })
 })
 
+describe('the real business identity', () => {
+  it('carries a VAT number that passes the check-digit test, and publishes nothing until the address and tax code are confirmed', () => {
+    expect(BUSINESS.vatNumber && isValidItalianVat(BUSINESS.vatNumber)).toBe(true)
+    expect(missingBusinessDetails()).toEqual(['tax code', 'registered address'])
+    expect(legalIdentityLine()).toBeNull()
+  })
+})
+
 describe('legal identity line (website footer / documents)', () => {
   const full = { ...BUSINESS, legalName: 'Example S.r.l.', vatNumber: 'IT00743110157', taxCode: '00743110157', registeredAddress: 'Via Roma 1, 00100 Roma RM' }
   it('is null until every required detail is confirmed - no half-filled legal notice', () => {
