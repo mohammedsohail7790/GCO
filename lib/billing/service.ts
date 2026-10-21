@@ -120,11 +120,11 @@ export async function reconcile(tenantId: string, from: Date, to: Date) {
   const inP = { gte: from, lt: to }
   const [usage, outbound, lines, adjustments, invoices, deliveredNoUsage, deliveredNoLine] = await Promise.all([
     db.usageRecord.aggregate({ where: { tenantId, billable: true, createdAt: inP }, _count: { _all: true }, _sum: { priceEurCents: true, operatorCostEurCents: true } }),
-    db.message.count({ where: { tenantId, direction: 'OUTBOUND', status: 'DELIVERED', createdAt: inP } }),
+    db.message.count({ where: { tenantId, direction: 'INBOUND', createdAt: inP } }),
     db.operatorEarningLine.groupBy({ by: ['state'], where: { tenantId, messageAt: inP }, _count: { _all: true }, _sum: { rateEurCents: true } }),
     db.operatorEarningAdjustment.aggregate({ where: { tenantId, createdAt: inP }, _sum: { amountEurCents: true } }),
     db.invoice.findMany({ where: { tenantId, status: { not: 'VOID' }, periodStart: { lt: to }, periodEnd: { gt: from } }, select: { number: true, status: true, subtotalEurCents: true, totalEurCents: true } }),
-    db.$queryRaw<{ n: bigint }[]>`SELECT COUNT(*) AS n FROM "Message" m LEFT JOIN "UsageRecord" u ON u."messageId" = m."id" WHERE m."tenantId" = ${tenantId} AND m."direction" = 'OUTBOUND' AND m."status" = 'DELIVERED' AND m."createdAt" >= ${from} AND m."createdAt" < ${to} AND u."id" IS NULL`,
+    db.$queryRaw<{ n: bigint }[]>`SELECT COUNT(*) AS n FROM "Message" m LEFT JOIN "UsageRecord" u ON u."messageId" = m."id" WHERE m."tenantId" = ${tenantId} AND m."direction" = 'INBOUND' AND m."createdAt" >= ${from} AND m."createdAt" < ${to} AND u."id" IS NULL`,
     db.$queryRaw<{ n: bigint }[]>`SELECT COUNT(*) AS n FROM "Message" m LEFT JOIN "OperatorEarningLine" l ON l."messageId" = m."id" WHERE m."tenantId" = ${tenantId} AND m."direction" = 'OUTBOUND' AND m."operatorId" IS NOT NULL AND m."status" = 'DELIVERED' AND m."createdAt" >= ${from} AND m."createdAt" < ${to} AND l."id" IS NULL`,
   ])
   const billed = usage._sum.priceEurCents ?? 0
@@ -134,12 +134,13 @@ export async function reconcile(tenantId: string, from: Date, to: Date) {
   const invoiced = invoices.reduce((a, x) => a + x.subtotalEurCents, 0)
   return {
     period: { from, to },
-    activity: { billableMessages: usage._count._all, deliveredOperatorMessages: outbound },
+    // The client is billed per customer message PROCESSED (one usage record per inbound message); operators are paid per reply they SEND (earnings ledger).
+    activity: { billableMessages: usage._count._all, customerMessagesReceived: outbound },
     clientBilling: { billedPerUsageEurCents: billed, invoicedSubtotalEurCents: invoiced, invoices },
     operatorCompensation: { ledgerCostEurCents: usageCost, owedEurCents: operatorOwed, payableMessages: payableLines?._count._all ?? 0, pendingMessages: lines.find((l) => l.state === 'PENDING')?._count._all ?? 0, rejectedMessages: lines.find((l) => l.state === 'REJECTED')?._count._all ?? 0 },
     margin: { grossEurCents: billed - operatorOwed, grossPercent: billed > 0 ? Math.round(((billed - operatorOwed) / billed) * 1000) / 10 : null },
     mismatches: {
-      deliveredWithoutUsageRecord: Number(deliveredNoUsage[0]?.n ?? 0), // delivered but never billed
+      receivedWithoutUsageRecord: Number(deliveredNoUsage[0]?.n ?? 0), // a customer message that was received but never billed
       deliveredWithoutEarningLine: Number(deliveredNoLine[0]?.n ?? 0), // an operator wrote it but earnings were not synced / no rate
       usageVsInvoiceDifferenceEurCents: invoices.length ? billed - invoiced : null, // non-zero when billing model is not per-message or usage changed after invoicing
     },

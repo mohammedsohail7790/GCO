@@ -19,7 +19,7 @@
 |---|---|---|
 | `IntegrationAdapter` boundary | one interface for verify/normalise inbound and send outbound; adding a client = a new adapter, no core change | Verified |
 | `dev-mock` adapter | development/test simulator; **refused in production** | Verified (test double) |
-| **`gco-webhook` (generic)** | a documented, signed HTTP contract: `X-GCO-Timestamp` + `X-GCO-Signature: v1=HMAC-SHA256(secret, "<timestamp>.<body>")`, ±5-minute replay window, ≤100 events per request (1 MB), events `{event_id, message_id, user_id, text, language?}`, signed outbound callback to an HTTPS URL the client registers; connectivity pings; staged integrations accept only a signed ping until go-live | Implemented; **tested with local test servers only** |
+| **`gco-webhook` (generic)** | a documented, signed HTTP contract: `X-GCO-Timestamp` + `X-GCO-Signature: v1=HMAC-SHA256(secret, "<timestamp>.<body>")`, ±5-minute replay window, ≤100 events per request (1 MB), events `{event_id, message_id, user_id, text, lang?, sent_at?}`, signed outbound callback to an HTTPS URL the client registers; connectivity pings; staged integrations accept only a signed ping until go-live | Implemented; **tested with local test servers only** |
 | Moderation feed | signed `POST /moderation/ingest/{id}` using the same adapter verification; payload is a **GCO proposal** to be confirmed per client | Implemented; proposal unvalidated |
 
 **A generic adapter does not prove that a named provider integration exists.** GCO has not integrated WhatsApp, Instagram, SMS, email or any specific chat/CRM product.

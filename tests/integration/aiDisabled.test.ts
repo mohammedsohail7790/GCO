@@ -48,3 +48,26 @@ describe('AI disabled: no generation, no jobs, no calls (real database)', () => 
     expect(await db.aiGeneration.count({ where: { conversationId: convId } })).toBe(0)
   })
 })
+
+describe('AI enabled globally, but a client set to HUMAN_ONLY gets no AI processing', () => {
+  it('generates nothing for that client and still works for an AI-assisted one', async () => {
+    process.env.AI_MASTER_SWITCH = 'enabled'; process.env.AI_PROVIDER = 'mock'
+    const base = `aih-${Date.now()}`
+    const mk = async (tag: string, aiMode: 'HUMAN_ONLY' | 'AI_ASSISTED') => {
+      const t = await db.tenant.create({ data: { name: `[TEST] ${base}-${tag}`, slug: `${base}-${tag}`, aiMode } })
+      const c = await db.conversation.create({ data: { tenantId: t.id, externalUserId: `${base}-${tag}`, state: 'ACTIVE' } })
+      const m = await db.message.create({ data: { tenantId: t.id, conversationId: c.id, direction: 'INBOUND', status: 'RECEIVED', content: 'hello there', externalMessageId: `${base}-${tag}` } })
+      return { t, c, m }
+    }
+    const human = await mk('h', 'HUMAN_ONLY'); const assisted = await mk('a', 'AI_ASSISTED')
+    const { generateSuggestionForMessage } = await import('@/lib/ai/service')
+    expect(await generateSuggestionForMessage(human.m.id)).toBeNull()
+    expect(await db.aiGeneration.count({ where: { tenantId: human.t.id } })).toBe(0)
+    expect(await generateSuggestionForMessage(assisted.m.id)).not.toBeNull() // mock provider, explicit test opt-in
+    const { memoryExtractionProcessor } = await import('@/workers/processors/memoryExtraction')
+    await memoryExtractionProcessor({ data: { conversationId: human.c.id, triggerMessageId: human.m.id } } as never)
+    expect(await db.aiMemory.count({ where: { tenantId: human.t.id } })).toBe(0)
+    for (const x of [human, assisted]) { await db.messageEvent.deleteMany({ where: { message: { tenantId: x.t.id } } }); await db.aiGeneration.deleteMany({ where: { tenantId: x.t.id } }); await db.aiMemory.deleteMany({ where: { tenantId: x.t.id } }); await db.message.deleteMany({ where: { tenantId: x.t.id } }); await db.conversation.deleteMany({ where: { tenantId: x.t.id } }); await db.tenant.delete({ where: { id: x.t.id } }) }
+    delete process.env.AI_MASTER_SWITCH; delete process.env.AI_PROVIDER
+  })
+})

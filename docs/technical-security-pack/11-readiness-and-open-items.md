@@ -3,7 +3,7 @@
 **Statement:** GCO can support, today, **controlled acceptance testing against a simulated client platform** by the team and the CEO. It has **not** been shown to be ready for a real client launch, and this pack does not claim it is.
 
 ## What GCO can support today (Verified in a local/test environment, 2026-10-20)
-Operator conversation handling with SLA, language routing, capacity and shift preference; escalation; client billing and operator pay with audit trails; onboarding wizard and invitations; moderation workflow; training, reports, privacy tooling (tested, not activated); role-based dashboards; the generic signed webhook contract against test doubles. **Test evidence:** typecheck and lint clean; 720 unit, 216 integration and 285 end-to-end tests passed on the AI-on (mock) test stack (5 specs skip themselves by design); on a stack with AI off, 286 end-to-end tests pass and only the two specs that test AI features fail, as expected.
+Operator conversation handling with SLA, language routing, capacity and shift preference; escalation; client billing and operator pay with audit trails; onboarding wizard and invitations; moderation workflow; training, reports, privacy tooling (tested, not activated); role-based dashboards; the generic signed webhook contract against test doubles. **Test evidence:** typecheck and lint clean; 720 unit, 217 integration and 296 end-to-end tests passed on the AI-on (mock) test stack (5 specs skip themselves by design); on a stack with AI off, 297 end-to-end tests pass and only the two specs that test AI features fail, as expected.
 
 ## Unresolved technical issues and gaps
 | Area | State |

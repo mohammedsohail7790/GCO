@@ -74,6 +74,25 @@ Before and after cutover: send to/from Gmail, Outlook and a neutral test inbox; 
 
 Within the first 30 days: set MX back to the three Zoho records (TTL is short), keep Zoho active; mail sent during the Google window stays in Google (re-forward or export it). SPF may keep both includes during the whole window. Rollback is safe only while the Zoho account still exists — do not cancel it early.
 
+## 10b. Preserving all existing email, and a REHEARSED rollback (CEO requirement)
+
+The CEO requires that **existing emails are preserved** and that a **tested rollback plan exists before anything changes**. Nothing here has been executed.
+
+**Preservation rules**
+1. Take a **complete export of every Zoho mailbox before any change** (Zoho export of each mailbox to EML/mbox, stored in a CEO-controlled location) and record per-folder message counts. This export is the safety net independent of any migration tool.
+2. **Never delete or downgrade the Zoho account or mailboxes until 30 days after cutover** and until the validation in §11 passes; Zoho stays the source of truth for history until then.
+3. Migrate history by **copy, not move**; compare counts (per folder) between Zoho and Google after migration; sample a few messages by subject only.
+4. Keep all aliases/forwarders documented before cutover and recreate them in Google; test each alias.
+
+**Rehearsal on a throwaway domain (no impact on the real domain)** — recommended before the real cutover:
+1. Register a cheap test domain (or use a subdomain such as `mail-test.<domain>` if the CEO approves; cost is small and one-time) and add it to a **Google Workspace trial/test account**.
+2. Create a Zoho **test mailbox on the test domain** with a handful of dummy messages in several folders.
+3. Perform the full sequence of §9 on the test domain: DNS (TXT, SPF, DKIM), migration (IMAP or export/import), MX change, delivery tests from Gmail/Outlook, DMARC check.
+4. **Rehearse the rollback:** set the test domain's MX back to Zoho, send new messages, confirm delivery returns to Zoho and nothing sent during the Google window is lost (it stays in Google and can be re-forwarded or exported).
+5. Record timings (DNS propagation observed, migration duration), problems found, and update this plan. Only when the rehearsal rollback worked is the real cutover scheduled.
+
+**Go/no-go for the real cutover:** export taken and verified; rehearsal completed including rollback; CEO present; low-traffic window; TTL lowered 24 h before; a person assigned to send and receive test mail from outside.
+
 ## 11. Post-migration validation
 
 DMARC aggregate reports show only expected senders; no bounce reports; the CEO confirms receiving external mail; calendar/recovery settings checked; Zoho shows no new mail for a week.

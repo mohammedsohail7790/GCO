@@ -1,6 +1,11 @@
 # 10 — CEO readiness report
 
-**For:** Cristian (CEO) · **From:** CTO office · **Date:** 2026-10-20 · **Recommendation: READY FOR REVIEW — NOT READY FOR CLIENT LAUNCH.**
+**For:** Cristian (CEO) · **From:** CTO office · **Date:** 2026-10-20 · ## Update after the CEO's reply (2026-10-21)
+Done since: a **full simulated client acceptance test** (11 of 11 steps pass; `13`), a ready-to-run **production restore** procedure and script (`11`; exercised only on a local dump), a **GitHub organization transfer** runbook and **ownership-agreement checklist** (`12`), a Workspace **rehearsal and rollback** plan that preserves all existing mail (`06` §10b), and the budget scope corrected to "€150 all-inclusive" (`05`). Writing the acceptance test exposed and fixed two defects (reconciliation compared the wrong messages; human-only clients still had AI output generated when AI was globally on) and one documentation error (`lang`, not `language`).
+**Still open from the CEO's priorities:** *Docker staging* (no Docker on this machine; needs a Docker host — `scripts/verify-docker-staging.sh` is ready), *testing a real production backup restore* (needs the dump and your approval), the GitHub organization (needs your account), and the ownership agreement (needs a lawyer). Production remains unchanged.
+Latest test totals: unit 720, integration 217, end-to-end 296 passed (AI-on mock stack) and 297 passed with the 2 expected AI-feature failures (AI-off stack).
+
+**Recommendation: READY FOR REVIEW — NOT READY FOR CLIENT LAUNCH.**
 The platform can go to **controlled acceptance testing against a simulated client platform**. It is not ready for a real client because the real integration, a production restore test, the server-side verification and the legal approvals are still missing. Nothing in production, DNS, accounts, subscriptions, permissions or data was changed.
 
 ## 1. What was audited
@@ -19,9 +24,9 @@ The repository (code, schema, migrations, deployment files, CI, scripts, 80+ doc
 |---|---|
 | Type check, lint | clean |
 | Unit | **720 passed** |
-| Integration (real PostgreSQL/Redis) | **216 passed** |
-| End-to-end, AI-on (mock) stack | **285 passed**, 5 skipped by design |
-| End-to-end, AI-**off** stack | **286 passed**, 2 failed — the two specs that test AI features, expected |
+| Integration (real PostgreSQL/Redis) | **217 passed** |
+| End-to-end, AI-on (mock) stack | **296 passed**, 5 skipped by design |
+| End-to-end, AI-**off** stack | **297 passed**, 2 failed — the two specs that test AI features, expected |
 | Dependency audit (production) | 0 vulnerabilities |
 | Not run | Docker build, GitHub Actions, any server, third-party scanners |
 

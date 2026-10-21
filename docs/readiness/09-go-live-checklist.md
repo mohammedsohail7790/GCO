@@ -10,11 +10,12 @@
 | Type check | PASS | `npm run typecheck` exit 0 |
 | Lint | PASS | `npm run lint` exit 0 |
 | Unit tests | PASS | 47 files, 720 passed |
-| Integration tests | PASS | 34 files, 216 passed (serial, real PostgreSQL/Redis) |
-| End-to-end tests | PASS | AI-on (mock opt-in) stack: **285 passed, 5 skipped** by design (2 staging-only, 3 AI-off specs); AI-off stack: **286 passed, 2 failed, 2 skipped** — the 2 failures are the specs that test AI features themselves (`01` suggestion step, `08` memory), expected and documented |
+| Integration tests | PASS | 34 files, 217 passed (serial, real PostgreSQL/Redis) |
+| End-to-end tests | PASS | AI-on (mock opt-in) stack: **296 passed, 5 skipped** by design (2 staging-only, 3 AI-off specs); AI-off stack: **297 passed, 2 failed, 2 skipped** — the 2 failures are the specs that test AI features themselves (`01` suggestion step, `08` memory), expected and documented. Includes the 11-step simulated client acceptance test (`53`). |
 | Database migration compatibility | PASS (local) | `scripts/migration-check.sh`: all 29 migrations apply to an **empty** database and the result matches `prisma/schema.prisma` exactly (no drift; the check was shown to fail on an empty database, exit 2); a restored copy reports "up to date"; **production migration NOT TESTED** |
 | Authentication and authorization | PASS | E2E `06`, `07`, `16`, `35`, `39`; route-guard test (193 cases) |
 | Tenant isolation | PASS (application layer) | E2E `05` and specs `39`–`51`; restore integrity checks for tenant consistency |
+| Full simulated client acceptance test | PASS (simulated) | `13-simulated-client-acceptance-test.md`: 11 of 11 steps; defects found and fixed; **not a real-client test** |
 | Core CRM and operator workflows | PASS (simulated client) | E2E `13`–`16`, `23`, `24`, `27`, `28`, `01`–`04`, `20`, `26` |
 
 ## Reliability
@@ -25,7 +26,7 @@
 | Retry and dead-letter handling | PASS (test double) | E2E `09`; real provider NOT TESTED |
 | Health checks and alerts | PASS (health) / PARTIAL (alerts) | `/health` verified; alert routing tested; **no paging, no error tracking** |
 | Redis/database outage recovery | NOT TESTED in this audit | earlier fault injection documented; not repeated |
-| Backup restoration | PARTIAL | local drill PASS (`04-backup-restore-test-report.md`); **production dump restore NOT TESTED** |
+| Backup restoration | PARTIAL | local drill PASS (`04-backup-restore-test-report.md`); a ready-to-run, safety-checked procedure and script for a real dump exist (`11-production-restore-runbook.md`, `scripts/restore-production-dump.sh`, exercised on a local dump file); **production dump restore NOT TESTED** (needs the dump and CEO approval) |
 | Recovery documentation | PASS (exists) / NOT TESTED (full rebuild drill) | `docs/disaster-recovery.md`, `04` |
 | Load behaviour | PARTIAL | local 3-minute sustained + burst PASS; soak/production topology NOT TESTED |
 
@@ -46,7 +47,7 @@
 |---|---|---|
 | Staging validated | PARTIAL | local second stack validated (`03-staging-validation.md`); **server staging and Docker NOT TESTED / BLOCKED** (approval + Docker host) |
 | Deployment and rollback documented | PASS (documented) / NOT TESTED (rollback drill) | `09` pack document, `docs/recovery-runbook.md` |
-| Access ownership agreed | BLOCKED | `07`, `08` — CEO/CTO/legal coordination |
+| Access ownership agreed | BLOCKED | `07`, `08`, `12` — GitHub organization transfer runbook and ownership-agreement checklist written; CEO + CTO + lawyer must act |
 | Incident escalation documented | PARTIAL | `docs/client-incident-process.md`; no breach-notification procedure or on-call rota |
 | Infrastructure budget reviewed | BLOCKED | `05` — needs invoices/quotes; CEO review |
 | Email migration plan reviewed | BLOCKED | `06` — CEO review and decision |

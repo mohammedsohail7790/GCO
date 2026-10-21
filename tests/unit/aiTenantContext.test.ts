@@ -40,6 +40,7 @@ vi.mock('@/lib/db/client', () => ({
     aiMemory: { findMany: async ({ where }: any) => { calls.mem.push(where); return store.memories.filter((m) => match(m, where)) } },
     aiGeneration: { create: async ({ data }: any) => { calls.gen = data; return data } },
     messageEvent: { create: async () => ({}) },
+    tenant: { findUnique: async () => ({ aiMode: 'AI_ASSISTED' }) },
   },
 }))
 

@@ -10,7 +10,7 @@ describe('invoices and reconciliation (real database)', () => {
   const usage = async (tenantId: string, n: number, at: Date, price = 14) => {
     const conv = await db.conversation.create({ data: { tenantId, externalUserId: `${base}-${Math.random()}`, state: 'ACTIVE' } })
     for (let i = 0; i < n; i++) {
-      const m = await db.message.create({ data: { tenantId, conversationId: conv.id, direction: 'OUTBOUND', status: 'DELIVERED', content: 'x', externalMessageId: `${base}-${Math.random()}`, createdAt: at } })
+      const m = await db.message.create({ data: { tenantId, conversationId: conv.id, direction: 'INBOUND', status: 'RECEIVED', content: 'x', externalMessageId: `${base}-${Math.random()}`, createdAt: at } })
       await db.usageRecord.create({ data: { tenantId, messageId: m.id, eventType: 'message_processed', priceEurCents: price, operatorCostEurCents: 6, idempotencyKey: `${base}-${m.id}`, source: 'test', createdAt: at } })
     }
   }
@@ -74,16 +74,17 @@ describe('invoices and reconciliation (real database)', () => {
     await db.invoice.deleteMany({ where: { tenantId: t2 } }); await db.ticket.deleteMany({ where: { tenantId: t2 } }); await db.user.delete({ where: { id: creator.id } })
   })
 
-  it('reconciliation exposes delivered messages that were never billed', async () => {
+  it('reconciliation exposes customer messages that were received but never billed (operator replies are not billed per message)', async () => {
     const t = await mkTenant('r')
     const s = new Date(Date.now() - 10 * D); const e = new Date(Date.now() - 1 * D)
     await usage(t, 3, new Date(s.getTime() + D))
     const conv = await db.conversation.create({ data: { tenantId: t, externalUserId: `${base}-r`, state: 'ACTIVE' } })
-    await db.message.create({ data: { tenantId: t, conversationId: conv.id, direction: 'OUTBOUND', status: 'DELIVERED', content: 'unbilled', externalMessageId: `${base}-unb`, createdAt: new Date(s.getTime() + D) } })
+    await db.message.create({ data: { tenantId: t, conversationId: conv.id, direction: 'INBOUND', status: 'RECEIVED', content: 'unbilled', externalMessageId: `${base}-unb`, createdAt: new Date(s.getTime() + D) } })
+    await db.message.create({ data: { tenantId: t, conversationId: conv.id, direction: 'OUTBOUND', status: 'DELIVERED', content: 'an operator reply', externalMessageId: `${base}-reply`, createdAt: new Date(s.getTime() + D) } }) // never expected to have a usage record
     const r = await reconcile(t, s, e)
-    expect(r.activity).toEqual({ billableMessages: 3, deliveredOperatorMessages: 4 })
+    expect(r.activity).toEqual({ billableMessages: 3, customerMessagesReceived: 4 })
     expect(r.clientBilling.billedPerUsageEurCents).toBe(42)
-    expect(r.mismatches.deliveredWithoutUsageRecord).toBe(1)
+    expect(r.mismatches.receivedWithoutUsageRecord).toBe(1) // exactly the unbilled customer message, not the reply
     expect(r.mismatches.usageVsInvoiceDifferenceEurCents).toBeNull()
   })
 })

@@ -1,4 +1,6 @@
-# 05 — Infrastructure budget (target ≈ €150 / month)
+# 05 — Infrastructure budget (target €150 / month, **all-inclusive**)
+
+**CEO clarification (2026-10-20):** the €150 per month target covers **all existing infrastructure and services together**, not only new ones. The CEO will supply the missing billing information. When it arrives, fill the *Monthly estimate* column of the table below for every row (including rows that look free) and add the rows' sum; compare the sum with €150 before approving any new spend (Google Workspace seats, a staging server, monitoring).
 
 **Bottom line: the €150 target can neither be confirmed nor rejected yet.** Only two things were verifiable from here (the repository and public vendor pages): the services in use, and that several of them are on free plans. **No invoice, billing page or account was accessible, and the vendor pricing pages checked did not show EUR prices to the tool used** (Google showed INR, Hetzner showed "from … /month" without an amount, Zoho showed no paid prices). **No price below has been inferred from a resource name.** Nothing was purchased, upgraded, cancelled or resized.
 

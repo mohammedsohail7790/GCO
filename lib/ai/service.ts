@@ -48,6 +48,9 @@ export async function generateSuggestionForMessage(messageId: string) {
   const message = await db.message.findUniqueOrThrow({ where: { id: messageId } })
 
   if (!flags.aiSuggestions) return null
+  // A client set to HUMAN_ONLY never gets AI output generated (not merely hidden): no provider call, no stored suggestion.
+  const tenantMode = await db.tenant.findUnique({ where: { id: message.tenantId }, select: { aiMode: true } })
+  if (tenantMode?.aiMode === 'HUMAN_ONLY') return null
 
   let provider
   try {

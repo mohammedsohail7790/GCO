@@ -10,7 +10,7 @@ No AI-generated content is produced, stored, shown to operators or sent to clien
 | `lib/ai/provider.ts`, `providers/mock.ts`, `providers/openai.ts` | provider abstraction; deterministic mock; OpenAI client | `getAiProvider()` throws `AiDisabledError` on every call; the OpenAI client is never constructed |
 | `lib/ai/service.ts`, worker `aiSuggestion`, `memoryExtraction` | suggestion and "memory" extraction pipeline | not enqueued; a job already in the queue returns without calling anything; no rows are written |
 | Operator workspace AI panel | shows a suggestion if one exists | nothing to show; suggestion endpoint returns `generation: null` |
-| Per-client AI mode (`HUMAN_ONLY` / `AI_ASSISTED`; `AI_PLUS_HUMAN` refused) | per-client policy for when AI is later enabled | irrelevant while the master switch is off |
+| Per-client AI mode (`HUMAN_ONLY` / `AI_ASSISTED`; `AI_PLUS_HUMAN` refused) | per-client policy for when AI is later enabled | irrelevant while the master switch is off; even with AI enabled, a `HUMAN_ONLY` client gets **no generation, no stored suggestion and no memory extraction** (not merely hidden) — tested (`aiDisabled`, acceptance test step 11) |
 
 ## Controls that keep it off
 1. **Master switch** `AI_MASTER_SWITCH` — only the exact value `enabled` turns anything on (`true`, `1`, `yes`, other cases, typos, unset: all off).

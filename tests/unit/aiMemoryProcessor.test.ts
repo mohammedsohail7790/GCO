@@ -16,6 +16,7 @@ vi.mock('@/lib/db/client', () => {
   }
   const db: any = {
     conversation: { findUniqueOrThrow: async () => ({ id: 'conv-A', tenantId: 'tenant-A', externalUserId: 'ext-1' }) },
+    tenant: { findUnique: async () => ({ aiMode: 'AI_ASSISTED' }) },
     message: { findFirst: async ({ where }: any) => (where.id === 'trig' && where.conversationId === 'conv-A' && where.tenantId === 'tenant-A' ? { id: 'trig' } : null) },
     systemEvent: { create: async ({ data }: any) => state.events.push(data) },
     aiMemory,

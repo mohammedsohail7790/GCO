@@ -15,6 +15,7 @@ export async function memoryExtractionProcessor(
   const conversation = await db.conversation.findUniqueOrThrow({ where: { id: conversationId } })
   // tenantId is derived from the trusted conversation row, never from job input.
   const tenantId = conversation.tenantId
+  if ((await db.tenant.findUnique({ where: { id: tenantId }, select: { aiMode: true } }))?.aiMode === 'HUMAN_ONLY') return // human-only clients: no AI processing at all
 
   // The trigger message must belong to this same conversation AND tenant, or the
   // job is malformed/cross-tenant and is skipped without touching the provider.

@@ -6,7 +6,7 @@ import { apiFetch } from '@/lib/api/client'
 interface Tenant { id: string; name: string }
 interface Settings { billingModel: string; pricePerMessageEurCents: number; operatorCostPerMessageEurCents: number; pricePerTicketEurCents: number | null; pricePerHourEurCents: number | null; monthlyFeeEurCents: number | null; vatRatePercent: number; vatNote: string | null; paymentTermsDays: number }
 interface Invoice { id: string; number: string | null; tenantId: string; status: 'DRAFT' | 'ISSUED' | 'PAID' | 'VOID'; periodStart: string; periodEnd: string; totalEurCents: number; billingModel: string; dueAt: string | null }
-interface Recon { activity: { billableMessages: number; deliveredOperatorMessages: number }; clientBilling: { billedPerUsageEurCents: number; invoicedSubtotalEurCents: number }; operatorCompensation: { ledgerCostEurCents: number; owedEurCents: number; payableMessages: number; pendingMessages: number; rejectedMessages: number }; margin: { grossEurCents: number; grossPercent: number | null }; mismatches: { deliveredWithoutUsageRecord: number; deliveredWithoutEarningLine: number; usageVsInvoiceDifferenceEurCents: number | null } }
+interface Recon { activity: { billableMessages: number; customerMessagesReceived: number }; clientBilling: { billedPerUsageEurCents: number; invoicedSubtotalEurCents: number }; operatorCompensation: { ledgerCostEurCents: number; owedEurCents: number; payableMessages: number; pendingMessages: number; rejectedMessages: number }; margin: { grossEurCents: number; grossPercent: number | null }; mismatches: { receivedWithoutUsageRecord: number; deliveredWithoutEarningLine: number; usageVsInvoiceDifferenceEurCents: number | null } }
 
 const eur = (c: number | null) => (c === null ? '–' : new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR' }).format(c / 100))
 const toCents = (v: string) => (v.trim() === '' ? null : Math.round(parseFloat(v.replace(',', '.')) * 100))
@@ -68,11 +68,11 @@ export default function BillingPage() {
         </div>
         {recon && (
           <div className="mt-3 grid gap-x-8 gap-y-1 text-sm sm:grid-cols-2">
-            <p>Billable messages <b>{recon.activity.billableMessages}</b> · delivered operator messages <b>{recon.activity.deliveredOperatorMessages}</b></p>
+            <p>Billable messages <b>{recon.activity.billableMessages}</b> · customer messages received <b>{recon.activity.customerMessagesReceived}</b></p>
             <p>Billed (usage ledger) <b>{eur(recon.clientBilling.billedPerUsageEurCents)}</b> · invoiced <b>{eur(recon.clientBilling.invoicedSubtotalEurCents)}</b></p>
             <p>Operators owed <b>{eur(recon.operatorCompensation.owedEurCents)}</b> ({recon.operatorCompensation.payableMessages} payable, {recon.operatorCompensation.pendingMessages} pending, {recon.operatorCompensation.rejectedMessages} rejected)</p>
             <p>Gross margin <b>{eur(recon.margin.grossEurCents)}</b>{recon.margin.grossPercent !== null && ` (${recon.margin.grossPercent}%)`}</p>
-            <p className={recon.mismatches.deliveredWithoutUsageRecord ? 'font-semibold text-red-700' : 'text-slate-500'}>Delivered but never billed: {recon.mismatches.deliveredWithoutUsageRecord}</p>
+            <p className={recon.mismatches.receivedWithoutUsageRecord ? 'font-semibold text-red-700' : 'text-slate-500'}>Customer messages received but not billed: {recon.mismatches.receivedWithoutUsageRecord}</p>
             <p className={recon.mismatches.deliveredWithoutEarningLine ? 'font-semibold text-amber-700' : 'text-slate-500'}>Operator messages with no earning line: {recon.mismatches.deliveredWithoutEarningLine}</p>
           </div>
         )}
