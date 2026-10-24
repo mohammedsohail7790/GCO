@@ -30,6 +30,9 @@ services:
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
+    # Staging must never starve production on the shared 8 GB host (docs/readiness/20). Tune after the read-only memory check.
+    mem_limit: 256m
+    cpus: 0.4
     logging: *default-logging
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-gco}
@@ -46,6 +49,9 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    # Staging must never starve production on the shared 8 GB host (docs/readiness/20). Tune after the read-only memory check.
+    mem_limit: 64m
+    cpus: 0.1
     logging: *default-logging
     volumes:
       - staging_redis_data:/data
@@ -58,6 +64,9 @@ services:
   web:
     build: { context: ., dockerfile: Dockerfile, args: *build-args }
     restart: unless-stopped
+    # Staging must never starve production on the shared 8 GB host (docs/readiness/20). Tune after the read-only memory check.
+    mem_limit: 400m
+    cpus: 0.5
     logging: *default-logging
     depends_on:
       postgres: { condition: service_healthy }
@@ -78,6 +87,9 @@ services:
   worker:
     build: { context: ., dockerfile: Dockerfile, args: *build-args }
     restart: unless-stopped
+    # Staging must never starve production on the shared 8 GB host (docs/readiness/20). Tune after the read-only memory check.
+    mem_limit: 256m
+    cpus: 0.3
     logging: *default-logging
     depends_on:
       postgres: { condition: service_healthy }
@@ -89,6 +101,9 @@ services:
   realtime:
     build: { context: ., dockerfile: Dockerfile, args: *build-args }
     restart: unless-stopped
+    # Staging must never starve production on the shared 8 GB host (docs/readiness/20). Tune after the read-only memory check.
+    mem_limit: 160m
+    cpus: 0.2
     logging: *default-logging
     depends_on:
       postgres: { condition: service_healthy }

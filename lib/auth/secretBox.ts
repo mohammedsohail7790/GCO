@@ -6,7 +6,7 @@ import crypto from 'crypto'
 
 function key(): Buffer {
   const secret = process.env.AUTH_SECRET
-  if (!secret || secret.length < 16) throw new Error('AUTH_SECRET is not set')
+  if (!secret || secret.length < 32) throw new Error('AUTH_SECRET is not set or shorter than 32 characters')
   return Buffer.from(crypto.hkdfSync('sha256', secret, 'gco-secret-box-v1', 'totp-seed', 32))
 }
 

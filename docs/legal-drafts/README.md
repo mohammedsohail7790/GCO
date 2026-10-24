@@ -1,5 +1,7 @@
 # Legal drafts — NOT legally approved
 
+> **Start with [`00-pack-status-and-open-questions.md`](00-pack-status-and-open-questions.md)** for the current status, corrections and the issues that need qualified legal input.
+
 **Every document in this folder is a working draft prepared from the GDPR text (Regulation (EU) 2016/679) and the structure of the European Commission's and EDPB's published guidance. None has been reviewed by a lawyer or a data-protection authority. Do not sign, publish or send them to a client as final.** The CEO has no lawyer budget; these drafts reduce the cost of a later one-time review and let the business operate carefully in the meantime.
 
 | # | Draft | Who it binds | Review need before first real client |
@@ -11,6 +13,8 @@
 | 05 | Data-retention schedule | internal + referenced in the DPA | Recommended (periods are provisional) |
 | 06 | Remote access and international transfers (CTO in India/Dubai) | internal + DPA annex | **Required** before any real personal data is touched from outside the EU/EEA |
 | 07 | Record of processing activities (Art. 30) | GCO | Recommended |
+| 08 | Software ownership and IP assignment (CEO and CTO) | the two founders | **Required**: qualified legal input (Italian law); both parties need independent advice |
+| 09 | Personal data breach procedure | internal + referenced in the DPA | Recommended (short review of thresholds); the procedure itself is mandatory |
 
 ## Gate that is already enforced
 
@@ -29,4 +33,4 @@ I could not open these pages in this environment to confirm their current wordin
 ## Facts used in the drafts (confirm each)
 
 - Business: **Osarunwense Cristian Idiaghe**, sole proprietor, Italian VAT IT03228830307. Registered address: **to be confirmed with the accountant** — placeholders `[REGISTERED ADDRESS]` appear where it is needed. The home address is deliberately not used.
-- Platform: AI disabled; operators are human; data in a Hetzner server in Nuremberg (Germany), Backblaze B2 EU bucket for encrypted offsite dumps, Cloudflare (DNS/proxy), email on Google Workspace (after migration). Sub-processors list in 02 Annex III.
+- Platform: AI disabled; operators are human; data in a Hetzner server in Nuremberg (Germany), Backblaze B2 EU bucket for offsite dumps (provider-side encryption only; not encrypted by GCO before upload — fix planned, see `docs/readiness/19`), Cloudflare (DNS/proxy), email on Google Workspace (after migration). Sub-processors list in 02 Annex III.

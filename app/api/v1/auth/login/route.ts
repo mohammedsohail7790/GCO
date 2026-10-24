@@ -11,6 +11,7 @@ import { isRateLimited, RATE_LIMITS } from '@/lib/api/rateLimit'
 import { getClientIp } from '@/lib/api/clientIp'
 import { isTenantActive } from '@/lib/tenant/activity'
 import { verifySecondFactor } from '@/lib/auth/twoFactor'
+import { twoFactorEnrolmentRequired } from '@/lib/auth/twoFactorPolicy'
 
 const LoginSchema = z.object({
   email: z.string().email(),
@@ -53,6 +54,12 @@ export async function POST(req: NextRequest) {
         ipAddress: ip,
       })
       return fail('Invalid credentials', 401)
+    }
+
+    // Optional policy (REQUIRE_TWO_FACTOR_ROLES): privileged roles without two-factor are refused, after the password is right.
+    if (twoFactorEnrolmentRequired(user.role, user.totpEnabledAt)) {
+      await writeAuditLog({ tenantId: user.tenantId, actorUserId: user.id, action: 'auth.2fa_enrolment_required', resource: 'user', resourceId: user.id, ipAddress: ip })
+      return fail('Two-factor sign-in is required for your role and is not set up on this account. Contact the account owner.', 403, 'TWO_FACTOR_ENROLMENT_REQUIRED')
     }
 
     // Second factor, asked for only AFTER the password is right (so the prompt never confirms an email on its own).

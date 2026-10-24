@@ -17,7 +17,7 @@
 
 ## Who receives data
 
-Hetzner Online GmbH (hosting, Germany); Backblaze (encrypted offsite backups, EU region); Cloudflare (DNS/proxy); Google Workspace (email); our accountant. Each acts under a processing agreement or its standard terms [confirm DPAs signed]. We do not sell personal data.
+Hetzner Online GmbH (hosting, Germany); Backblaze (offsite backups in a private bucket in an EU region, protected by the provider's server-side encryption); Cloudflare (DNS/proxy); Google Workspace (email); our accountant. Each acts under a processing agreement or its standard terms [confirm DPAs signed]. We do not sell personal data.
 
 ## Transfers outside the EU/EEA
 

@@ -25,3 +25,4 @@ gco-backup-b2.env
 !.env.example
 .next-staging
 !.env.staging.example
+deliverables/dns/private/

@@ -20,8 +20,8 @@ h. Make available information to demonstrate compliance and allow audits (reason
 ## 3. AI
 No AI processes Controller data. The platform's AI master switch is disabled. Enabling any AI processing requires a written amendment and a new Annex III entry.
 
-## 4. International transfers
-Data are stored in the EU (Germany). Remote access from outside the EU/EEA (e.g. India, UAE) happens only under draft 06 safeguards (SCCs module 3 processor-to-processor where needed, view-only access, no local copies, logging) and is disclosed to the Controller [confirm].
+## 4. International transfers and location of access
+Data are stored in the EU (Germany). **For the first client, as decided by the CEO on 2026-10-23: operators are located in the EU/EEA, and no person outside the EU/EEA accesses the Controller's personal data.** Access to production systems by technical staff outside the EU/EEA (currently India) to data that includes the Controller's personal data stays **closed** until the safeguards in draft 06 and `docs/readiness/18` are in place and, where required, the EU standard contractual clauses for transfers (Decision (EU) 2021/914) have been agreed and assessed with qualified legal input. Any later change is notified to the Controller as a change to this section and Annex III.
 
 ## 5. Liability and governing law — [LAWYER]
 
@@ -29,12 +29,12 @@ Data are stored in the EU (Germany). Remote access from outside the EU/EEA (e.g.
 Categories, retention per client (platform setting `messageRetentionDays`), languages, service hours.
 
 ## Annex II — Technical and organisational measures (facts, verified in `docs/technical-security-pack/05-security-controls.md`)
-Role-based access with tenant isolation at application level (no row-level database security — disclosed limitation); hashed passwords, optional two-factor; signed webhooks; rate limiting; audit log; encrypted offsite backups; AI disabled; retention and redaction tools; breach alert routing. Not yet in place and not to be claimed: certifications (ISO 27001/SOC 2), penetration test by a third party, 24/7 paging.
+Role-based access with tenant isolation at application level (no row-level database security — disclosed limitation); hashed passwords, optional two-factor; signed webhooks; rate limiting; audit log; offsite backups in a private bucket with provider-side encryption (client-side encryption of dumps is planned and must not be claimed until done); AI disabled; retention and redaction tools; breach alert routing. Not yet in place and not to be claimed: certifications (ISO 27001/SOC 2), penetration test by a third party, 24/7 paging.
 
 ## Annex III — Sub-processors
 | Name | Service | Location |
 |---|---|---|
 | Hetzner Online GmbH | hosting | Germany |
-| Backblaze, Inc. | encrypted offsite backups | EU region (verify bucket region) |
+| Backblaze, Inc. | offsite backups (private bucket; provider-side encryption; **not additionally encrypted by GCO before upload today, planned**) | EU region (verify bucket region and the provider's own EU/US group entity) |
 | Cloudflare, Inc. | DNS/proxy | global edge [review transfer terms] |
 | Google Ireland Ltd (Workspace) | staff email | EU |

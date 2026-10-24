@@ -54,6 +54,22 @@ fi
 chmod 600 "$DEST"
 log "backup succeeded: $DEST ($(du -h "$DEST" | cut -f1))"
 
+# Optional encryption (finding F3). If the recipients file exists, the dump is encrypted with age and ONLY the encrypted file is kept and
+# uploaded, so root on this server can write backups but not read them. Restores then need the private key held offline by the CEO
+# (scripts/decrypt-backup.sh, docs/readiness/20). Without the recipients file the behaviour is unchanged (plain dump).
+AGE_RECIPIENTS_FILE="${AGE_RECIPIENTS_FILE:-/etc/gco-backup-age-recipients.txt}"
+if [ -s "$AGE_RECIPIENTS_FILE" ]; then
+  SCRIPT_DIR_ENC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  if "${SCRIPT_DIR_ENC}/encrypt-backup.sh" "$DEST" "${DEST}.age" "$AGE_RECIPIENTS_FILE"; then
+    rm -f "$DEST"
+    DEST="${DEST}.age"
+    log "encrypted backup ready: $DEST"
+  else
+    rm -f "${DEST}.age"
+    fail "encryption configured but failed; plain dump kept locally, nothing uploaded"
+  fi
+fi
+
 # Offsite copy to Backblaze B2 (see scripts/b2-upload.py). Credentials arrive
 # only via the environment (systemd EnvironmentFile=/etc/gco-backup-b2.env) -
 # never as arguments, never logged. The local dump is never touched or deleted
@@ -71,7 +87,7 @@ fi
 
 # Retention: delete backups older than RETENTION_DAYS. Never touches
 # anything outside $BACKUP_DIR, never touches non-matching filenames.
-find "$BACKUP_DIR" -maxdepth 1 -name 'gco-postgres-*.dump' -mtime "+${RETENTION_DAYS}" -print -delete | while read -r removed; do
+find "$BACKUP_DIR" -maxdepth 1 \( -name 'gco-postgres-*.dump' -o -name 'gco-postgres-*.dump.age' \) -mtime "+${RETENTION_DAYS}" -print -delete | while read -r removed; do
   log "removed old backup (older than ${RETENTION_DAYS}d): $removed"
 done
 

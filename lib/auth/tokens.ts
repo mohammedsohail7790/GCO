@@ -10,8 +10,8 @@ export interface AccessTokenClaims {
 
 function getSecret(): Uint8Array {
   const secret = process.env.AUTH_SECRET
-  if (!secret || secret.length < 16) {
-    throw new Error('AUTH_SECRET is not configured (set a long random value in .env)')
+  if (!secret || secret.length < 32) {
+    throw new Error('AUTH_SECRET is not configured or too short (set a random value of at least 32 characters in .env)')
   }
   return new TextEncoder().encode(secret)
 }

@@ -15,6 +15,14 @@ set -euo pipefail
 : "${DUMP_FILE:?set DUMP_FILE to the downloaded dump}"
 : "${TARGET_ADMIN_URL:?set TARGET_ADMIN_URL to a throwaway PostgreSQL server (no database name)}"
 [ -s "$DUMP_FILE" ] || { echo "dump file missing or empty"; exit 1; }
+# An age-encrypted dump (gco-postgres-<timestamp>.dump.age) is decrypted to a private temp file first; needs AGE_IDENTITY_FILE (the CEO's private key).
+DECRYPTED_TMP=""
+case "$DUMP_FILE" in *.age)
+  : "${AGE_IDENTITY_FILE:?set AGE_IDENTITY_FILE to the private key file to restore an encrypted dump}"
+  DECRYPTED_TMP="$(mktemp -t gco-decrypted-XXXXXX.dump)"; rm -f "$DECRYPTED_TMP"
+  "$(dirname "${BASH_SOURCE[0]}")/decrypt-backup.sh" "$DUMP_FILE" "$DECRYPTED_TMP"
+  ORIGINAL_NAME="$(basename "$DUMP_FILE")"; DUMP_FILE="$DECRYPTED_TMP" ;;
+esac
 PG_BIN="${PG_BIN:-}"; p() { if [ -n "$PG_BIN" ]; then echo "$PG_BIN/$1"; else echo "$1"; fi; }
 read -r U H PORT < <(python3 - "$TARGET_ADMIN_URL" <<'PY'
 import sys, urllib.parse as u
@@ -25,8 +33,8 @@ case "$H" in localhost|127.*|::1) ;; *) [ "${ALLOW_REMOTE_TARGET:-}" = "yes" ] |
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DB="gco_prodrestore_$(date -u +%s)"
 REPORT="restore-report-$(date -u +%Y%m%dT%H%M%SZ).md"
-STAMP="$(basename "$DUMP_FILE" | sed -nE 's/.*-([0-9]{8}T[0-9]{6}Z)\.dump/\1/p')"
-cleanup() { "$(p dropdb)" --if-exists -h "$H" -p "$PORT" -U "$U" "$DB" >/dev/null 2>&1 || true; }
+STAMP="$(basename "${ORIGINAL_NAME:-$DUMP_FILE}" | sed -nE 's/.*-([0-9]{8}T[0-9]{6}Z)\.dump(\.age)?$/\1/p')"
+cleanup() { "$(p dropdb)" --if-exists -h "$H" -p "$PORT" -U "$U" "$DB" >/dev/null 2>&1 || true; [ -z "${DECRYPTED_TMP:-}" ] || rm -f "$DECRYPTED_TMP"; }
 trap cleanup EXIT
 q() { "$(p psql)" -At -h "$H" -p "$PORT" -U "$U" -d "$DB" -c "$1"; }
 
