@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { requirePermission } from '@/lib/api/guard'
 import { db } from '@/lib/db/client'
+import { isAiEnabled } from '@/lib/ai/guard'
 import { ok, fail, handleRouteError } from '@/lib/api/response'
 
 /** Latest AI suggestion for a conversation - the "AI suggested response" panel. */
@@ -20,6 +21,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     if (session.role !== 'CEO_ADMIN' && session.tenantId !== conversation.tenantId) {
       return fail('Forbidden', 403)
     }
+
+    // AI master switch off: never serve a suggestion, including rows stored while AI was previously enabled.
+    if (!isAiEnabled()) return ok({ generation: null, aiMode: 'DISABLED' })
 
     // Human-only clients never see AI suggestions (the operator works without them).
     const tenant = await db.tenant.findUnique({ where: { id: conversation.tenantId }, select: { aiMode: true } })
