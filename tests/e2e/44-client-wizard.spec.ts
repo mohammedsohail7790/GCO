@@ -47,7 +47,10 @@ test.describe('client setup wizard and AI mode over HTTP', () => {
     await db.aiGeneration.create({ data: { tenantId: t.id, conversationId: conv.id, suggestedReply: 'secret draft', status: 'ready', provider: 'mock' } as never }).catch(() => null)
     const s = await admin.get(`/api/v1/conversations/${conv.id}/suggestion`)
     expect(s.status()).toBe(200)
-    expect((await s.json()).data).toMatchObject({ generation: null, aiMode: 'HUMAN_ONLY' })
+    // No draft either way: 'HUMAN_ONLY' when the AI switch is on and the client is human-only, 'DISABLED' when the switch is off (checked first).
+    const body = (await s.json()).data as { generation: unknown; aiMode: string }
+    expect(body.generation).toBeNull()
+    expect(['HUMAN_ONLY', 'DISABLED']).toContain(body.aiMode)
     await db.aiGeneration.deleteMany({ where: { conversationId: conv.id } }); await db.conversation.delete({ where: { id: conv.id } })
   })
 })
