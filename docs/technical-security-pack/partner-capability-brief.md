@@ -21,7 +21,7 @@ Specification: `docs/gco-webhook-contract.md`. Effort is classified (simple / mo
 ## 3. Operations capabilities
 | Capability | What exists today |
 |---|---|
-| Queue management | Conversations queue per client and language. Assignment is automatic, race-safe and respects operator capacity (default 2 at a time) and shift. With no operator free, work stays queued and is retried every 15 seconds. |
+| Queue management | Conversations queue per client and language. Assignment is automatic, race-safe and respects operator capacity (default 2 at a time) and language, and prefers operators who are on shift (it never excludes an available operator). With no operator free, work stays queued and is retried every 15 seconds. |
 | Operator supervision | Supervisors and managers see live queues and their own teams, can transfer a conversation, reopen it, resume an operator who has been paused and handle escalations. |
 | Quality assurance | Supervisors score sent replies in a QA review; only real reviews feed the QA summary. |
 | SLA monitoring | Each assignment has a response deadline. On expiry the conversation is reassigned; after 5 consecutive expiries (configurable) it is flagged for a manager. Expiries and escalations are audited. |

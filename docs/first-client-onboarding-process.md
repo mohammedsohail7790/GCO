@@ -15,6 +15,9 @@
 | 8 | Go-live decision | CEO only | Pilot starts (`docs/7-day-pilot-operations.md`) | Go-live checklist all Pass, restore test of production backups done, CEO approval in writing. |
 | 9 | Pilot review | CEO and client | Measured results (`docs/pilot-metrics.md`) | Continue only on measured results. |
 
+## Go-live conditions (CEO, 2026-10-27)
+No real client goes live until all of these are complete: signed and professionally reviewed agreements; approved technical scope and integration requirements; data-processing arrangements; validated operator recruitment and training; integration and acceptance testing; security and backup-recovery checks; final written go-live approval. Commercial discussions and technical discovery may continue before these are complete, but no production data is accepted and no delivery dates are promised.
+
 ## What is not ready for a real client today
 Real integration (needs the client's specification and sandbox), production backup restore test, third-party security test, legal documents, tax code and registered address on invoices, Italian e-invoicing. AI stays off.
 

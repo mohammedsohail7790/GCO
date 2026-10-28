@@ -32,10 +32,31 @@ async function resetShowcase(tenantId: string) {
   console.log('Showcase reset: demo tenant conversations, QA reviews and local onboarding rows cleared.')
 }
 
+/** A second fictional client with its own login, so a demo can show that one client never sees another client's data. Idempotent. */
+async function ensureSecondClient() {
+  const tenant = await db.tenant.upsert({ where: { slug: 'demo-travel-co' }, update: {}, create: { name: 'Northbay Travel (demo)', slug: 'demo-travel-co', defaultResponseSlaSeconds: 300 } })
+  const hash = (await db.user.findUniqueOrThrow({ where: { email: 'client@demo.gco' } })).passwordHash
+  await db.user.upsert({ where: { email: 'client2@demo.gco' }, update: {}, create: { email: 'client2@demo.gco', passwordHash: hash, role: 'CLIENT', displayName: 'Riley Chen', tenantId: tenant.id } })
+  if ((await db.conversation.count({ where: { tenantId: tenant.id } })) > 0) return
+  const opUser = await db.user.upsert({ where: { email: 'operator4@demo.gco' }, update: {}, create: { email: 'operator4@demo.gco', passwordHash: hash, role: 'OPERATOR', displayName: 'Nina Rossi', tenantId: tenant.id } })
+  const op = (await db.operator.findUnique({ where: { userId: opUser.id } })) ?? (await db.operator.create({ data: { userId: opUser.id, tenantId: tenant.id, languages: ['it', 'en'], status: 'OFFLINE', capacity: 2 } }))
+  const rows = [
+    { lang: 'it', customer: 'Giulia Ferri', msg: 'Buongiorno, vorrei cambiare la data del mio viaggio di prova.', reply: 'Buongiorno Giulia, certo. Le propongo due nuove date e conferma quella che preferisce.', minutesAgo: 95 },
+    { lang: 'en', customer: 'Tom Hughes', msg: 'Can I add a bag to my demo booking?', reply: 'Hi Tom, yes. I have added one checked bag to your booking and sent the updated confirmation.', minutesAgo: 60 },
+  ]
+  for (const [i, r] of rows.entries()) {
+    const conv = await db.conversation.create({ data: { tenantId: tenant.id, externalUserId: r.customer, state: 'WAITING_FOR_CLIENT', language: r.lang, createdAt: ago(r.minutesAgo) } })
+    await db.message.create({ data: { tenantId: tenant.id, conversationId: conv.id, direction: 'INBOUND', status: 'RECEIVED', content: r.msg, externalMessageId: `showcase2-in-${i}`, createdAt: ago(r.minutesAgo) } })
+    await db.message.create({ data: { tenantId: tenant.id, conversationId: conv.id, direction: 'OUTBOUND', status: 'DELIVERED', content: r.reply, externalMessageId: `showcase2-out-${i}`, operatorId: op.id, sentAt: ago(r.minutesAgo - 4), deliveredAt: ago(r.minutesAgo - 4), createdAt: ago(r.minutesAgo - 4) } })
+  }
+  console.log('Second demo client created: Northbay Travel (demo), login client2@demo.gco, 2 answered conversations (it/en).')
+}
+
 async function main() {
   assertSeedAllowed()
   const tenant = await db.tenant.findFirstOrThrow({ where: { slug: 'demo-dating-app' } })
   if (process.argv.includes('--reset')) await resetShowcase(tenant.id)
+  await ensureSecondClient()
   if ((await db.conversation.count({ where: { tenantId: tenant.id } })) > 3) {
     console.log('Showcase data already present (tenant has conversations) - nothing to do.')
     return

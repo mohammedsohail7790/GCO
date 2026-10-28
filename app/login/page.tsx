@@ -73,8 +73,8 @@ export default function LoginPage() {
             Conversations handled fast, approved by humans.
           </h1>
           <p className="max-w-sm text-sm leading-relaxed text-slate-400">
-            Every incoming conversation is queued, assigned under an enforced SLA, and drafted by AI —
-            but only a human operator can ever send a reply.
+            Every incoming conversation is queued and assigned under an enforced SLA,
+            and every reply is written and sent by a human operator.
           </p>
           <ul className="space-y-3 pt-2 text-sm text-slate-300">
             <li className="flex items-center gap-2.5">
@@ -87,7 +87,7 @@ export default function LoginPage() {
               <svg className="h-4 w-4 shrink-0 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
               </svg>
-              AI drafts every reply — a human sends every reply
+              Every reply is written and sent by a human operator
             </li>
             <li className="flex items-center gap-2.5">
               <svg className="h-4 w-4 shrink-0 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
