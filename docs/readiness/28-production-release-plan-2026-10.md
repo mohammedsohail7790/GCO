@@ -114,3 +114,8 @@ Not covered by G3: login/2FA on real accounts (passwords are not available), the
 - **Database rollback:** `pg_restore --clean --if-exists` over the migrated database **failed** (exit 1, dependency errors, new tables left behind). Corrected procedure (drop and recreate the `public` schema, then restore): exit 0, 0 warnings, 16 migrations, same row counts, 0 new-schema tables, old web health OK. §7 is updated.
 - **Not exercised:** the compose-level recreate on the live stack and the image re-tag commands (cannot be isolated); old worker handling real jobs; sign-in on restored data.
 - Cleanup verified: no rehearsal containers, networks or images; rehearsal folder and scripts removed; logs `~/g4.log` and `~/g4b.log` kept on the server.
+
+## 13. Repeat rehearsal and production record check (2026-10-29)
+- Second isolated rollback rehearsal (same corrected procedure) gave the same result as the first: 16 → 29 → 16 migrations, restore exit 0 with 0 warnings, same row counts, 0 leftover new tables, old web healthy before and after; cleanup verified, production services unchanged.
+- Production records (read-only, no message text): 5 `@demo.gco` seed users, 2 GCO staff accounts, 1 `[DEMO]` tenant, 1 demo message. No real client data.
+- New spec `tests/e2e/01b-message-lifecycle-ai-off.spec.ts` covers the full lifecycle with AI off; passed on the AI-off stack.
