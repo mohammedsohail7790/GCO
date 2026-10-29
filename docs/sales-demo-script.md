@@ -1,64 +1,48 @@
-# GCO Live Sales Demo Script
+# GCO CRM Demo Script — six minutes
 
-**Audience:** business owners, operations/customer-support managers, e-commerce businesses evaluating outsourced conversation operations.
-**Duration:** ~9 minutes, live against the real production deployment.
-**Environment:** `https://globalconversationoperations.com` (corporate site) and `https://app.globalconversationoperations.com` (CRM/platform). Both are the actual production system - nothing shown is a mockup.
+**Replaces** the earlier live-on-production script (retired: it showed production, a Hunter sales pipeline and AI wording that no longer apply). Matches the run sheet of 27 Oct 2026.
 
-## Before the call
+**First use:** Silver Bell Group, Tue 3 Nov 2026, 13:00 CET (about 6 minutes inside a 25-minute meeting). Internal rehearsal with the CEO: Fri 30 Oct, 17:00 CET.
 
-- Demo accounts (see `[DEMO ONLY]` credentials sheet, not committed to this repo) for CEO_ADMIN, MANAGER, HUNTER, OPERATOR, CLIENT are already staged.
-- Demo data already in place, so the call isn't spent on setup:
-  - **Lead 1 - "[DEMO] Northwind Supply Co"**: fresh, unclaimed, sitting at `NEW`. Used to demo ownership/claiming live.
-  - **Lead 2 - "[DEMO] Marlowe & Finch Goods"**: already claimed by the demo Hunter and walked to `PROPOSAL`. Used to demo the approval → commission → BPO handoff flow without spending live time on every pipeline stage.
-  - **One inbound demo conversation** (a fictional "order hasn't shipped" message) has already come in through the real webhook ingestion pipeline and was auto-assigned to the demo Operator by the actual assignment engine - not manually forced. Sitting in queue, ready to answer live.
-- All demo data is clearly marked `[DEMO]` / `@demo.gco` domains. None of it is real client or customer data.
-- **Operational note:** if the demo conversation sits unanswered for more than the demo tenant's SLA window, the assignment engine will keep expiring and auto-reassigning it (this is correct, verified behavior - it's the same SLA-timeout mechanism a real client's conversations rely on). Left unattended for days, this generates a large number of harmless-but-noisy `Assignment` rows. Before a demo that's more than a day or two after the environment was last refreshed, re-run `npm run seed` (idempotent - safe to run repeatedly, recreates only what's missing) to get a clean, freshly-assigned conversation.
+## Rules (CEO, binding)
+- Fictional data only, on the **local or staging copy**. **Never production.** A simulated client sends the messages; no real client is connected.
+- **AI is off.** Say plainly that every reply is written and sent by a person. Never claim AI replies.
+- Do not show billing, earnings (the "Earnings" link on the manager and operator pages), the admin console or the Hunter/sales pipeline. Do not quote prices, dates, SLA figures or "our clients". No compliance claims.
+- No promises on delivery capacity or integrations: "I will confirm after reviewing your requirements." Feasibility is reviewed together with the CEO.
+- The demo runs on the release candidate, which is newer than what is deployed today. Say so if asked.
 
-## 0:00-0:45 - GCO overview
+## Before the call (15 minutes before, every time)
+1. Start the AI-off local stack (web on port 3100, worker, realtime). Check `http://localhost:3100/api/v1/health` reports `"ai":{"enabled":false,"mode":"disabled"}`.
+2. Demo data present: `npx tsx prisma/demo-showcase.ts` (idempotent; it also creates the second client). To start clean add `--reset`.
+3. Accounts (password in `prisma/seed.ts`, local only; do not show it on screen): `operator1@demo.gco`, `manager@demo.gco`, `client@demo.gco` (Everline Retail Co) and `client2@demo.gco` (Northbay Travel). Open each in a separate browser profile or window, already logged in, so no login is typed live.
+4. Open the simulator ready to send: `~/gco-local/inject.sh "<name>" "<text>" [lang]`.
+5. Close everything else: no terminal with secrets, no `.env`, no server addresses on screen. Do not use a screen that shows notifications.
+6. Do a silent dry run of the first message; confirm it is assigned within a few seconds, then reset or use a new name.
 
-Open `https://globalconversationoperations.com`. "GCO provides managed human conversation operations - trained, supervised operator teams handling chat, engagement, and moderation for businesses, backed by a real operations platform. What I'm going to show you today is the actual live system, not slides."
+## Run sheet
 
-## 0:45-1:30 - Corporate website and services
+| Min | Show | Say | Real today |
+|---|---|---|---|
+| 0:00 | Send a message with the simulator; open the operator view, where it arrives already assigned | "Clients connect through a signed HTTPS interface. This client is simulated; no real client is connected yet. The message was queued and assigned automatically." | Works (simulator) |
+| 1:00 | Manager view: queue, available and busy operators, language coverage | "Assignment respects each operator's capacity (default two at a time) and language, and prefers operators on shift. If nobody is free it retries every 15 seconds." | Works |
+| 2:00 | Operator view: write a reply, send, mark resolved; shift plan and absences | "Every reply is written by a person. AI is off." | Works |
+| 3:00 | Supervisor (manager) QA review: score accuracy, tone, resolution on a real reply | "Quality is scored by supervisors on real replies." | Works |
+| 4:00 | Manager "needs attention" list: conversations stopped after repeated missed deadlines, Resume / reassign (prepared data) | "After repeated missed response deadlines automatic reassignment stops and a manager is alerted. The limit is configurable." (Say "five" only if asked; do not present it as an SLA promise.) | Works |
+| 4:45 | Client view as `client@demo.gco`: own conversations, usage, reporting. Then `client2@demo.gco` in the other window: different data | "Each client sees only its own data. The two clients are separate fictional accounts." | Works (second client in demo seed) |
+| 5:30 | Close on one slide or the login page | "The platform is built. Connecting a specific channel (WhatsApp, Meta, Shopify and so on) is a per-client integration against their access; we scope that together first." | Say plainly |
 
-Scroll through the homepage: 24/7 coverage, multilingual operators, supervision & QA, scalable staffing. Click through to `/services` and `/how-it-works` briefly. Point out the three-step process (onboarding → team setup & training → supervision & reporting).
+## If something goes wrong
+- Message not assigned: check that all three services run (health page shows database and redis up); worker log `~/gco-local/worker.log`. Say "this is a local copy" and show the queue from the manager view instead.
+- Do not improvise on production. Do not switch to a different environment live.
 
-## 1:30-2:30 - CEO/Manager dashboard
+## Questions to answer carefully
+- "Is AI used?" — "No. Replies are written by trained operators. We may evaluate assisted drafting later; it is off."
+- "Which platforms do you integrate with?" — "A signed webhook interface is built and tested with a simulator. Specific platforms are scoped per client; I will confirm after reviewing your requirements."
+- "Security and data location?" — Hosting is in Germany (per our docs); two-factor is available for staff accounts; do not make certification claims. Refer to the technical brief.
+- Volumes, languages, coverage hours, prices, start dates: "I will confirm after reviewing your requirements together with our CEO."
 
-Log in as `admin@demo.gco`. Show the CEO dashboard: pipeline value, Hunter leaderboard, commission configuration, approvals queue. Switch to `manager@demo.gco` (or stay as CEO - CEO sees everything a Manager sees plus more) to show team-wide lead/pipeline visibility.
+## Meeting agenda (proposed for Silver Bell, 13:00 CET)
+0–5 min: CEO introduction. 5–10 min: platform and integration approach (CTO). 10–16 min: CRM demo (this script). 16–25 min: their requirements and feasibility.
 
-## 2:30-3:30 - Hunter lead ownership and pipeline
-
-Log in as `hunter1@demo.gco`. Show "[DEMO] Northwind Supply Co" sitting unclaimed in the shared pool. **Claim it live** - this is a real, race-safe database operation (two Hunters clicking the same lead at the same instant, only one wins - explain briefly if asked). Walk it through one or two stage transitions (NEW → CONTACTED → ENGAGED) to show the pipeline UI.
-
-Then switch to "[DEMO] Marlowe & Finch Goods", already at `PROPOSAL`. Click **Submit for Approval** live.
-
-## 3:30-4:15 - Closure approval and first-payment commission
-
-Switch to `manager@demo.gco` (or CEO). Show the pending approval, **approve it live**. Explain what just happened: the lead moved to Closed Won, and a BPO handoff was automatically queued - but explicitly **no commission was created yet**. This is the confirmed business rule: commission is 10% of the client's **actual first month's collected revenue**, never just for closing the deal. Once the (simulated) first payment is confirmed, click **Confirm Payment** and show the commission appear - server-calculated, exactly 10%, auditable.
-
-## 4:15-5:30 - BPO handoff
-
-Explain: once a deal closes, GCO's own operations pipeline picks it up automatically - a background worker creates the client's operational profile so the Operator team can start immediately. Show the resulting client/tenant now visible in the CEO dashboard. This is the same automated handoff mechanism, running live, that would onboard a real client.
-
-## 5:30-7:00 - Operator conversation workflow
-
-Log in as `operator1@demo.gco`. Show the already-queued demo conversation ("order hasn't shipped") sitting in their inbox - point out it arrived and was assigned automatically, no manual routing. **Send a live reply.** Show the conversation update in real time (the realtime/WebSocket layer - if useful, mention this is a live WebSocket connection, not polling).
-
-## 7:00-8:00 - Security / tenant isolation / RBAC
-
-Briefly, without diving into infrastructure detail: "Every client's data is isolated - one client's conversations, leads, and reporting are never visible to another. Every role only sees what it's supposed to: an Operator sees their assigned conversations, a Manager sees their team, a Client sees only their own account." (See `docs/technical-sales-presentation.md` slide 8 for the full backing detail if asked.)
-
-## 8:00-9:00 - Integrations and client onboarding
-
-"Today the platform ingests conversations through a general webhook-based integration layer we've already proven end-to-end - what you just saw arrive in the Operator's queue came through exactly that pipeline. Connecting a specific channel (WhatsApp, Instagram, live chat, a custom API) is a scoped integration project once we know your actual channels and access requirements - see the capability matrix." Do **not** claim WhatsApp/Instagram/Messenger/Shopify/WooCommerce are already live.
-
-## 9:00-10:00 - 7-day pilot and next steps
-
-"If this looks like a fit, the next step is a short discovery call to confirm scope and technical requirements, then a 7-day live pilot on your actual conversations - see `docs/7-day-pilot.md`." Close with the discovery-call CTA.
-
-## Demo safety checklist (confirm before every call)
-
-- [ ] No production secrets, API keys, database credentials, internal IPs, or SSH details visible on screen.
-- [ ] Only `@demo.gco` / demo tenant data used - no real client or customer information.
-- [ ] Demo integration cannot reach any real external customer (it's the `dev-mock` adapter - simulated delivery only, confirmed in `lib/integrations/adapters/devMock.ts`).
-- [ ] AI is honestly described as demo/mock mode if the topic comes up (see presentation slide 11) - never claim production AI is active.
+## Verified on 29 Oct 2026 (local, AI off)
+Health reports AI disabled; manager dashboard shows the needs-attention list and language coverage, and the QA review panel. The AI-off message lifecycle test (`tests/e2e/01b`) passes. Not yet rehearsed end to end with the CEO.
