@@ -6,6 +6,8 @@
 
 **Live versus release-ready.** The code audited is the release candidate. Production still runs the older version (plus two-factor files). Anything marked implemented that came from the 13 pending migrations (moderation, shifts, absences, knowledge, training, billing, earnings, client requests, privacy tools) is **release-ready, not live**, until Saturday's release is approved and completed.
 
+**Companion document:** `31-roadmap-appendix-acceptance-criteria-2026-10.md` holds the dependencies, security and integration considerations, acceptance criteria, recurring-cost notes, the technical capability checklist for new client requests, the testing matrix and the capacity targets.
+
 **Classification used (CEO's six classes).** 1 = implemented and tested · 2 = implemented, needs improvement · 3 = partially implemented · 4 = planned, not started · 5 = completely new · 6 = not recommended (with reason).
 **Effort** is one engineer, including tests and review: S = 1–3 days, M = 1–2 weeks, L = 3–6 weeks. These are rough estimates for prioritising, not commitments. **Cost**: "none" means no new recurring cost beyond the current server; any paid service needs the CEO's written approval and a quote, not a guess.
 
