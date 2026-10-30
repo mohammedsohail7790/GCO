@@ -16,8 +16,8 @@ Companion to `30-feature-inventory-and-roadmap-2026-10.md`. Completes the fields
 
 ### P0-2 Offsite backup hardening
 - **Depends on:** account owner creates the restricted key; approved 30-day retention.
-- **Security:** key has only upload (and list) permission; read key offline; backups age-encrypted (only the CEO's private keys open them).
-- **Acceptance:** key check shows no delete/read/retention/encryption/key-write permission; one nightly upload succeeds with the new key; an offsite download is decrypted by the CEO and restored into a throwaway database with correct counts; lifecycle rule verified on the bucket; failed-upload alert tested; old key deleted only afterwards.
+- **Security:** key has only upload (and list) permission; read key offline; **backup encryption is not active yet:** the release ships the optional age encryption, but it switches on only when the CEO's two public keys are installed in `/etc/gco-backup-age-recipients.txt` (checked 30 Oct: the file does not exist, so dumps are uploaded unencrypted today). Installing the keys is part of this item; the CEO keeps the private keys.
+- **Acceptance:** key check shows no delete/read/retention/encryption/key-write permission; one nightly upload succeeds with the new key; an offsite download (decrypted by the CEO once encryption is on) is restored into a throwaway database with correct counts; lifecycle rule verified on the bucket; failed-upload alert tested; old key deleted only afterwards.
 - **Effort / cost:** S / bucket storage only (existing).
 
 ### P0-3 Access security
