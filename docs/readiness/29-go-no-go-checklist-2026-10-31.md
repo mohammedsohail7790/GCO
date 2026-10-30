@@ -37,3 +37,9 @@ Compose-level recreate and image re-tag on the live stack; old worker processing
 ## E. Recommendation
 
 A2, A3 and A4 are complete. Open before go: A5 (Backblaze restricted key and offsite restore), the CEO's explicit written approval, and the OpenAI baseline. Final recommendation to follow once A5 is known. Not a deployment authorization.
+
+## F. Preparation done on the server, 2026-10-29 (CEO approved preparation only; nothing deployed)
+- **Fresh backup:** `gco-postgres-20261029T131056Z.dump`, 900,999 bytes, `pg_restore --list` readable (38 table-data entries). Restored into a throwaway database: exit 0, 0 warnings, 16 migrations, 7 users, 1 tenant, 1 message. Throwaway container removed. The nightly offsite upload to Backblaze is verified in the log every night from 24 Oct to 29 Oct; the manual run today reported "offsite upload failed" only because a manual run does not load the root-only credential file that the nightly timer uses (not a fault).
+- **Rollback image tags:** `gco-web:pre-release-20261029` (25e6abd268c9), `gco-worker:pre-release-20261029` (7a02d5a80ff8), `gco-realtime:pre-release-20261029` (8c8a926bfc60). Services unchanged and healthy.
+- **Code snapshot:** `/var/backups/gco-postgres/gco-code-pre-release-<timestamp>.tgz` (406 MB, mode 600, no secrets: only `.env.example` files; mostly a stray `.tools` folder). Stored in the backup folder because `/var/backups` itself is not writable by the `gco` user. The window repeats the backup immediately before the release.
+- **Founder account (read-only):** `cristian@globalconversationoperations.com`, role CEO_ADMIN, active, password set, last sign-in 12 Oct 2026, two-factor off. The hunter account has never signed in.
