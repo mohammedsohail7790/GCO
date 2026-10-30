@@ -12,6 +12,13 @@ Local demo copy only. Fictional data, simulated client, **AI off**. Never produc
 ## Pre-check result (30 Oct, API level, clean demo database)
 Founder totals: 2 clients, 4 operators. Simulated message → assigned automatically to the available operator → operator reply accepted → appears in the manager's QA queue (4 items). Client 1 report shows 8 conversations in 14 days, client 2 shows 2 (separated). The operator and the hunter get **403** on the Founder overview. A client requesting another client's conversation by ID gets 404, but my check of the same read by its own owner also returned 404 (wrong endpoint), so only the list-level separation is verified here; automated spec `05` is the isolation proof.
 
+## Further checks done 30 Oct (API level plus founder page in the browser, clean demo database)
+- **Escalation:** operator escalates a conversation (reason "cannot resolve safely") → manager claims it → manager escalates it to the client with a client-facing summary → the client's list shows one item. Works.
+- **Billing:** draft invoice for October on Everline (per-message price from billing settings) → issue gives number `GCO-2026-0001` → client 1 sees it, client 2 sees none, operator gets 403 → reconciliation shows billed, invoiced, operator cost and margin consistently.
+- **Founder page** (`/admin`) renders: company overview, revenue, margin, unpaid invoices, clients/operators, profitability by client, payment obligations, capacity.
+- **The amounts are tiny** (for example €0.14 revenue) because only a few simulated messages exist; say so, or inject more messages and reply to them before showing billing. Do not present these figures as realistic revenue.
+- Not verified here: the client's decision on an escalation, marking an invoice paid, the operator earnings page in the browser, and the integration console visuals.
+
 ## Run order (about 45 minutes)
 
 | # | CEO point | What we do | What we say |
