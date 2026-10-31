@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import crypto from 'crypto'
 import { db } from '@/lib/db/client'
-import { recordVerification } from '@/lib/integrations/verification'
+import { recordCheck, recordVerification } from '@/lib/integrations/verification'
 import { writeAuditLog } from '@/lib/audit/log'
 import { getAdapter } from '@/lib/integrations/registry'
 import { enqueueMessageIngest } from '@/lib/queue/jobs'
@@ -49,6 +49,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ int
           }
           if (staged.isPing(parsed)) {
             await recordVerification(integration.id, 'inbound')
+            await recordCheck({ integrationId: integration.id, direction: 'INBOUND', ok: true })
             await writeAuditLog({ tenantId: integration.tenantId, action: 'integration.verified_inbound', resource: 'integration', resourceId: integration.id })
             return ok({ received: true, ping: true }, 200)
           }

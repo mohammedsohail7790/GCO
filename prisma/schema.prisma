@@ -538,6 +538,13 @@ enum IntegrationStatus {
   DEGRADED
 }
 
+// Which client-side environment an integration points at. A new integration is SANDBOX; only an explicit, audited promotion makes it
+// PRODUCTION, and only a PRODUCTION integration can be activated by the go-live. Changing it clears the earlier verification.
+enum IntegrationEnvironment {
+  SANDBOX
+  PRODUCTION
+}
+
 model Integration {
   id            String            @id @default(cuid())
   tenantId      String
@@ -555,13 +562,33 @@ model Integration {
   // single-value overwrite (PATCH /api/v1/admin/integrations/[id]/webhook-secret) -
   // the old value stops working immediately, no dual-secret grace period.
   webhookSecret String?
+  environment   IntegrationEnvironment @default(SANDBOX)
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
 
   tenant        Tenant         @relation(fields: [tenantId], references: [id])
   webhookEvents WebhookEvent[]
+  checks        IntegrationCheck[]
 
   @@index([tenantId])
+}
+
+// History of connectivity checks for an integration (outbound ping by GCO, inbound signed ping from the client), successes AND failures.
+// Holds no message content, secrets or URLs: only the direction, the result category and the latency.
+model IntegrationCheck {
+  id            String                 @id @default(cuid())
+  integrationId String
+  direction     String // 'OUTBOUND' | 'INBOUND'
+  ok            Boolean
+  category      String? // failure category from the adapter (never free text from the client)
+  latencyMs     Int?
+  environment   IntegrationEnvironment
+  actorUserId   String? // who triggered it (null for the client's inbound ping)
+  createdAt     DateTime               @default(now())
+
+  integration Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  @@index([integrationId, createdAt])
 }
 
 model WebhookEvent {

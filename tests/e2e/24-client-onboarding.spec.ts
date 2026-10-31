@@ -180,7 +180,7 @@ test.describe('client onboarding: handoff -> invitation -> checklist -> go-live;
 
   test('complete the checklist through existing admin APIs + confirmations; Manager cannot go live; CEO can, once', async () => {
     // integration staged DISABLED (existing admin API) - the secret is returned once by that API and is never stored in audit rows
-    const integ = await admin.post(api('/admin/integrations'), { data: { tenantId, adapterKey: 'dev-mock', name: 'Main', status: 'DISABLED' } })
+    const integ = await admin.post(api('/admin/integrations'), { data: { tenantId, adapterKey: 'dev-mock', name: 'Main', status: 'DISABLED', environment: 'PRODUCTION' } })
     expect(integ.status()).toBe(201)
     const body = (await integ.json()).data
     integrationSecret = body.secret ?? body.webhookSecret ?? ''

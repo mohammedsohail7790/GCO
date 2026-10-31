@@ -7,7 +7,7 @@ import { ok, created, fail, handleRouteError } from '@/lib/api/response'
 import { writeAuditLog } from '@/lib/audit/log'
 import { isRateLimited, RATE_LIMITS } from '@/lib/api/rateLimit'
 import { listAdapterKeys, getAdapter, isProductionAdapter, supportsVerification } from '@/lib/integrations/registry'
-import { isIntegrationVerified, readVerification } from '@/lib/integrations/verification'
+import { isIntegrationVerified, readVerification, recentChecksFor } from '@/lib/integrations/verification'
 
 // Same permission the existing webhook-secret rotation route already gates
 // on (INTEGRATION_MANAGE: ['CEO_ADMIN']) - no new permission invented, and
@@ -32,6 +32,9 @@ const CreateSchema = z.object({
   // Omitted: a production-capable adapter is staged DISABLED (it goes live only through the onboarding go-live), every
   // other adapter keeps the historical default ACTIVE.
   status: z.enum(['ACTIVE', 'DISABLED', 'DEGRADED']).optional(),
+  // Defaults to SANDBOX. PRODUCTION at creation is allowed only for a production-capable adapter; otherwise promote later through
+  // PATCH /admin/integrations/[id]/environment (audited, clears verification).
+  environment: z.enum(['SANDBOX', 'PRODUCTION']).default('SANDBOX'),
   // Same optional-secret pattern as the existing rotation endpoint: supply a
   // secret issued by the client's own platform, or omit it to have GCO
   // generate a strong random one. Either way it is returned exactly once,
@@ -49,6 +52,7 @@ const SAFE_SELECT = {
   adapterKey: true,
   name: true,
   status: true,
+  environment: true,
   config: true,
   createdAt: true,
   updatedAt: true,
@@ -69,11 +73,13 @@ export async function GET(req: NextRequest) {
 
     // Capability and verification are COMPUTED from the adapter registry and recorded proofs - never taken from the
     // request or from stored config. The secret is never selected (SAFE_SELECT).
+    const checks = await recentChecksFor(integrations.map((i) => i.id), 5)
     return ok(
       integrations.map((i) => {
         const v = readVerification(i.config)
         return {
           ...i,
+          recentChecks: checks.get(i.id) ?? [],
           productionCapable: getAdapter(i.adapterKey).productionCapable === true,
           usableForGoLive: isProductionAdapter(i.adapterKey),
           requiresVerification: supportsVerification(i.adapterKey),
@@ -115,6 +121,9 @@ export async function POST(req: NextRequest) {
     const configError = await getAdapter(body.adapterKey).validateConfig?.(body.config as Record<string, unknown>)
     if (configError) return fail(configError, 400, 'INVALID_CONFIG')
 
+    if (body.environment === 'PRODUCTION' && !isProductionAdapter(body.adapterKey)) {
+      return fail('A development adapter simulates delivery and can only be a SANDBOX integration', 400, 'SIMULATION_CANNOT_BE_PRODUCTION')
+    }
     const initialStatus = body.status ?? (getAdapter(body.adapterKey).productionCapable ? 'DISABLED' : 'ACTIVE')
     const secret = body.secret ?? crypto.randomBytes(32).toString('hex')
 
@@ -125,6 +134,7 @@ export async function POST(req: NextRequest) {
         name: body.name,
         config: body.config as any,
         status: initialStatus,
+        environment: body.environment,
         webhookSecret: secret,
       },
       select: SAFE_SELECT,
@@ -137,7 +147,7 @@ export async function POST(req: NextRequest) {
       resource: 'integration',
       resourceId: integration.id,
       // Never the secret value itself - only that one was set, and by whom.
-      metadata: { adapterKey: body.adapterKey, name: body.name, status: initialStatus },
+      metadata: { adapterKey: body.adapterKey, name: body.name, status: initialStatus, environment: body.environment },
     })
 
     // The secret is returned exactly once, on this response only - the same

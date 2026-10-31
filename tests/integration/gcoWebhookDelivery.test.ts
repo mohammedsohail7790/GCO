@@ -234,10 +234,10 @@ describe('go-live safety for the gco-webhook adapter (production default: dev fl
     const a = await mk('a')
     const b = await mk('b')
     const cfg = { callbackUrl: 'https://client-a.example.com/gco' }
-    const integ = await db.integration.create({ data: { tenantId: a.tenant.id, adapterKey: 'gco-webhook', name: 'A', status: 'DISABLED', config: cfg, webhookSecret: 's'.repeat(64) } })
-    const other = await db.integration.create({ data: { tenantId: b.tenant.id, adapterKey: 'gco-webhook', name: 'B', status: 'DISABLED', config: { callbackUrl: 'https://client-b.example.com/gco' }, webhookSecret: 't'.repeat(64) } })
+    const integ = await db.integration.create({ data: { tenantId: a.tenant.id, adapterKey: 'gco-webhook', name: 'A', status: 'DISABLED', environment: 'PRODUCTION', config: cfg, webhookSecret: 's'.repeat(64) } })
+    const other = await db.integration.create({ data: { tenantId: b.tenant.id, adapterKey: 'gco-webhook', name: 'B', status: 'DISABLED', environment: 'PRODUCTION', config: { callbackUrl: 'https://client-b.example.com/gco' }, webhookSecret: 't'.repeat(64) } })
     const degraded = await db.integration.create({ data: { tenantId: a.tenant.id, adapterKey: 'gco-webhook', name: 'A-degraded', status: 'DEGRADED', config: cfg, webhookSecret: 'u'.repeat(64) } })
-    const unverified2 = await db.integration.create({ data: { tenantId: a.tenant.id, adapterKey: 'gco-webhook', name: 'A-second', status: 'DISABLED', config: { callbackUrl: 'https://client-a2.example.com/gco' }, webhookSecret: 'v'.repeat(64) } })
+    const unverified2 = await db.integration.create({ data: { tenantId: a.tenant.id, adapterKey: 'gco-webhook', name: 'A-second', status: 'DISABLED', environment: 'PRODUCTION', config: { callbackUrl: 'https://client-a2.example.com/gco' }, webhookSecret: 'v'.repeat(64) } })
 
     expect(await missing(a.ob.id)).toEqual(['integration_verified'])
     await expect(goLive(a.ob.id, admin)).rejects.toMatchObject({ status: 409, code: 'CHECKLIST_INCOMPLETE' })

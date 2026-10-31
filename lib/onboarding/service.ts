@@ -284,17 +284,19 @@ export async function computeChecklist(onboardingId: string, client: Reader = db
   const [user, allIntegrations, operators] = await Promise.all([
     ob.clientUserId ? client.user.findUnique({ where: { id: ob.clientUserId }, select: { isActive: true } }) : Promise.resolve(null),
     // webhookSecret is only tested for presence, never selected
-    client.integration.findMany({ where: { tenantId: ob.tenantId }, select: { adapterKey: true, status: true, config: true, name: true, webhookSecret: false } }),
+    client.integration.findMany({ where: { tenantId: ob.tenantId }, select: { adapterKey: true, status: true, environment: true, config: true, name: true, webhookSecret: false } }),
     client.operator.count({ where: { tenantId: ob.tenantId, user: { isActive: true } } }),
   ])
-  const usable = allIntegrations.filter((i) => prodKeys.includes(i.adapterKey) && (i.status === 'DISABLED' || i.status === 'ACTIVE'))
-  const withSecret = await client.integration.count({ where: { tenantId: ob.tenantId, adapterKey: { in: prodKeys }, webhookSecret: { not: null } } })
+  // Only a PRODUCTION-environment integration counts: one still pointing at the client's SANDBOX can never be the one that goes live.
+  const usable = allIntegrations.filter((i) => prodKeys.includes(i.adapterKey) && i.environment === 'PRODUCTION' && (i.status === 'DISABLED' || i.status === 'ACTIVE'))
+  const withSecret = await client.integration.count({ where: { tenantId: ob.tenantId, adapterKey: { in: prodKeys }, environment: 'PRODUCTION', webhookSecret: { not: null } } })
   const needsCallback = (key: string) => supportsVerification(key)
   const callbackOk = (i: { adapterKey: string; config: unknown }) => !needsCallback(i.adapterKey) || validateCallbackUrl((i.config as { callbackUrl?: unknown } | null)?.callbackUrl) === null
 
   const noIntegrationDetail = (() => {
     if (allIntegrations.length === 0) return 'No integration exists yet. Create a production-capable integration (for example gco-webhook) staged as DISABLED.'
     if (!allIntegrations.some((i) => prodKeys.includes(i.adapterKey))) return 'Only development adapters exist (dev-mock). A development adapter simulates delivery and can never go live - create a production-capable integration.'
+    if (allIntegrations.some((i) => prodKeys.includes(i.adapterKey) && i.environment === 'SANDBOX')) return 'The production-capable integration is still marked SANDBOX. After the client confirms production access, promote it to PRODUCTION (this clears earlier verification) and verify it again.'
     return 'Every production-capable integration is DEGRADED. Fix it or create a new one; DEGRADED integrations are never activated.'
   })()
   const verState = (() => {
@@ -444,7 +446,7 @@ export async function goLive(onboardingId: string, actorUserId: string) {
     // Only staged integrations that are production-capable AND verified for their current destination. A DEGRADED,
     // unverified, unknown-adapter or other-tenant integration is never touched.
     const staged = await tx.integration.findMany({
-      where: { tenantId: onboarding.tenantId, status: 'DISABLED', adapterKey: { in: listProductionAdapterKeys() } },
+      where: { tenantId: onboarding.tenantId, status: 'DISABLED', environment: 'PRODUCTION', adapterKey: { in: listProductionAdapterKeys() } },
       select: { id: true, adapterKey: true, config: true },
     })
     const ids = staged.filter((i) => isIntegrationVerified(i.adapterKey, i.config)).map((i) => i.id)
@@ -471,7 +473,7 @@ export async function adminView(onboardingId: string) {
   const user = ob.clientUserId ? await db.user.findUnique({ where: { id: ob.clientUserId }, select: { id: true, email: true, isActive: true } }) : null
   // Safe, non-secret summaries so one screen shows the whole client (secrets are never selected).
   const [integrationRows, operatorRows] = await Promise.all([
-    db.integration.findMany({ where: { tenantId: ob.tenantId }, orderBy: { createdAt: 'asc' }, select: { id: true, name: true, adapterKey: true, status: true, config: true } }),
+    db.integration.findMany({ where: { tenantId: ob.tenantId }, orderBy: { createdAt: 'asc' }, select: { id: true, name: true, adapterKey: true, status: true, environment: true, config: true } }),
     db.operator.findMany({ where: { tenantId: ob.tenantId }, select: { id: true, status: true, capacity: true, user: { select: { displayName: true, email: true, isActive: true } } } }),
   ])
   const integrations = integrationRows.map((i) => {
@@ -481,6 +483,7 @@ export async function adminView(onboardingId: string) {
       name: i.name,
       adapter: i.adapterKey,
       status: i.status,
+      environment: i.environment,
       productionCapable: getAdapter(i.adapterKey).productionCapable === true,
       usableForGoLive: listProductionAdapterKeys().includes(i.adapterKey),
       callbackUrl: (i.config as { callbackUrl?: string } | null)?.callbackUrl ?? null,

@@ -100,7 +100,7 @@ test.describe('simulated client: setup -> connect -> operate -> bill -> pay -> p
   })
 
   test('2. the client platform is connected through the signed contract, verified both ways, and the CEO takes it live', async () => {
-    const created = await admin.post(api('/admin/integrations'), { data: { tenantId, adapterKey: 'gco-webhook', name: 'Simulated client platform', status: 'DISABLED', config: { callbackUrl: simUrl } } })
+    const created = await admin.post(api('/admin/integrations'), { data: { tenantId, adapterKey: 'gco-webhook', name: 'Simulated client platform', status: 'DISABLED', environment: 'PRODUCTION', config: { callbackUrl: simUrl } } })
     expect(created.status()).toBe(201)
     const c = (await created.json()).data
     integrationId = c.id; secret = c.webhookSecret

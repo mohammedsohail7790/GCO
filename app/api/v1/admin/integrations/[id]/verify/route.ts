@@ -5,7 +5,7 @@ import { ok, fail, handleRouteError } from '@/lib/api/response'
 import { isRateLimited, RATE_LIMITS } from '@/lib/api/rateLimit'
 import { writeAuditLog } from '@/lib/audit/log'
 import { getAdapter } from '@/lib/integrations/registry'
-import { isIntegrationVerified, readVerification, recordVerification } from '@/lib/integrations/verification'
+import { isIntegrationVerified, readVerification, recordCheck, recordVerification } from '@/lib/integrations/verification'
 
 /**
  * CEO-only. Sends a signed, content-free ping to the client's endpoint (outbound proof). The INBOUND proof is the
@@ -28,6 +28,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       tenantId: integration.tenantId,
       secret: integration.webhookSecret,
     })
+    await recordCheck({ integrationId: integration.id, direction: 'OUTBOUND', ok: result.ok, category: result.category ?? null, latencyMs: result.latencyMs ?? null, actorUserId: session.sub })
     if (result.ok) await recordVerification(integration.id, 'outbound')
     await writeAuditLog({
       tenantId: integration.tenantId,

@@ -26,7 +26,7 @@ describe('go-live checklist states and race safety', () => {
     const op = await db.user.create({ data: { email: `${base}-${tag}-op@test.gco`, passwordHash: 'x', role: 'OPERATOR', tenantId: tenant.id, displayName: 'op' } })
     await db.operator.create({ data: { userId: op.id, tenantId: tenant.id, capacity: 2 } })
     for (const i of ['languages', 'coverage', 'supervisor'] as const) await confirmItem(ob.id, i, admin)
-    const integ = await db.integration.create({ data: { tenantId: tenant.id, adapterKey: 'gco-webhook', name: tag, status: 'DISABLED', config: { callbackUrl: `https://${tag}.example.com/gco` }, webhookSecret: tag.padEnd(64, 'x') } })
+    const integ = await db.integration.create({ data: { tenantId: tenant.id, adapterKey: 'gco-webhook', name: tag, status: 'DISABLED', environment: 'PRODUCTION', config: { callbackUrl: `https://${tag}.example.com/gco` }, webhookSecret: tag.padEnd(64, 'x') } })
     await recordVerification(integ.id, 'outbound')
     await recordVerification(integ.id, 'inbound')
     return { ob, tenant, integ }
@@ -62,7 +62,7 @@ describe('go-live checklist states and race safety', () => {
     await db.integration.create({ data: { tenantId: tenant.id, adapterKey: 'dev-mock', name: 'dev', status: 'DISABLED', config: {}, webhookSecret: 'd'.repeat(64) } })
     expect((await item(ob.id, 'integration_configured')).detail).toMatch(/development adapters exist \(dev-mock\).*never go live/)
 
-    const g = await db.integration.create({ data: { tenantId: tenant.id, adapterKey: 'gco-webhook', name: 'g', status: 'DEGRADED', config: { callbackUrl: 'https://g.example.com/h' }, webhookSecret: 'g'.repeat(64) } })
+    const g = await db.integration.create({ data: { tenantId: tenant.id, adapterKey: 'gco-webhook', name: 'g', status: 'DEGRADED', environment: 'PRODUCTION', config: { callbackUrl: 'https://g.example.com/h' }, webhookSecret: 'g'.repeat(64) } })
     expect((await item(ob.id, 'integration_configured')).detail).toMatch(/DEGRADED/)
     await db.integration.update({ where: { id: g.id }, data: { status: 'DISABLED' } })
     expect(await item(ob.id, 'integration_configured')).toMatchObject({ state: 'pass' })
@@ -112,4 +112,15 @@ describe('go-live checklist states and race safety', () => {
       expect(integration === 'ACTIVE', `trial ${n}: ${status}/${integration}`).toBe(status === 'LIVE')
     }
   }, 120_000)
+  it('P0-5: an integration still pointing at the client SANDBOX never goes live, even when fully verified; PRODUCTION does', async () => {
+    const { ob, integ } = await readyTenant('sandbox')
+    await db.integration.update({ where: { id: integ.id }, data: { environment: 'SANDBOX' } })
+    expect(await item(ob.id, 'integration_configured')).toMatchObject({ state: 'fail', detail: expect.stringMatching(/still marked SANDBOX/) })
+    await expect(goLive(ob.id, admin)).rejects.toMatchObject({ status: 409, code: 'CHECKLIST_INCOMPLETE' })
+    expect((await db.integration.findUniqueOrThrow({ where: { id: integ.id } })).status).toBe('DISABLED') // nothing was activated
+    await db.integration.update({ where: { id: integ.id }, data: { environment: 'PRODUCTION' } })
+    const r = await goLive(ob.id, admin)
+    expect(r.activatedIntegrations).toBe(1)
+    expect((await db.integration.findUniqueOrThrow({ where: { id: integ.id } })).status).toBe('ACTIVE')
+  })
 })

@@ -44,3 +44,32 @@ export async function clearVerification(integrationId: string) {
   delete config.verification
   await db.integration.update({ where: { id: integrationId }, data: { config: config as any } })
 }
+
+/**
+ * Appends one connectivity check to the integration's history (successes and failures). Holds no content, secret or URL:
+ * only direction, result category, latency and who triggered it. Never throws into the caller's main path.
+ */
+export async function recordCheck(c: { integrationId: string; direction: 'OUTBOUND' | 'INBOUND'; ok: boolean; category?: string | null; latencyMs?: number | null; actorUserId?: string | null }) {
+  try {
+    const integ = await db.integration.findUnique({ where: { id: c.integrationId }, select: { environment: true } })
+    if (!integ) return
+    await db.integrationCheck.create({
+      data: { integrationId: c.integrationId, direction: c.direction, ok: c.ok, category: c.category ?? null, latencyMs: c.latencyMs ?? null, environment: integ.environment, actorUserId: c.actorUserId ?? null },
+    })
+  } catch {
+    /* history is an aid, not a gate: never block verification because it could not be written */
+  }
+}
+
+/** The most recent checks for each of the given integrations (newest first), `take` per integration. */
+export async function recentChecksFor(integrationIds: string[], take = 5) {
+  if (integrationIds.length === 0) return new Map<string, Array<{ direction: string; ok: boolean; category: string | null; latencyMs: number | null; environment: string; at: Date }>>()
+  const rows = await db.integrationCheck.findMany({ where: { integrationId: { in: integrationIds } }, orderBy: { createdAt: 'desc' }, take: take * integrationIds.length * 2 })
+  const out = new Map<string, Array<{ direction: string; ok: boolean; category: string | null; latencyMs: number | null; environment: string; at: Date }>>()
+  for (const r of rows) {
+    const list = out.get(r.integrationId) ?? []
+    if (list.length < take) list.push({ direction: r.direction, ok: r.ok, category: r.category, latencyMs: r.latencyMs, environment: r.environment, at: r.createdAt })
+    out.set(r.integrationId, list)
+  }
+  return out
+}

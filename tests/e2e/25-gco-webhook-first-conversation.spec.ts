@@ -73,7 +73,7 @@ test.describe('gco-webhook: configure -> verify -> go-live -> first conversation
 
   test('integration administration is CEO-only; config is validated; the secret is shown once and never listed', async () => {
     const anon = await anonymousContext()
-    const body = { tenantId: A.tenantId, adapterKey: 'gco-webhook', name: 'Client A', status: 'DISABLED', config: { callbackUrl: simUrl } }
+    const body = { tenantId: A.tenantId, adapterKey: 'gco-webhook', name: 'Client A', status: 'DISABLED', environment: 'PRODUCTION', config: { callbackUrl: simUrl } }
     expect((await anon.post(api('/admin/integrations'), { data: body })).status()).toBe(401)
     for (const [who, ctx] of [['operator', A.operatorCtx], ['manager', A.managerCtx], ['client', A.clientCtx]] as const) {
       expect((await ctx.post(api('/admin/integrations'), { data: body })).status(), who).toBe(403)

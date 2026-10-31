@@ -49,7 +49,7 @@ test.describe('first client onboarding (console flow) -> first conversation', ()
     const inv = await admin.post(api(`/admin/onboarding/${onboardingId}/invitation`), { data: {} })
     const token = (await inv.json()).data.setupUrl.split('#token=')[1]
     expect((await (await anonymousContext()).post(api('/auth/accept-invitation'), { data: { token, password: PASSWORD }, headers: ip() })).status()).toBe(200)
-    const integ = await admin.post(api('/admin/integrations'), { data: { tenantId: d.tenant.id, adapterKey: 'gco-webhook', name: `Main ${tag}`, config: { callbackUrl: simUrl } } }) // status omitted -> staged
+    const integ = await admin.post(api('/admin/integrations'), { data: { tenantId: d.tenant.id, adapterKey: 'gco-webhook', name: `Main ${tag}`, environment: 'PRODUCTION', config: { callbackUrl: simUrl } } }) // status omitted -> staged
     expect(integ.status()).toBe(201)
     const ij = (await integ.json()).data
     const operatorEmail = `op-${tag}-${stamp}@e2e.gco`

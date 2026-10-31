@@ -9,6 +9,8 @@ interface Integration {
   name: string
   adapterKey: string
   status: 'ACTIVE' | 'DISABLED' | 'DEGRADED'
+  environment: 'SANDBOX' | 'PRODUCTION'
+  recentChecks?: Array<{ direction: string; ok: boolean; category: string | null; latencyMs: number | null; environment: string; at: string }>
   config: { callbackUrl?: string }
   tenant: { id: string; name: string }
   productionCapable: boolean
@@ -31,7 +33,7 @@ export function IntegrationConsole() {
   const [adapters, setAdapters] = useState<Adapter[]>([])
   const [tenants, setTenants] = useState<Tenant[]>([])
   const [items, setItems] = useState<Integration[] | null>(null)
-  const [form, setForm] = useState({ tenantId: '', adapterKey: '', name: '', callbackUrl: '' })
+  const [form, setForm] = useState({ tenantId: '', adapterKey: '', name: '', callbackUrl: '', environment: 'SANDBOX' })
   const [secret, setSecret] = useState<{ forName: string; value: string } | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -62,11 +64,12 @@ export function IntegrationConsole() {
           adapterKey: form.adapterKey,
           name: form.name,
           status: 'DISABLED', // always staged; go-live activates it
+          environment: form.environment,
           config: chosen?.requiresCallbackUrl ? { callbackUrl: form.callbackUrl.trim() } : {},
         }),
       })
       setSecret({ forName: created.name, value: created.webhookSecret })
-      setForm({ tenantId: form.tenantId, adapterKey: form.adapterKey, name: '', callbackUrl: '' })
+      setForm({ tenantId: form.tenantId, adapterKey: form.adapterKey, name: '', callbackUrl: '', environment: 'SANDBOX' })
       load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not create the integration')
@@ -85,6 +88,27 @@ export function IntegrationConsole() {
       load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Verification failed')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function changeEnvironment(i: Integration, to: 'SANDBOX' | 'PRODUCTION') {
+    let confirm: string | undefined
+    if (to === 'PRODUCTION') {
+      const typed = window.prompt(`Move "${i.name}" to PRODUCTION? It must point at the client's real production environment. Earlier verification is cleared and you must verify again. Type  production  to confirm.`)
+      if (typed === null) return
+      confirm = typed
+    } else if (!window.confirm(`Move "${i.name}" back to SANDBOX? Earlier verification is cleared.`)) return
+    setBusy(i.id)
+    setError(null)
+    setMsg(null)
+    try {
+      await apiFetch(`/admin/integrations/${i.id}/environment`, { method: 'PATCH', body: JSON.stringify({ environment: to, confirm }) })
+      setMsg(`Environment set to ${to}. Verify the integration again before go-live.`)
+      load()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not change the environment')
     } finally {
       setBusy(null)
     }
@@ -142,6 +166,12 @@ export function IntegrationConsole() {
         <label className="text-xs font-medium text-slate-700">Name
           <input required maxLength={200} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={input} placeholder="e.g. Acme production" />
         </label>
+        <label className="text-xs font-medium text-slate-700">Client environment it points at
+          <select value={form.environment} onChange={(e) => setForm({ ...form, environment: e.target.value })} className={input}>
+            <option value="SANDBOX">Sandbox (testing: can never go live)</option>
+            <option value="PRODUCTION">Production (the client&apos;s real environment)</option>
+          </select>
+        </label>
         {chosen?.requiresCallbackUrl && (
           <label className="text-xs font-medium text-slate-700">Client callback URL (https)
             <input required value={form.callbackUrl} onChange={(e) => setForm({ ...form, callbackUrl: e.target.value })} className={input} placeholder="https://client.example.com/hooks/gco" inputMode="url" />
@@ -169,12 +199,28 @@ export function IntegrationConsole() {
                 {i.requiresVerification && <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${i.verified ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-700'}`}>{i.verified ? 'verified' : 'not verified'}</span>}
               </div>
               <p className="text-xs text-slate-500">{STATUS_HELP[i.status]}</p>
+              <p className="text-xs text-slate-600" data-testid="integration-environment">
+                <span className={`mr-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${i.environment === 'PRODUCTION' ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800'}`}>{i.environment}</span>
+                {i.environment === 'SANDBOX' ? 'Points at the client\'s test environment: this integration can never go live until it is promoted to PRODUCTION and verified again.' : 'Points at the client\'s production environment.'}
+                {!i.productionCapable && <span className="ml-1 font-medium text-amber-800">SIMULATION: delivery is simulated, so this can never go live.</span>}
+              </p>
+              {i.recentChecks && i.recentChecks.length > 0 && (
+                <p className="text-xs text-slate-600" data-testid="integration-checks">
+                  Recent checks: {i.recentChecks.map((c, n) => (
+                    <span key={n} className={`mr-2 ${c.ok ? 'text-emerald-700' : 'text-red-600'}`}>
+                      {c.direction.toLowerCase()} {c.ok ? 'ok' : `failed${c.category ? ` (${c.category})` : ''}`}{c.latencyMs != null ? ` ${c.latencyMs} ms` : ''} · {c.environment.toLowerCase()} · {new Date(c.at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  ))}
+                </p>
+              )}
               <p className="break-all text-xs text-slate-600">Client sends to: <span className="font-mono">{origin}/api/v1/webhooks/{i.id}</span></p>
               {i.config.callbackUrl && <p className="break-all text-xs text-slate-600">GCO sends replies to: <span className="font-mono">{i.config.callbackUrl}</span></p>}
               {i.requiresVerification && <p className="text-xs text-slate-600">Outbound test: {i.verification.outboundAt ? 'passed' : 'not run'} · Inbound test (client ping): {i.verification.inboundAt ? 'received' : 'not received'}</p>}
               <div className="flex flex-wrap gap-2">
                 {i.requiresVerification && <button disabled={busy === i.id} onClick={() => verify(i)} className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50">Verify (send signed test)</button>}
                 <button disabled={busy === i.id} onClick={() => rotate(i)} className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50">Rotate secret</button>
+                {i.productionCapable && i.environment === 'SANDBOX' && <button disabled={busy === i.id} onClick={() => changeEnvironment(i, 'PRODUCTION')} className="rounded border border-blue-300 px-2 py-1 text-xs text-blue-800 hover:bg-blue-50 disabled:opacity-50">Promote to PRODUCTION</button>}
+                {i.environment === 'PRODUCTION' && i.status !== 'ACTIVE' && <button disabled={busy === i.id} onClick={() => changeEnvironment(i, 'SANDBOX')} className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50">Move back to SANDBOX</button>}
               </div>
             </li>
           ))}

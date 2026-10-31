@@ -195,8 +195,8 @@ describe('client onboarding', () => {
       const b = await setup('scopeB')
       const obA = await provisionOnboarding(a.lead.id)
       await provisionOnboarding(b.lead.id)
-      const integA = await db.integration.create({ data: { tenantId: a.tenant.id, adapterKey: 'dev-mock', name: 'A', status: 'DISABLED', config: {}, webhookSecret: 'a'.repeat(40) } })
-      const integB = await db.integration.create({ data: { tenantId: b.tenant.id, adapterKey: 'dev-mock', name: 'B', status: 'DISABLED', config: {}, webhookSecret: 'b'.repeat(40) } })
+      const integA = await db.integration.create({ data: { tenantId: a.tenant.id, adapterKey: 'dev-mock', name: 'A', status: 'DISABLED', environment: 'PRODUCTION', config: {}, webhookSecret: 'a'.repeat(40) } })
+      const integB = await db.integration.create({ data: { tenantId: b.tenant.id, adapterKey: 'dev-mock', name: 'B', status: 'DISABLED', environment: 'PRODUCTION', config: {}, webhookSecret: 'b'.repeat(40) } })
       const already = await db.integration.create({ data: { tenantId: a.tenant.id, adapterKey: 'dev-mock', name: 'A-disabled-by-admin', status: 'DEGRADED', config: {}, webhookSecret: 'c'.repeat(40) } })
       await acceptInvitation((await issueInvitation(obA.id, admin)).setupUrl.split('#token=')[1]!, 'a-long-enough-password')
       const opUser = await db.user.create({ data: { email: `${base}-op3@test.gco`, passwordHash: 'x', role: 'OPERATOR', tenantId: a.tenant.id, displayName: 'op' } })
@@ -222,7 +222,7 @@ describe('client onboarding', () => {
       // integration staged DISABLED, with a secret (presence only is checked), an unregistered adapter does not count
       await db.integration.create({ data: { tenantId: tenant.id, adapterKey: 'not-registered', name: 'bad', status: 'DISABLED', config: {}, webhookSecret: 'x'.repeat(40) } })
       expect((await computeChecklist(ob.id)).items.find((i) => i.key === 'integration_configured')!.done).toBe(false)
-      const integ = await db.integration.create({ data: { tenantId: tenant.id, adapterKey: 'dev-mock', name: 'Main', status: 'DISABLED', config: {}, webhookSecret: 'y'.repeat(40) } })
+      const integ = await db.integration.create({ data: { tenantId: tenant.id, adapterKey: 'dev-mock', name: 'Main', status: 'DISABLED', environment: 'PRODUCTION', config: {}, webhookSecret: 'y'.repeat(40) } })
       // operator
       const opUser = await db.user.create({ data: { email: `${base}-op@test.gco`, passwordHash: 'x', role: 'OPERATOR', tenantId: tenant.id, displayName: 'op' } })
       await db.operator.create({ data: { userId: opUser.id, tenantId: tenant.id, capacity: 2 } })
