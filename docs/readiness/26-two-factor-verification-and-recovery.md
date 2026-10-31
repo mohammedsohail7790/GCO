@@ -37,3 +37,19 @@ Roles to consider: `CEO_ADMIN`, `ASSISTANT`, `MANAGER`, `CTO` (and `SUPERVISOR` 
 
 ## 6. Do not
 Do not rotate `AUTH_SECRET` while enforcement is on unless everyone is ready to re-enrol. Do not enable the setting before the table is complete. Do not skip the staging test of the recovery tool.
+
+## 7. Rehearsal result, 31 Oct 2026 (local copy with fictional data; **not** the staging server, nothing on production)
+A second web instance with `REQUIRE_TWO_FACTOR_ROLES=CEO_ADMIN,MANAGER` was run against the local demo database next to a normal instance:
+| Check | Result |
+|---|---|
+| Enrol the demo founder account on the normal instance (password, authenticator code) | works; 10 recovery codes issued |
+| Enforced instance: manager (listed role, not enrolled), correct password | refused, `403 TWO_FACTOR_ENROLMENT_REQUIRED` |
+| Enforced instance: operator (role not listed) | signs in normally |
+| Enforced instance: enrolled founder, password only | asked for the code (`401 TWO_FACTOR_REQUIRED`) |
+| Enforced instance: wrong code | refused |
+| Enforced instance: correct code | signs in |
+| Enforced instance: recovery code | signs in |
+| Same recovery code used again | refused (single use) |
+| Turn two-factor off again (password plus signed-in session) | works |
+**Not exercised here:** `prisma/ops/reset-2fa.ts` (it needs an interactive terminal and a typed `reset`; the CTO runs it on staging); a run on the real staging server; the existing automated tests do not cover the enforced-sign-in path over HTTP (only the policy function), so a regression test for it is worth adding.
+**Two findings for the production plan:** (1) a listed account without two-factor is refused at sign-in **even with the right password and cannot enrol alone**, so the CEO must enrol **before** enforcement is switched on (this is why the order in sections 3 to 5 matters); (2) production currently has **no CTO account** (only the founder and a hunter account on the company domain), so "mandatory for Founder and CTO" requires first creating a CTO staff account with `prisma/ops/staff-account.ts --role CTO`, enrolling it, and only then enforcing.
