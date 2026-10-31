@@ -8,6 +8,7 @@ import { TransferButton } from '@/components/operator/TransferButton'
 import { KnowledgePanel } from '@/components/operator/KnowledgePanel'
 import { NoteForm, ResolveButton } from '@/components/operator/ConversationActions'
 import { OperatorEscalate, type ActiveEscalation } from '@/components/escalation/OperatorEscalate'
+import { deliveryLabel } from '@/lib/messages/deliveryStatus'
 
 interface Message {
   id: string
@@ -31,6 +32,14 @@ interface ConversationItem {
     aiMemories: { id: string; type: string; value: string; confidence: number }[]
     escalations?: ActiveEscalation[]
   }
+}
+
+interface RecentReply {
+  id: string
+  conversationId: string
+  status: string
+  createdAt: string
+  preview: string
 }
 
 interface Suggestion {
@@ -91,16 +100,19 @@ export default function OperatorPage() {
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [recentReplies, setRecentReplies] = useState<RecentReply[]>([])
 
   const load = useCallback(async () => {
     try {
       const data = await apiFetch<{
         operator: { status: string; operatorNumber: number; capacity: number }
         conversations: ConversationItem[]
+        recentReplies?: RecentReply[]
       }>('/operators/me/workspace')
       setStatus(data.operator.status as any)
       setOperatorMeta({ operatorNumber: data.operator.operatorNumber, capacity: data.operator.capacity })
       setItems(data.conversations)
+      setRecentReplies(data.recentReplies ?? [])
       if (!activeId && data.conversations[0]) setActiveId(data.conversations[0].conversation.id)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load workspace')
@@ -264,6 +276,9 @@ export default function OperatorPage() {
                       {lastMessage && (
                         <p className="mt-0.5 truncate text-xs text-slate-500">
                           {lastMessage.direction === 'OUTBOUND' && <span className="text-slate-400">You: </span>}
+                          {lastMessage.direction === 'OUTBOUND' && lastMessage.status === 'FAILED' && (
+                            <span className="mr-1 font-semibold text-red-600">[not delivered]</span>
+                          )}
                           {lastMessage.content}
                         </p>
                       )}
@@ -279,6 +294,34 @@ export default function OperatorPage() {
               )
             })}
           </ul>
+          {recentReplies.length > 0 && (
+            <div data-testid="recent-replies" className="max-h-56 overflow-y-auto border-t border-slate-200 bg-white">
+              <p className="px-4 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Recently sent</p>
+              {recentReplies.some((r) => r.status === 'FAILED') && (
+                <p data-testid="recent-replies-failed" className="mx-4 mb-1 rounded bg-red-50 px-2 py-1 text-xs font-medium text-red-700">
+                  A reply was not delivered. Tell your supervisor.
+                </p>
+              )}
+              <ul className="divide-y divide-slate-100">
+                {recentReplies.map((r) => {
+                  const d = deliveryLabel('OUTBOUND', r.status)
+                  return (
+                    <li key={r.id} className="px-4 py-2">
+                      <p className="truncate text-xs text-slate-600">{r.preview}</p>
+                      <p className="mt-0.5 text-[11px] text-slate-400">
+                        {new Date(r.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {d && (
+                          <span data-testid="delivery-status" className={`ml-1 font-medium ${d.tone === 'error' ? 'text-red-600' : d.tone === 'ok' ? 'text-emerald-600' : 'text-slate-400'}`}>
+                            {' '}· {d.text}
+                          </span>
+                        )}
+                      </p>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          )}
         </aside>
 
         {/* Conversation + AI suggestion */}
@@ -339,6 +382,17 @@ export default function OperatorPage() {
                       >
                         {m.direction === 'OUTBOUND' ? 'Sent by you' : 'Received'} ·{' '}
                         {new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {(() => {
+                          const d = deliveryLabel(m.direction, m.status)
+                          return d ? (
+                            <span
+                              data-testid="delivery-status"
+                              className={`ml-1 font-medium ${d.tone === 'error' ? 'text-red-600' : d.tone === 'ok' ? 'text-emerald-600' : 'text-slate-400'}`}
+                            >
+                              {' '}· {d.text}
+                            </span>
+                          ) : null
+                        })()}
                       </p>
                     </div>
                   </div>

@@ -42,9 +42,21 @@ export async function GET(req: NextRequest) {
       },
     }))
 
+    // The operator's own replies from the last 24 hours with their delivery state. A conversation leaves this screen as soon as it is answered,
+    // so without this list a reply that fails to reach the client's platform would be invisible. Own messages only; no failure detail is returned.
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000)
+    const sent = await db.message.findMany({
+      where: { operatorId: operator.id, direction: 'OUTBOUND', createdAt: { gte: since } },
+      orderBy: { createdAt: 'desc' },
+      take: 15,
+      select: { id: true, conversationId: true, status: true, createdAt: true, content: true },
+    })
+    const recentReplies = sent.map((m) => ({ id: m.id, conversationId: m.conversationId, status: m.status, createdAt: m.createdAt, preview: m.content.slice(0, 80) }))
+
     return ok({
       operator: { id: operator.id, operatorNumber: operator.operatorNumber, status: operator.status, capacity: operator.capacity, languages: operator.languages },
       conversations,
+      recentReplies,
     })
   } catch (err) {
     return handleRouteError(err)
