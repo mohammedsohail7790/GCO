@@ -2,6 +2,8 @@
 Description=GCO PostgreSQL backup
 After=docker.service
 Requires=docker.service
+# A failed or partly failed backup (exit 1 = local failed, exit 2 = offsite copy failed) emails the alert contacts. Needs the watchdog units installed.
+OnFailure=gco-watchdog-notify@%n.service
 
 [Service]
 Type=oneshot

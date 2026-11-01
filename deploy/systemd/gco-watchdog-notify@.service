@@ -1,0 +1,8 @@
+[Unit]
+Description=Email an alert that unit %i failed
+
+[Service]
+Type=oneshot
+User=gco
+EnvironmentFile=-/etc/gco-watchdog.env
+ExecStart=/usr/bin/python3 /opt/gco/scripts/gco-watchdog.py --notify %i

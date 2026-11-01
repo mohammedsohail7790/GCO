@@ -5,6 +5,7 @@
 | `gco-backup-postgres.*` | daily 03:30 UTC | database dump (+ Backblaze B2 copy) - see `docs/disaster-recovery.md` |
 | `gco-alerts-dispatch.*` | every 5 minutes | turns each client's alerts into in-app notifications for the configured roles |
 | `gco-retention.*` | daily 03:45 UTC | removes personal content past each client's retention window (billing/earnings records stay) |
+| `gco-watchdog.*` | every 5 minutes | emails the alert contacts when the app is unhealthy, no backup newer than 27 hours exists, or the backup disk is nearly full; `gco-watchdog-notify@` emails when the backup service itself fails (see `docs/readiness/43`) |
 | `gco-weekly-reports.*` | Mondays 06:00 UTC | creates last week's operator report drafts |
 
 Install on the server (as root), then check the next run times:

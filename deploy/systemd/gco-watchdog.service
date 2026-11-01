@@ -1,0 +1,12 @@
+[Unit]
+Description=GCO watchdog (health, backup freshness, backup disk space) - emails a person on a problem
+
+[Service]
+Type=oneshot
+User=gco
+# Mail settings (SMTP_URL, ALERT_TO, SMTP_FROM): root:root 0600, created by the owner. Missing file = alerts are only logged and the unit exits 1.
+EnvironmentFile=-/etc/gco-watchdog.env
+# Creates /var/lib/gco-watchdog owned by the service user (holds only the small state file).
+StateDirectory=gco-watchdog
+Environment=STATE_FILE=/var/lib/gco-watchdog/state.json
+ExecStart=/usr/bin/python3 /opt/gco/scripts/gco-watchdog.py
