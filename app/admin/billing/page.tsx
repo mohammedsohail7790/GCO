@@ -66,6 +66,12 @@ export default function BillingPage() {
           <button onClick={() => act(() => apiFetch('/admin/billing/invoices', { method: 'POST', body: JSON.stringify({ tenantId, periodStart: `${period.from}T00:00:00Z`, periodEnd: `${period.to}T00:00:00Z` }) }), 'Draft invoice created.')} className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white">Create draft invoice</button>
           <button onClick={() => apiFetch<Recon>(`/admin/billing/reconciliation?tenantId=${tenantId}&from=${period.from}T00:00:00Z&to=${period.to}T00:00:00Z`).then(setRecon).catch((e) => setMsg({ kind: 'err', text: e instanceof Error ? e.message : 'Failed' }))} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm">Reconcile period</button>
         </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-sm" data-testid="export-csv">
+          <span className="text-xs text-slate-500">Download CSV for this client and period (each download is recorded in the audit log; the link works for 10 minutes, for you only):</span>
+          {([['usage', 'Usage'], ['invoices', 'Invoices'], ['reconciliation', 'Reconciliation'], ['operator-earnings', 'Operator earnings']] as const).map(([kind, label]) => (
+            <button key={kind} data-testid={`export-${kind}`} onClick={() => apiFetch<{ downloadUrl: string }>('/admin/exports', { method: 'POST', body: JSON.stringify({ kind, tenantId, from: period.from, to: period.to }) }).then((d) => { window.location.href = d.downloadUrl }).catch((e) => setMsg({ kind: 'err', text: e instanceof Error ? e.message : 'Export failed' }))} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm">{label}</button>
+          ))}
+        </div>
         {recon && (
           <div className="mt-3 grid gap-x-8 gap-y-1 text-sm sm:grid-cols-2">
             <p>Billable messages <b>{recon.activity.billableMessages}</b> · customer messages received <b>{recon.activity.customerMessagesReceived}</b></p>
