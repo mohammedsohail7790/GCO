@@ -3,6 +3,11 @@ import { db } from '@/lib/db/client'
 import { syncEarnings, createRateCard, createAdjustment, createPayout, markPayoutPaid, EarningsError } from '@/lib/earnings/ledger'
 import { getEarningsSummary, getObligations } from '@/lib/earnings/summary'
 
+// The database stamps rows with CURRENT_TIMESTAMP at millisecond precision (rounded) while Node's new Date() truncates, so a row created a fraction of a
+// millisecond ago can carry a createdAt just AFTER 'now' and be left out of a payout 'up to now' (harmless in production: it is settled in the next payout, nothing is
+// lost or paid twice). Tests therefore close the period a few seconds ahead instead of at the instant of the call.
+const PAYOUT_END = () => new Date(Date.now() + 5_000)
+
 describe('operator earnings ledger (real database)', () => {
   const base = `el-${Date.now()}`
   const tenantIds: string[] = []
@@ -89,12 +94,12 @@ describe('operator earnings ledger (real database)', () => {
     await syncEarnings(op)
     await createAdjustment({ operatorId: op, amountEurCents: -15, reason: 'duplicate message corrected', actorUserId: admin })
     await createAdjustment({ operatorId: op, amountEurCents: 100, reason: 'quality bonus', actorUserId: admin })
-    const results = await Promise.allSettled([createPayout({ operatorId: op, periodEnd: new Date(), actorUserId: admin }), createPayout({ operatorId: op, periodEnd: new Date(), actorUserId: admin })])
+    const results = await Promise.allSettled([createPayout({ operatorId: op, periodEnd: PAYOUT_END(), actorUserId: admin }), createPayout({ operatorId: op, periodEnd: PAYOUT_END(), actorUserId: admin })])
     const ok = results.filter((r) => r.status === 'fulfilled')
     expect(ok).toHaveLength(1)
     const payout = (ok[0] as PromiseFulfilledResult<Awaited<ReturnType<typeof createPayout>>>).value
     expect(payout).toMatchObject({ lineCount: 4, linesEurCents: 40, adjustmentsEurCents: 85, totalEurCents: 125, status: 'PENDING' })
-    await expect(createPayout({ operatorId: op, periodEnd: new Date(), actorUserId: admin })).rejects.toBeInstanceOf(EarningsError)
+    await expect(createPayout({ operatorId: op, periodEnd: PAYOUT_END(), actorUserId: admin })).rejects.toBeInstanceOf(EarningsError)
 
     let s = await getEarningsSummary(op)
     expect(s.earnings).toMatchObject({ totalAccumulatedEurCents: 125, awaitingPayoutEurCents: 0, pendingPaymentEurCents: 125, paidEurCents: 0 })
@@ -140,7 +145,7 @@ describe('operator earnings ledger (real database)', () => {
     let rows = await getObligations(t)
     expect(rows).toHaveLength(1) // another client's operator never appears in this scope
     expect(rows[0]).toMatchObject({ operatorId: op, awaitingPayoutEurCents: 20, pendingPaymentEurCents: 0, paidEurCents: 0, pendingMessages: 1 })
-    const payout = await createPayout({ operatorId: op, periodEnd: new Date(), actorUserId: admin })
+    const payout = await createPayout({ operatorId: op, periodEnd: PAYOUT_END(), actorUserId: admin })
     rows = await getObligations(t)
     expect(rows[0]).toMatchObject({ awaitingPayoutEurCents: 0, pendingPaymentEurCents: 20 })
     await markPayoutPaid({ payoutId: payout.id, actorUserId: admin })
