@@ -56,3 +56,9 @@ No prices or rates; no dates as promises; no certification, compliance, independ
 - Cristian: confirm time with UVS; confirm role (subcontractor, referral, or both) and whether he is comfortable with the India-access disclosure; confirm the P0 branch build may be shown (with the "not in production" note).
 - CTO: reset demo data and dry run on Wed 4 Nov; prepare to receive UVS's API documentation after the call; one-page capability sheet can be shared only after Cristian approves it.
 - Not decided: whether to share the partner capability brief and security pack with UVS before the call (needs Cristian's OK; the security pack contains drafts).
+
+## 6. CEO decisions of 3 Nov 2026 (applied to this plan)
+- **Priority:** operational subcontracting first (GCO covers UVS's European-language queues or other services they need help with). A reciprocal referral arrangement may be explored, but **no financial terms of any kind are promised before a written agreement** (this overrides any earlier wording on commissions).
+- **Demo approved:** the **newest version in the test environment with fictional data**, including the P0 branch build. Say out loud for each screen whether it is **live in production**, **built and tested but not released**, or **needs development**, using the table in section 1. No launch dates, certifications, service levels or pricing.
+- **India access:** the CEO allows the explanation only if the restriction is technically verified. It is **not** (see `44` section 7), so use the accurate statement in `44` ("no real client personal data is accessed from outside the EU/EEA; none exists today; closed pending legal review; technical controls being put in place") and never say "technically blocked".
+- **Meeting time:** Thursday 5 Nov, 18:00 CET: the CEO confirms with UVS and will tell us when they acknowledge.
