@@ -70,13 +70,23 @@ class Mail(unittest.TestCase):
         def loop():
             while not stop.is_set(): asyncore.loop(timeout=0.1, count=1)
         t = threading.Thread(target=loop, daemon=True); t.start()
-        ok = wd.send_mail("[GCO ALERT] Backup", "body text", "smtp://127.0.0.1:%d" % port, ["ceo@example.test", "cto@example.test"], "alerts@example.test")
+        ok = wd.send_mail("[GCO ALERT] Backup", "body text", "smtp://127.0.0.1:%d" % port, ["ceo@example.test", "cto@example.test"], "alerts@example.test", require_tls=False)
         stop.set(); t.join(2)
         self.assertTrue(ok); self.assertEqual(len(Sink.got), 1)
         self.assertEqual(Sink.got[0][1], ["ceo@example.test", "cto@example.test"]); self.assertIn("body text", Sink.got[0][2])
 
     def test_send_failure_returns_false_without_raising(self):
         self.assertFalse(wd.send_mail("s", "b", "smtp://127.0.0.1:1", ["a@b.test"], "f@b.test"))
+
+    def test_refuses_to_send_without_tls_by_default(self):
+        class Sink(smtpd.SMTPServer):
+            got = []
+            def process_message(self, peer, mailfrom, rcpttos, data, **kw): Sink.got.append(data)
+        srv = Sink(("127.0.0.1", 0), None); port = srv.socket.getsockname()[1]
+        th = threading.Thread(target=lambda: asyncore.loop(timeout=0.2, count=10), daemon=True); th.start()
+        self.assertFalse(wd.send_mail("s", "b", "smtp://127.0.0.1:%d" % port, ["a@b.test"], "f@b.test"))
+        self.assertEqual(Sink.got, [])
+        srv.close()
 
     def test_message_has_no_data_and_names_the_check(self):
         sent = []

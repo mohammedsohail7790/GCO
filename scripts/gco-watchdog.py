@@ -9,7 +9,7 @@ credentials or addresses. SMTP settings come from /etc/gco-watchdog.env (root:ro
 script still runs and logs, so nothing is silently skipped. A watchdog on the server cannot report that the server itself is down: that
 needs an external monitor (see docs/readiness/43).
 
-Environment: ALERT_TO (comma list), SMTP_URL (smtp://user:pass@host:587 for STARTTLS, smtps://... for TLS), SMTP_FROM, HEALTH_URL,
+Environment: ALERT_TO (comma list), SMTP_URL (smtp://user:pass@host:587 for STARTTLS, smtps://... for TLS; credentials optional: the Google Workspace relay allowed by server IP needs none, e.g. smtp://smtp-relay.gmail.com:587), SMTP_REQUIRE_TLS (default 1: refuse to send unencrypted), SMTP_FROM, HEALTH_URL,
 BACKUP_DIR, BACKUP_MAX_AGE_HOURS (default 27), DISK_MIN_FREE_PERCENT (default 15), FAIL_THRESHOLD (default 2), REMIND_HOURS (default 6),
 STATE_FILE.
 """
@@ -95,17 +95,21 @@ def decide(prev: Dict[str, dict], results: Dict[str, Tuple[bool, str]], now: flo
     return state, events
 
 
-def send_mail(subject: str, text: str, smtp_url: str, to: List[str], sender: str) -> bool:
+def send_mail(subject: str, text: str, smtp_url: str, to: List[str], sender: str, require_tls: Optional[bool] = None) -> bool:
     u = urllib.parse.urlparse(smtp_url)
+    if require_tls is None:
+        require_tls = env("SMTP_REQUIRE_TLS", "1") != "0"  # default: never send over a connection that is not encrypted
     try:
         cls = smtplib.SMTP_SSL if u.scheme == "smtps" else smtplib.SMTP
         port = u.port or (465 if u.scheme == "smtps" else 587)
         with cls(u.hostname, port, timeout=20) as s:
             if u.scheme == "smtp":
                 s.ehlo()
-                if s.has_extn("starttls"):  # upgrade to TLS whenever the server offers it
+                if s.has_extn("starttls"):
                     s.starttls()
                     s.ehlo()
+                elif require_tls:
+                    raise ConnectionError("server does not offer TLS")
             if u.username:
                 s.login(urllib.parse.unquote(u.username), urllib.parse.unquote(u.password or ""))
             m = EmailMessage()
