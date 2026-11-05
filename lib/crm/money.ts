@@ -8,10 +8,10 @@ export const CURRENCY = 'EUR' as const
 export const MAX_PAYMENT_EUR_CENTS = 100_000_000
 
 export const paymentAmountSchema = z
-  .number({ invalid_type_error: 'amountEurCents must be a number' })
+  .number({ error: (iss) => (iss.code === 'invalid_type' && iss.input !== undefined ? 'amountEurCents must be a number' : undefined) })
   .int('amountEurCents must be a whole number of cents')
   .positive('amountEurCents must be greater than 0')
   .max(MAX_PAYMENT_EUR_CENTS, `amountEurCents must not exceed ${MAX_PAYMENT_EUR_CENTS} (EUR 1,000,000)`)
 
 /** Optional for backward compatibility (omitted = EUR); anything other than EUR is rejected, never silently accepted. */
-export const currencySchema = z.literal(CURRENCY, { errorMap: () => ({ message: 'Only EUR is supported' }) }).optional()
+export const currencySchema = z.literal(CURRENCY, { error: 'Only EUR is supported' }).optional()

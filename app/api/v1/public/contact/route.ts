@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { created, fail, handleRouteError } from '@/lib/api/response'
+import { readJsonWithLimit } from '@/lib/api/body'
 import { isRateLimited, RATE_LIMITS } from '@/lib/api/rateLimit'
 import { getClientIp } from '@/lib/api/clientIp'
 import { createLead, recordRepeatInquiry, LeadDuplicateError } from '@/lib/crm/leads'
@@ -50,7 +51,7 @@ export async function POST(req: NextRequest) {
       return fail('Too many submissions. Please try again later.', 429)
     }
 
-    const body = Schema.parse(await req.json())
+    const body = Schema.parse(await readJsonWithLimit(req, MAX_BODY_BYTES))
     if (body.website) {
       // Silently accept honeypot-triggered submissions without creating a
       // lead - never tell an automated client it was detected.

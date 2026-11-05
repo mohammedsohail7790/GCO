@@ -28,7 +28,7 @@ const CreateSchema = z.object({
   tenantId: z.string().min(1),
   adapterKey: z.string().min(1),
   name: z.string().min(1).max(200),
-  config: z.record(z.unknown()).default({}),
+  config: z.record(z.string(), z.unknown()).default({}),
   // Omitted: a production-capable adapter is staged DISABLED (it goes live only through the onboarding go-live), every
   // other adapter keeps the historical default ACTIVE.
   status: z.enum(['ACTIVE', 'DISABLED', 'DEGRADED']).optional(),

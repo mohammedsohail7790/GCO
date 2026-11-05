@@ -8,6 +8,7 @@ import { writeAuditLog } from '@/lib/audit/log'
 import { isRateLimited } from '@/lib/api/rateLimit'
 import { getClientIp } from '@/lib/api/clientIp'
 import { ok, fail, handleRouteError } from '@/lib/api/response'
+import { readJsonWithLimit, AUTH_BODY_MAX_BYTES } from '@/lib/api/body'
 
 const Schema = z.object({ currentPassword: z.string().min(1).max(200), newPassword: z.string().min(1).max(200) }).strict()
 
@@ -19,7 +20,7 @@ const Schema = z.object({ currentPassword: z.string().min(1).max(200), newPasswo
 export async function POST(req: NextRequest) {
   try {
     const session = await getSession(req)
-    const body = Schema.parse(await req.json())
+    const body = Schema.parse(await readJsonWithLimit(req, AUTH_BODY_MAX_BYTES))
     if (await isRateLimited(`change-password:${session.sub}`, 5, 15 * 60)) return fail('Too many attempts. Try again later.', 429)
 
     const user = await db.user.findUnique({ where: { id: session.sub } })

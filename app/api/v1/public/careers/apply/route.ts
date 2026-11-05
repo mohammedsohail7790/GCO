@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { submitCareerApplication } from '@/lib/careers/applications'
 import { created, fail, handleRouteError } from '@/lib/api/response'
+import { readJsonWithLimit } from '@/lib/api/body'
 import { isRateLimited, RATE_LIMITS } from '@/lib/api/rateLimit'
 import { getClientIp } from '@/lib/api/clientIp'
 
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest) {
       return fail('Too many submissions. Please try again later.', 429)
     }
 
-    const body = Schema.parse(await req.json())
+    const body = Schema.parse(await readJsonWithLimit(req, MAX_BODY_BYTES))
     if (body.website) return created({ received: true })
 
     const application = await submitCareerApplication({

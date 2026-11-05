@@ -34,14 +34,14 @@
     "nanoid": "^5.0.7",
     "next": "^16.3.3",
     "nodemailer": "^10.1.7",
-    "openai": "^4.63.0",
+    "openai": "^6.49.0",
     "pino": "^9.4.0",
     "prisma": "^5.19.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "tailwind-merge": "^2.5.2",
     "ws": "^8.18.0",
-    "zod": "^3.23.8"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@playwright/test": "^1.47.0",

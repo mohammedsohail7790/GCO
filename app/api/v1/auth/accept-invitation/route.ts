@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { ok, fail, handleRouteError } from '@/lib/api/response'
+import { readJsonWithLimit, AUTH_BODY_MAX_BYTES } from '@/lib/api/body'
 import { isRateLimited, RATE_LIMITS } from '@/lib/api/rateLimit'
 import { getClientIp } from '@/lib/api/clientIp'
 import { acceptInvitation } from '@/lib/onboarding/service'
@@ -15,7 +16,7 @@ export async function POST(req: NextRequest) {
     if (await isRateLimited(`accept-invitation:${ip}`, RATE_LIMITS.LOGIN.max, RATE_LIMITS.LOGIN.windowSeconds)) {
       return fail('Too many attempts. Try again later.', 429)
     }
-    const body = Schema.parse(await req.json())
+    const body = Schema.parse(await readJsonWithLimit(req, AUTH_BODY_MAX_BYTES))
     // A staff (operator/manager) setup link, else the client's own setup link. Same endpoint, same generic failure.
     if (!(await acceptStaffInvitation(body.token, body.password))) await acceptInvitation(body.token, body.password)
     return ok({ accepted: true })

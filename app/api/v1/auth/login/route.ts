@@ -5,6 +5,7 @@ import { nanoid } from 'nanoid'
 import { db } from '@/lib/db/client'
 import { signAccessToken } from '@/lib/auth/tokens'
 import { ok, fail, handleRouteError } from '@/lib/api/response'
+import { readJsonWithLimit, AUTH_BODY_MAX_BYTES } from '@/lib/api/body'
 import { ACCESS_COOKIE } from '@/lib/auth/session'
 import { writeAuditLog } from '@/lib/audit/log'
 import { isRateLimited, RATE_LIMITS } from '@/lib/api/rateLimit'
@@ -24,7 +25,7 @@ export async function POST(req: NextRequest) {
   try {
     // Real client address (Cloudflare-aware, spoof-resistant) - see lib/api/clientIp.ts.
     const ip = getClientIp(req.headers)
-    const body = LoginSchema.parse(await req.json())
+    const body = LoginSchema.parse(await readJsonWithLimit(req, AUTH_BODY_MAX_BYTES))
 
     // Redis-backed (not per-process in-memory) so this actually holds up
     // across multiple app instances in production - see
