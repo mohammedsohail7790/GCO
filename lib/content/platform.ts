@@ -13,14 +13,14 @@ export const PLATFORM_CAPABILITIES = [
   { title: 'Escalation workflow', body: 'Operators escalate with a reason; supervisors claim, note and resolve, or escalate to GCO management and the client contact. Every step is recorded.' },
   { title: 'Operational reporting', body: 'Live operational figures such as queue size, response times and SLA breaches, plus usage reporting.' },
   { title: 'Activity monitoring', body: 'Actions on the platform, from assignments to escalations, are recorded for audit.' },
-  { title: 'AI-assisted workflows', body: 'AI drafts suggested replies and extracts facts to help the operator. The operator reviews, edits and sends; nothing is sent automatically.' },
+  { title: 'AI-assisted drafting (currently disabled)', body: 'The platform can prepare a suggested reply for the operator to review and edit. It is switched off today; when enabled for a client, the operator still approves and sends every reply.' },
   { title: 'Security controls', body: 'Role-based access, client/tenant isolation, signed webhook verification, rate limiting and HTTPS. No certifications are claimed.' },
 ] as const
 
 export const PLATFORM_FLOW = [
   { title: 'Conversation arrives', body: 'Through the client\'s channel, via the GCO ingestion pipeline.' },
   { title: 'Queued and assigned', body: 'To an available operator, with a response timer.' },
-  { title: 'Human operator replies', body: 'With an AI-drafted suggestion to review when useful.' },
+  { title: 'Human operator replies', body: 'Written and sent by the operator.' },
   { title: 'Supervised', body: 'Supervisors see queues and review conversations.' },
   { title: 'Escalated when needed', body: 'Operator, then supervisor or team lead, then GCO management and the client contact.' },
 ] as const

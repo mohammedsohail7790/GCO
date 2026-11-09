@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { apiFetch } from '@/lib/api/client'
 
 interface Tenant { id: string; name: string }
-interface Settings { billingModel: string; pricePerMessageEurCents: number; operatorCostPerMessageEurCents: number; pricePerTicketEurCents: number | null; pricePerHourEurCents: number | null; monthlyFeeEurCents: number | null; vatRatePercent: number; vatNote: string | null; paymentTermsDays: number }
+interface Settings { billingModel: string; pricePerMessageEurCents: number; operatorCostPerMessageEurCents: number; pricePerTicketEurCents: number | null; pricePerHourEurCents: number | null; monthlyFeeEurCents: number | null; includedTicketsPerPeriod: number | null; pricePerModeratedItemEurCents: number | null; vatRatePercent: number; vatNote: string | null; paymentTermsDays: number }
+interface TicketCount { id: string; periodStart: string; periodEnd: string; count: number; source: string; note: string | null }
 interface Invoice { id: string; number: string | null; tenantId: string; status: 'DRAFT' | 'ISSUED' | 'PAID' | 'VOID'; periodStart: string; periodEnd: string; totalEurCents: number; billingModel: string; dueAt: string | null }
 interface Recon { activity: { billableMessages: number; customerMessagesReceived: number }; clientBilling: { billedPerUsageEurCents: number; invoicedSubtotalEurCents: number }; operatorCompensation: { ledgerCostEurCents: number; owedEurCents: number; payableMessages: number; pendingMessages: number; rejectedMessages: number }; margin: { grossEurCents: number; grossPercent: number | null }; mismatches: { receivedWithoutUsageRecord: number; deliveredWithoutEarningLine: number; usageVsInvoiceDifferenceEurCents: number | null } }
 
@@ -20,15 +21,17 @@ export default function BillingPage() {
   const [recon, setRecon] = useState<Recon | null>(null)
   const [period, setPeriod] = useState({ from: monthStart(-1), to: monthStart(0) })
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
-  const [form, setForm] = useState({ model: 'PER_MESSAGE', msg: '', cost: '', ticket: '', hour: '', monthly: '', vat: '22', vatNote: '', terms: '30' })
+  const [form, setForm] = useState({ model: 'PER_MESSAGE', msg: '', cost: '', ticket: '', hour: '', monthly: '', included: '', moderated: '', vat: '22', vatNote: '', terms: '30' })
+  const [counts, setCounts] = useState<TicketCount[]>([])
+  const [countForm, setCountForm] = useState({ count: '', source: '' })
 
   useEffect(() => { apiFetch<Tenant[]>('/admin/tenants').then((t) => { setTenants(t); const want = new URLSearchParams(window.location.search).get('tenantId'); const pick = t.find((x) => x.id === want) ?? t[0]; if (pick) setTenantId(pick.id) }).catch(() => {}) }, [])
   const load = useCallback(() => {
     if (!tenantId) return Promise.resolve()
-    return Promise.all([apiFetch<Settings>(`/admin/billing/settings?tenantId=${tenantId}`), apiFetch<Invoice[]>(`/admin/billing/invoices?tenantId=${tenantId}`)])
-      .then(([st, inv]) => {
-        setS(st); setInvoices(inv)
-        setForm({ model: st.billingModel, msg: String(st.pricePerMessageEurCents / 100), cost: String(st.operatorCostPerMessageEurCents / 100), ticket: st.pricePerTicketEurCents === null ? '' : String(st.pricePerTicketEurCents / 100), hour: st.pricePerHourEurCents === null ? '' : String(st.pricePerHourEurCents / 100), monthly: st.monthlyFeeEurCents === null ? '' : String(st.monthlyFeeEurCents / 100), vat: String(st.vatRatePercent), vatNote: st.vatNote ?? '', terms: String(st.paymentTermsDays) })
+    return Promise.all([apiFetch<Settings>(`/admin/billing/settings?tenantId=${tenantId}`), apiFetch<Invoice[]>(`/admin/billing/invoices?tenantId=${tenantId}`), apiFetch<TicketCount[]>(`/admin/billing/ticket-counts?tenantId=${tenantId}`)])
+      .then(([st, inv, tc]) => {
+        setS(st); setInvoices(inv); setCounts(tc)
+        setForm({ model: st.billingModel, msg: String(st.pricePerMessageEurCents / 100), cost: String(st.operatorCostPerMessageEurCents / 100), ticket: st.pricePerTicketEurCents === null ? '' : String(st.pricePerTicketEurCents / 100), hour: st.pricePerHourEurCents === null ? '' : String(st.pricePerHourEurCents / 100), monthly: st.monthlyFeeEurCents === null ? '' : String(st.monthlyFeeEurCents / 100), included: st.includedTicketsPerPeriod === null ? '' : String(st.includedTicketsPerPeriod), moderated: st.pricePerModeratedItemEurCents === null ? '' : String(st.pricePerModeratedItemEurCents / 100), vat: String(st.vatRatePercent), vatNote: st.vatNote ?? '', terms: String(st.paymentTermsDays) })
       })
       .catch((e) => setMsg({ kind: 'err', text: e instanceof Error ? e.message : 'Failed to load' }))
   }, [tenantId])
@@ -48,13 +51,27 @@ export default function BillingPage() {
       {s && (
         <section className="mb-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <h2 className="mb-2 text-sm font-semibold text-slate-900">Pricing for this client</h2>
-          <form className="grid gap-2 sm:grid-cols-4" onSubmit={(e) => { e.preventDefault(); act(() => apiFetch('/admin/billing/settings', { method: 'PUT', body: JSON.stringify({ tenantId, billingModel: form.model, pricePerMessageEurCents: toCents(form.msg) ?? 0, operatorCostPerMessageEurCents: toCents(form.cost) ?? 0, pricePerTicketEurCents: toCents(form.ticket), pricePerHourEurCents: toCents(form.hour), monthlyFeeEurCents: toCents(form.monthly), vatRatePercent: Number(form.vat), vatNote: form.vatNote || null, paymentTermsDays: Number(form.terms) }) }), 'Pricing saved.') }}>
-            <label className="text-xs text-slate-500">Model<select value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-slate-900"><option value="PER_MESSAGE">Per message</option><option value="PER_TICKET">Per resolved ticket</option><option value="PER_HOUR">Per scheduled hour</option><option value="MONTHLY_FLAT">Monthly fee</option></select></label>
-            {([['msg', 'Per message (EUR)'], ['cost', 'Operator cost per message (EUR)'], ['ticket', 'Per ticket (EUR)'], ['hour', 'Per hour (EUR)'], ['monthly', 'Monthly fee (EUR)'], ['vat', 'VAT %'], ['terms', 'Payment terms (days)']] as const).map(([k, label]) => <label key={k} className="text-xs text-slate-500">{label}<input value={form[k]} onChange={(e) => setForm({ ...form, [k]: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-slate-900" /></label>)}
+          <form className="grid gap-2 sm:grid-cols-4" onSubmit={(e) => { e.preventDefault(); act(() => apiFetch('/admin/billing/settings', { method: 'PUT', body: JSON.stringify({ tenantId, billingModel: form.model, pricePerMessageEurCents: toCents(form.msg) ?? 0, operatorCostPerMessageEurCents: toCents(form.cost) ?? 0, pricePerTicketEurCents: toCents(form.ticket), pricePerHourEurCents: toCents(form.hour), monthlyFeeEurCents: toCents(form.monthly), includedTicketsPerPeriod: form.included.trim() === '' ? null : Number(form.included), pricePerModeratedItemEurCents: toCents(form.moderated), vatRatePercent: Number(form.vat), vatNote: form.vatNote || null, paymentTermsDays: Number(form.terms) }) }), 'Pricing saved.') }}>
+            <label className="text-xs text-slate-500">Model<select value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-slate-900"><option value="PER_MESSAGE">Per message</option><option value="PER_TICKET">Per completed ticket</option><option value="PER_HOUR">Per scheduled hour</option><option value="HOURLY_PLUS_TICKETS">Hourly + tickets above included</option><option value="MONTHLY_FLAT">Monthly fee</option></select></label>
+            {([['msg', 'Per message (EUR)'], ['cost', 'Operator cost per message (EUR)'], ['ticket', 'Per ticket (EUR)'], ['hour', 'Per hour (EUR)'], ['monthly', 'Monthly fee (EUR)'], ['included', 'Tickets included per period'], ['moderated', 'Per moderated item (EUR, any model)'], ['vat', 'VAT %'], ['terms', 'Payment terms (days)']] as const).map(([k, label]) => <label key={k} className="text-xs text-slate-500">{label}<input value={form[k]} onChange={(e) => setForm({ ...form, [k]: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-slate-900" /></label>)}
             <label className="text-xs text-slate-500 sm:col-span-2">VAT note (e.g. reverse charge wording)<input value={form.vatNote} onChange={(e) => setForm({ ...form, vatNote: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-slate-900" /></label>
             <button className="self-end rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white">Save pricing</button>
           </form>
-          <p className="mt-2 text-xs text-slate-500">Message prices are snapshotted when each message is processed - changing the price only affects future messages.</p>
+          <p className="mt-2 text-xs text-slate-500">Message prices are snapshotted when each message is processed - changing the price only affects future messages. A completed ticket is a conversation resolved for the first time in the period with at least one operator reply, plus the ticket counts recorded below; a reopened conversation is never billed twice.</p>
+        </section>
+      )}
+
+      {s && (
+        <section className="mb-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <h2 className="mb-1 text-sm font-semibold text-slate-900">Tickets completed in the client&apos;s own tool</h2>
+          <p className="mb-2 text-xs text-slate-500">For work inside the client&apos;s Zendesk, Intercom or similar: enter the count from that tool&apos;s report for the period selected below. Counted on invoices whose period contains it.</p>
+          <form className="flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); act(() => apiFetch('/admin/billing/ticket-counts', { method: 'POST', body: JSON.stringify({ tenantId, periodStart: `${period.from}T00:00:00Z`, periodEnd: `${period.to}T00:00:00Z`, count: Number(countForm.count), source: countForm.source }) }).then(() => setCountForm({ count: '', source: '' })), 'Ticket count recorded.') }}>
+            <label className="text-xs text-slate-500">Completed tickets<input required inputMode="numeric" value={countForm.count} onChange={(e) => setCountForm({ ...countForm, count: e.target.value })} className="mt-1 block w-32 rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-slate-900" /></label>
+            <label className="text-xs text-slate-500">Source<input required value={countForm.source} onChange={(e) => setCountForm({ ...countForm, source: e.target.value })} placeholder="e.g. Zendesk report" className="mt-1 block w-48 rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-slate-900" /></label>
+            <span className="pb-2 text-xs text-slate-500">for {period.from} to {period.to}</span>
+            <button className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium">Record</button>
+          </form>
+          {counts.length > 0 && <ul className="mt-2 divide-y divide-slate-100 text-sm">{counts.map((c) => <li key={c.id} className="flex items-center justify-between py-1"><span>{c.periodStart.slice(0, 10)} to {c.periodEnd.slice(0, 10)} · {c.count} tickets · {c.source}</span><button onClick={() => act(() => apiFetch(`/admin/billing/ticket-counts/${c.id}`, { method: 'DELETE' }), 'Entry deleted.')} className="text-xs text-red-600 hover:underline">Delete</button></li>)}</ul>}
         </section>
       )}
 

@@ -1,17 +1,26 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
 import { apiFetch } from '@/lib/api/client'
+import { formatInZone, rangeInZone } from '@/lib/shifts/zones'
+
+// Browser-only values (null on the server, so server and client render the same markup first). The zone list is read once and
+// cached so the snapshot keeps the same identity between renders.
+const noSubscribe = () => () => {}
+let zoneList: string[] | null = null
+const browserZones = () => (zoneList ??= Intl.supportedValuesOf('timeZone'))
+const browserZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone
 
 interface Slot { start: string; open: boolean; staffed: number; gap: boolean }
 interface Shift { id: string; operatorId: string; startsAt: string; endsAt: string }
 interface Absence { id: string; operatorId: string; kind: string; startsAt: string; endsAt: string }
 interface Handover { id: string; body: string; createdAt: string; acknowledgedAt: string | null; fromOperatorId: string; toOperatorId: string | null }
-interface OperatorRow { id: string; operatorNumber: number; user: { displayName: string } }
+interface OperatorRow { id: string; operatorNumber: number; timezone: string | null; user: { displayName: string } }
 
-const when = (iso: string) => new Date(iso).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
-
-/** Shift planning for a client: next-24h coverage strip, shifts, absences and handover notes. Supervisors only see their own team. */
+/**
+ * Shift planning for a client: next-24h coverage strip, shifts, absences and handover notes. Supervisors only see their own team.
+ * Every time is shown in the client's time zone, named; a shift also shows the operator's local time when it differs.
+ */
 export function ShiftPlanner({ tenantId }: { tenantId?: string }) {
   const q = tenantId ? `&tenantId=${encodeURIComponent(tenantId)}` : ''
   const [ops, setOps] = useState<OperatorRow[]>([])
@@ -22,22 +31,28 @@ export function ShiftPlanner({ tenantId }: { tenantId?: string }) {
   const [handovers, setHandovers] = useState<Handover[]>([])
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
   const [form, setForm] = useState({ operatorId: '', start: '', end: '', kind: 'SHIFT' })
+  const [clientTz, setClientTz] = useState('UTC')
+  const browserTz = useSyncExternalStore(noSubscribe, browserZone, () => null)
+  const zones = useSyncExternalStore(noSubscribe, browserZones, () => null) ?? []
+  const [tzForm, setTzForm] = useState({ operatorId: '', timezone: '' })
 
   const load = useCallback(
     () =>
       Promise.all([
         apiFetch<OperatorRow[]>(`/operators${q ? `?${q.slice(1)}` : ''}`),
-        apiFetch<{ planned: boolean; slots: Slot[] }>(`/shifts/coverage?x=1${q}`),
+        apiFetch<{ planned: boolean; timezone: string; slots: Slot[] }>(`/shifts/coverage?x=1${q}`),
         apiFetch<Shift[]>(`/shifts?x=1${q}`),
         apiFetch<Absence[]>(`/absences?x=1${q}`),
         apiFetch<Handover[]>(`/handovers?x=1${q}`),
       ])
-        .then(([o, c, s, a, h]) => { setOps(o); setSlots(c.slots); setPlanned(c.planned); setShifts(s); setAbsences(a); setHandovers(h) })
+        .then(([o, c, s, a, h]) => { setOps(o); setSlots(c.slots); setPlanned(c.planned); setClientTz(c.timezone); setShifts(s); setAbsences(a); setHandovers(h) })
         .catch((e) => setMsg({ kind: 'err', text: e instanceof Error ? e.message : 'Failed to load shifts' })),
     [q],
   )
   useEffect(() => { load() }, [load])
 
+  const when = (iso: string) => formatInZone(iso, clientTz)
+  const opTz = (id: string) => ops.find((x) => x.id === id)?.timezone ?? null
   const name = (id: string) => { const o = ops.find((x) => x.id === id); return o ? `#${o.operatorNumber} ${o.user.displayName}` : id.slice(-6) }
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -49,6 +64,14 @@ export function ShiftPlanner({ tenantId }: { tenantId?: string }) {
       await load()
     } catch (err) { setMsg({ kind: 'err', text: err instanceof Error ? err.message : 'Failed' }) }
   }
+  const saveTz = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      const r = await apiFetch<{ timezone: string | null }>(`/operators/${tzForm.operatorId}/timezone`, { method: 'PATCH', body: JSON.stringify({ timezone: tzForm.timezone.trim() || null }) })
+      setMsg({ kind: 'ok', text: r.timezone ? `Time zone set to ${r.timezone}.` : 'Time zone cleared.' })
+      await load()
+    } catch (err) { setMsg({ kind: 'err', text: err instanceof Error ? err.message : 'Failed' }) }
+  }
   const cancel = (id: string) => apiFetch(`/shifts/${id}`, { method: 'DELETE' }).then(load).catch((err) => setMsg({ kind: 'err', text: err instanceof Error ? err.message : 'Failed' }))
 
   return (
@@ -56,7 +79,7 @@ export function ShiftPlanner({ tenantId }: { tenantId?: string }) {
       <div className="border-b border-slate-200 px-4 py-3"><h2 className="text-sm font-semibold text-slate-900">Shifts, absences and coverage</h2></div>
       {msg && <p className={`px-4 py-2 text-sm ${msg.kind === 'ok' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>{msg.text}</p>}
       <div className="p-4">
-        <p className="mb-1 text-xs text-slate-500">Next 24 hours{planned ? '' : ' - no shifts planned yet, so gaps are not flagged'} (green = staffed, red = open with nobody scheduled, grey = closed)</p>
+        <p className="mb-1 text-xs text-slate-500">Next 24 hours in the client&apos;s time zone ({clientTz}){planned ? '' : ' - no shifts planned yet, so gaps are not flagged'} (green = staffed, red = open with nobody scheduled, grey = closed)</p>
         <div className="flex gap-0.5">
           {slots.map((s) => <div key={s.start} title={`${when(s.start)} - ${s.staffed} on shift`} className={`h-6 flex-1 rounded-sm ${!s.open ? 'bg-slate-200' : s.staffed > 0 ? 'bg-emerald-400' : planned ? 'bg-red-400' : 'bg-slate-300'}`} />)}
         </div>
@@ -68,11 +91,19 @@ export function ShiftPlanner({ tenantId }: { tenantId?: string }) {
           <input type="datetime-local" required value={form.end} onChange={(e) => setForm({ ...form, end: e.target.value })} className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm" />
           <button className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white">Add</button>
         </form>
+        {browserTz && <p className="mt-1 text-xs text-slate-500">Start and end are entered in your own time zone ({browserTz}){browserTz !== clientTz ? `, not the client's (${clientTz})` : ''}.</p>}
+
+        <form onSubmit={saveTz} className="mt-3 grid gap-2 sm:grid-cols-5">
+          <select required value={tzForm.operatorId} onChange={(e) => setTzForm({ operatorId: e.target.value, timezone: opTz(e.target.value) ?? '' })} className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm sm:col-span-2"><option value="">Operator time zone…</option>{ops.map((o) => <option key={o.id} value={o.id}>#{o.operatorNumber} {o.user.displayName}{o.timezone ? ` (${o.timezone})` : ' (not set)'}</option>)}</select>
+          <input list="gco-timezones" value={tzForm.timezone} onChange={(e) => setTzForm({ ...tzForm, timezone: e.target.value })} placeholder="e.g. Asia/Kolkata (empty clears)" className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm sm:col-span-2" />
+          <datalist id="gco-timezones">{zones.map((z) => <option key={z} value={z} />)}</datalist>
+          <button disabled={!tzForm.operatorId} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 disabled:opacity-50">Save time zone</button>
+        </form>
 
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <div>
             <h3 className="mb-1 text-xs font-semibold uppercase text-slate-500">Planned shifts (7 days)</h3>
-            {shifts.length === 0 ? <p className="text-sm text-slate-400">None.</p> : <ul className="divide-y divide-slate-100 text-sm">{shifts.map((s) => <li key={s.id} className="flex items-center justify-between py-1"><span>{name(s.operatorId)} · {when(s.startsAt)} → {when(s.endsAt)}</span><button onClick={() => cancel(s.id)} className="text-xs text-red-600 hover:underline">Cancel</button></li>)}</ul>}
+            {shifts.length === 0 ? <p className="text-sm text-slate-400">None.</p> : <ul className="divide-y divide-slate-100 text-sm">{shifts.map((s) => <li key={s.id} className="flex items-center justify-between gap-2 py-1"><span>{name(s.operatorId)} · {rangeInZone(s.startsAt, s.endsAt, clientTz)}<br /><span className="text-xs text-slate-500">{opTz(s.operatorId) ? (opTz(s.operatorId) === clientTz ? 'Same time for the operator' : `Operator's local time: ${rangeInZone(s.startsAt, s.endsAt, opTz(s.operatorId)!)}`) : "Operator's time zone not set"}</span></span><button onClick={() => cancel(s.id)} className="text-xs text-red-600 hover:underline">Cancel</button></li>)}</ul>}
           </div>
           <div>
             <h3 className="mb-1 text-xs font-semibold uppercase text-slate-500">Absences</h3>

@@ -1,7 +1,7 @@
 import { PILOT_STEPS } from '@/lib/content/site'
 import { Reveal } from './Reveal'
 
-// The real pilot process (docs/7-day-pilot.md), rendered from lib/content/site.ts.
+// The real pilot process (length agreed per client), rendered from lib/content/site.ts.
 export function PilotTimeline({ tone = 'light' }: { tone?: 'light' | 'dark' }) {
   const dark = tone === 'dark'
   return (

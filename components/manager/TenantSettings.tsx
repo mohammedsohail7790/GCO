@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { apiFetch } from '@/lib/api/client'
 import { DAYS, type OperatingHours } from '@/lib/tenant/settings'
 
-interface Settings { tenantId: string; name: string; responseSlaSeconds: number; operatorCapacity: number; timezone: string; operatingHours: OperatingHours | null }
+interface Settings { tenantId: string; name: string; responseSlaSeconds: number; operatorCapacity: number; timezone: string; operatingHours: OperatingHours | null; aiMode: 'HUMAN_ONLY' | 'AI_ASSISTED' | 'AI_PLUS_HUMAN'; aiDailyCallLimit: number; aiMaskPersonalData: boolean }
 const LABEL: Record<string, string> = { mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', fri: 'Friday', sat: 'Saturday', sun: 'Sunday' }
 const ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const
 
@@ -28,7 +28,7 @@ export function TenantSettings({ tenantId, editable }: { tenantId?: string; edit
     if (!s) return
     setSaved(false)
     try {
-      await apiFetch('/tenant/settings', { method: 'PATCH', body: JSON.stringify({ tenantId: s.tenantId, responseSlaSeconds: s.responseSlaSeconds, operatorCapacity: s.operatorCapacity, timezone: s.timezone, operatingHours: always ? null : hours ?? {} }) })
+      await apiFetch('/tenant/settings', { method: 'PATCH', body: JSON.stringify({ tenantId: s.tenantId, responseSlaSeconds: s.responseSlaSeconds, operatorCapacity: s.operatorCapacity, timezone: s.timezone, operatingHours: always ? null : hours ?? {}, ...(s.aiMode === 'AI_PLUS_HUMAN' ? {} : { aiMode: s.aiMode }), aiDailyCallLimit: s.aiDailyCallLimit, aiMaskPersonalData: s.aiMaskPersonalData }) })
       setSaved(true); setError(null); load()
     } catch (err) { setError(err instanceof Error ? err.message : 'Could not save') }
   }
@@ -68,6 +68,16 @@ export function TenantSettings({ tenantId, editable }: { tenantId?: string; edit
               })}
             </ul>
           )}
+        </fieldset>
+        <fieldset className="grid gap-3 sm:grid-cols-3">
+          <legend className="mb-1 text-xs font-medium text-slate-600">AI drafts (only when AI is switched on for the platform)</legend>
+          <label className="block text-xs font-medium text-slate-600">Mode
+            <select disabled={dis || s.aiMode === 'AI_PLUS_HUMAN'} value={s.aiMode} onChange={(e) => setS({ ...s, aiMode: e.target.value as Settings['aiMode'] })} className="mt-1 w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm disabled:bg-slate-50"><option value="HUMAN_ONLY">Human only (no data sent to AI)</option><option value="AI_ASSISTED">AI drafts, operator approves</option></select>
+          </label>
+          <label className="block text-xs font-medium text-slate-600">AI calls per day (0 = none)
+            <input disabled={dis} type="number" min={0} max={100000} value={s.aiDailyCallLimit} onChange={(e) => setS({ ...s, aiDailyCallLimit: Number(e.target.value) })} className="mt-1 w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm disabled:bg-slate-50" />
+          </label>
+          <label className="mt-5 flex items-center gap-2 text-xs"><input disabled={dis} type="checkbox" checked={s.aiMaskPersonalData} onChange={(e) => setS({ ...s, aiMaskPersonalData: e.target.checked })} /> Mask emails, phone numbers and long numbers before sending to AI</label>
         </fieldset>
         {error && <p role="alert" className="text-xs text-red-600">{error}</p>}
         {saved && <p role="status" className="text-xs text-emerald-700">Saved.</p>}

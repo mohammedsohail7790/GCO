@@ -43,9 +43,9 @@ export const STAFFING_NOTE = 'Coverage hours and languages are confirmed per pro
 // ---- CTA labels -----------------------------------------------------------
 
 export const CTA = {
-  pilot: CLAIMS.freePilot ? 'Start Your 7-Day Free Pilot' : 'Start Your 7-Day Pilot',
-  pilotShort: CLAIMS.freePilot ? 'Start Free Pilot' : 'Start 7-Day Pilot',
-  pilotFinal: CLAIMS.freePilot ? 'Start Your Free Pilot' : 'Start Your 7-Day Pilot',
+  pilot: CLAIMS.freePilot ? 'Start Your Free Pilot' : 'Start Your Pilot',
+  pilotShort: CLAIMS.freePilot ? 'Start Free Pilot' : 'Start a Pilot',
+  pilotFinal: CLAIMS.freePilot ? 'Start Your Free Pilot' : 'Start Your Pilot',
   bookCall: 'Book a Call',
 } as const
 
@@ -58,8 +58,11 @@ export const HERO = {
   eyebrow: 'Global Conversation Operations',
   headlineLead: CLAIMS.aroundTheClock ? '24/7 Human Conversation Operations.' : 'Human Conversation Operations.',
   headlineTail: 'Built to Scale.',
-  body: 'GCO runs chat operations for modern platforms: trained human operators, supervised by team leads, supported by an operations platform and AI-assisted workflows.',
-  note: 'Hours and languages are confirmed per project, based on staffing, before go-live.',
+  body: 'GCO runs chat operations for modern platforms: trained human operators, supervised by team leads, supported by an operations platform.',
+  // CEO wording, 5 Nov 2026: 24/7 is offered for eligible projects, never implied to be staffed already.
+  note: CLAIMS.aroundTheClock
+    ? '24/7 multilingual chat and customer support coverage available for eligible projects, subject to agreed staffing, onboarding and service requirements.'
+    : 'Hours and languages are confirmed per project, based on staffing, before go-live.',
 } as const
 
 export const PILLARS = [
@@ -72,8 +75,8 @@ export const PILLARS = [
     body: 'Queues, assignment, response timers, reassignment and integrations that keep work organised at volume.',
   },
   {
-    label: 'AI-assisted workflows',
-    body: 'AI drafts suggested replies for the operator to review and edit. A human always sends.',
+    label: 'Human-written replies',
+    body: 'Every reply is written and sent by a trained operator. AI-assisted drafting is currently disabled.',
   },
   {
     label: 'Supervision & QA',
@@ -89,7 +92,7 @@ export interface PilotStep {
   body: string
 }
 
-// Matches docs/7-day-pilot.md (discovery/feasibility happens BEFORE Day 1).
+// Discovery/feasibility happens BEFORE the pilot starts; the pilot's length and conditions are agreed with each client (CEO, 8 Nov 2026).
 export const PILOT_STEPS: readonly PilotStep[] = [
   {
     marker: 'Step 0',
@@ -97,29 +100,29 @@ export const PILOT_STEPS: readonly PilotStep[] = [
     body: 'We understand your workflow, volume, requirements, languages, coverage and operational fit, and confirm any integration the pilot needs is feasible.',
   },
   {
-    marker: 'Day 1',
+    marker: 'Step 1',
     title: 'Setup & onboarding',
     body: 'We configure the workflow, access, queues and operating rules, and onboard operators to your tone and process.',
   },
   {
-    marker: 'Days 2–6',
+    marker: 'Step 2',
     title: 'Live pilot',
-    body: 'We run your real workflow with the agreed operating model, within the agreed scope.',
+    body: 'We run your real workflow for the agreed period, with the agreed operating model and scope.',
   },
   {
-    marker: 'Day 7',
+    marker: 'Step 3',
     title: 'Performance review',
     body: 'We review operational results, issues, observations and next steps together.',
   },
   {
-    marker: 'After Day 7',
+    marker: 'Step 4',
     title: 'Scale',
     body: 'If the pilot is successful, we expand the operation based on your actual requirements.',
   },
 ]
 
 export const PILOT_IS = [
-  'Scoped in advance: channel(s), volume and hours are agreed before Day 1.',
+  "Scoped in advance: channels, volume, hours and the pilot's length are agreed before it starts.",
   'Technical feasibility confirmed beforehand, with any client access arranged before the pilot starts.',
   'A monitored operation with real operators and supervision, for the agreed scope only.',
   'Reviewed at the end, with a clear conversation about continuing.',
@@ -132,15 +135,17 @@ export const PILOT_IS_NOT = [
 
 /** Commercial terms lines - only present once the business has confirmed them. */
 export const PILOT_TERMS: readonly string[] = [
-  ...(CLAIMS.freePilot ? ['The 7-day pilot is free.'] : []),
-  ...(CLAIMS.noSetupFee ? ['No setup fee.'] : []),
+  ...(CLAIMS.freePilot ? ['The pilot is free.'] : []),
+  'Its duration and conditions are agreed with you in writing before it starts.',
+  ...(CLAIMS.noSetupFee ? ['No setup fee for standard services and pilots; custom integrations may be priced separately.'] : []),
   ...(CLAIMS.noCommitment ? ['No long-term commitment.'] : []),
   ...(CLAIMS.freePilot || CLAIMS.noCommitment ? ['After the pilot, you decide whether to continue, under agreed commercial terms.'] : []),
 ]
 
 /** Short bullet form used in pilot callouts. */
 export const PILOT_PROMISES: readonly string[] = [
-  ...(CLAIMS.freePilot ? ['Free 7-day pilot'] : ['7-day pilot']),
+  ...(CLAIMS.freePilot ? ['Free pilot'] : ['Pilot']),
+  'Duration agreed with you',
   ...(CLAIMS.noSetupFee ? ['No setup fee'] : []),
   ...(CLAIMS.noCommitment ? ['No long-term commitment'] : []),
   'Continue after the pilot only if you choose',
@@ -148,22 +153,22 @@ export const PILOT_PROMISES: readonly string[] = [
 
 export const FINAL_CTA = {
   title: 'Ready to test GCO with your real workflow?',
-  body: 'Start a 7-day pilot and evaluate the operation with your real workflow.',
+  body: 'Start a pilot and evaluate the operation with your real workflow.',
 } as const
 
 // ---- Capability wording --------------------------------------------------
 
 export const CAPABILITY_STRIP: readonly string[] = [
   'Trained human operators',
-  CLAIMS.aroundTheClock ? '24/7 coverage, per project staffing' : 'Coverage hours agreed per operation',
+  CLAIMS.aroundTheClock ? '24/7 coverage for eligible projects' : 'Coverage hours agreed per operation',
   CLAIMS.multilingual ? 'Multilingual operations' : 'Languages agreed per operation',
   CLAIMS.qaProcess ? 'Supervision & QA' : 'Supervision & oversight',
-  CLAIMS.escalationProcess ? 'Defined escalation path' : 'AI-assisted workflows',
-  'AI-assisted workflows',
+  CLAIMS.escalationProcess ? 'Defined escalation path' : 'Human-written replies',
+  'Human-written replies',
 ]
 
 export const DESCRIPTIONS = {
-  home: 'GCO provides trained human operator teams for chat operations - live chat support, moderation and multilingual coverage - with supervision, QA and AI-assisted workflows. Start with a free 7-day pilot.',
+  home: 'GCO provides trained human operator teams for chat operations - live chat support, moderation and multilingual coverage - with supervision and QA. Start with a free pilot.',
 } as const
 
 // ---- Navigation -----------------------------------------------------------

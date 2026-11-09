@@ -5,6 +5,7 @@ const state = vi.hoisted(() => ({ memories: [] as any[], extract: vi.fn(), event
 vi.mock('@/lib/observability/logger', () => ({ logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn() } }))
 vi.mock('@/lib/ai/provider', () => ({ getAiProvider: () => ({ name: 'openai', extractMemory: state.extract }) }))
 vi.mock('@/lib/ai/service', () => ({ buildConversationContext: state.buildCtx }))
+vi.mock('@/lib/ai/budget', () => ({ takeAiCall: async () => true })) // the daily cap has its own integration test
 vi.mock('@/lib/db/client', () => {
   const matches = (m: any, w: any) => Object.entries(w).every(([k, v]) => m[k] === v)
   const aiMemory = {
@@ -16,7 +17,7 @@ vi.mock('@/lib/db/client', () => {
   }
   const db: any = {
     conversation: { findUniqueOrThrow: async () => ({ id: 'conv-A', tenantId: 'tenant-A', externalUserId: 'ext-1' }) },
-    tenant: { findUnique: async () => ({ aiMode: 'AI_ASSISTED' }) },
+    tenant: { findUnique: async () => ({ aiMode: 'AI_ASSISTED', aiDailyCallLimit: 2000 }) },
     message: { findFirst: async ({ where }: any) => (where.id === 'trig' && where.conversationId === 'conv-A' && where.tenantId === 'tenant-A' ? { id: 'trig' } : null) },
     systemEvent: { create: async ({ data }: any) => state.events.push(data) },
     aiMemory,

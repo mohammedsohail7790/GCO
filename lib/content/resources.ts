@@ -38,7 +38,7 @@ export const ARTICLES: Article[] = [
     featured: true,
     services: ['live-chat-customer-support', 'dedicated-outsourced-chat-teams'],
     industries: ['saas', 'apps-digital-platforms'],
-    cta: { primary: 'Start Your 7-Day Free Pilot' },
+    cta: { primary: 'Start Your Free Pilot' },
     body: [
       { type: 'p', text: 'Chat is easy to start and hard to scale. One or two people can answer every message in the early days. Then volume grows, conversations arrive at all hours, and the same question gets three different answers depending on who picks it up.' },
       { type: 'h2', text: 'Why chat volume becomes hard to manage' },
@@ -52,13 +52,13 @@ export const ARTICLES: Article[] = [
       { type: 'h2', text: 'Escalation is part of the design' },
       { type: 'p', text: 'Some conversations should not be resolved by the person who first picked them up: a decision outside their authority, a sensitive situation, a request that needs client approval. A defined path matters more than good intentions. At GCO that path runs from the operator to a supervisor or team lead and, when a decision belongs to the client, to GCO management and the client contact.' },
       { type: 'h2', text: 'Where AI fits' },
-      { type: 'p', text: 'AI can help operators work faster and more consistently, for example by drafting a suggested reply. In the GCO model the human operator reviews the draft, edits it and sends it. AI assists the operator; it does not take over the conversation. See [how the human and AI model works](/resources/how-a-human-ai-conversation-operations-model-works).' },
+      { type: 'p', text: 'AI can help operators work faster and more consistently, for example by drafting a suggested reply. At GCO, AI-assisted drafting is currently disabled. In the GCO model, when it is enabled, the human operator reviews the draft, edits it and sends it. AI assists the operator; it does not take over the conversation. See [how the human and AI model works](/resources/how-a-human-ai-conversation-operations-model-works).' },
       { type: 'h2', text: 'When outsourcing makes sense' },
       { type: 'p', text: 'Building all of this in-house means hiring, training, scheduling and managing a team, plus the tooling to run it. Outsourcing makes sense when chat is important to your business but running a conversation operation is not what you want your own managers spending time on. Read [when to outsource chat support or moderation](/resources/when-should-a-company-outsource-chat-support-or-moderation) for the signals to look for.' },
       { type: 'h2', text: 'A practical checklist' },
       { type: 'p', text: 'Before you scale, check that you can answer these questions:' },
       { type: 'ul', items: ["Can a supervisor see every open conversation and who holds it?", "Is there a written standard for tone, and a routine for reviewing it?", "What happens to a conversation when its deadline passes?", "Who decides what must be escalated, and to whom?", "Which hours and languages do you really need covered?"] },
-      { type: 'callout', text: 'A pilot is the lowest-risk way to test this on your real conversations: GCO runs a free 7-day pilot with no setup fee and no long-term commitment, scoped with you in advance.' },
+      { type: 'callout', text: 'A pilot is the lowest-risk way to test this on your real conversations: GCO runs a free pilot with no setup fee and no long-term commitment, with its duration and conditions agreed with you in writing, scoped with you in advance.' },
     ],
   },
   {
@@ -70,7 +70,7 @@ export const ARTICLES: Article[] = [
     published: true,
     services: ['chat-moderation', 'community-moderation'],
     industries: ['dating-social', 'online-communities'],
-    cta: { primary: 'Start Your 7-Day Free Pilot', secondary: 'contact' },
+    cta: { primary: 'Start Your Free Pilot', secondary: 'contact' },
     body: [
       { type: 'p', text: 'Moderation is often framed as a choice between software and people. In practice the question is which decisions can safely be made by rules, and which need a person who understands the situation.' },
       { type: 'h2', text: 'What automated filtering does well' },
@@ -89,7 +89,7 @@ export const ARTICLES: Article[] = [
       { type: 'h2', text: 'Questions to ask about any moderation setup' },
       { type: 'p', text: 'Whether you build it yourself or work with a partner, ask:' },
       { type: 'ul', items: ["Which decisions are made by rules, and which by a person?", "How are ambiguous cases handled, and how quickly do they reach a human?", "Who reviews moderator decisions, and how often?", "What is the escalation route for a serious or sensitive case?", "Is there a record of why a decision was made?"] },
-      { type: 'callout', text: 'The fastest way to see whether this fits your platform is to moderate a slice of your real conversations under your guidelines. GCO offers a free 7-day pilot with no setup fee and no long-term commitment.' },
+      { type: 'callout', text: 'The fastest way to see whether this fits your platform is to moderate a slice of your real conversations under your guidelines. GCO offers a free pilot with no setup fee and no long-term commitment, with its duration and conditions agreed with you in writing.' },
     ],
   },
   {
@@ -101,10 +101,10 @@ export const ARTICLES: Article[] = [
     published: true,
     services: ['24-7-chat-coverage', 'multilingual-chat-operations'],
     industries: ['dating-social', 'apps-digital-platforms'],
-    cta: { primary: 'Start Your 7-Day Free Pilot' },
+    cta: { primary: 'Start Your Free Pilot' },
     body: [
       { type: 'p', text: 'Many businesses want chat coverage around the clock, but few start from what that really requires. Being available at three in the morning is not a feature you turn on. It is a team, a schedule and a way of working that has to keep functioning when your own office is closed.' },
-      { type: 'p', text: '24/7 coverage is available subject to project staffing requirements. It is something to plan for each project, not something that applies automatically.' },
+      { type: 'p', text: '24/7 coverage is available for eligible projects, subject to agreed staffing, onboarding and service requirements. It is something to plan for each project, not something that applies automatically.' },
       { type: 'h2', text: 'Start from when conversations actually arrive' },
       { type: 'p', text: 'Not every hour carries the same demand. Map when messages come in: by day, by time zone, around campaigns and weekends. Coverage plans built on that pattern put people where the conversations are, instead of staffing every hour equally.' },
       { type: 'h2', text: 'Shifts and staffing' },
@@ -122,7 +122,7 @@ export const ARTICLES: Article[] = [
       { type: 'h2', text: 'A practical planning checklist' },
       { type: 'p', text: 'To scope round-the-clock coverage, work through:' },
       { type: 'ul', items: ["When do conversations arrive, by day and time zone?", "Which languages are needed in which hours?", "Who supervises each shift?", "How are conversations handed over between shifts?", "Who can make a decision at night, and how are they reached?"] },
-      { type: 'callout', text: 'A sensible way to start is a pilot on the hours that matter most. GCO offers a free 7-day pilot with no setup fee and no long-term commitment; coverage hours and languages are confirmed for your project before it starts.' },
+      { type: 'callout', text: 'A sensible way to start is a pilot on the hours that matter most. GCO offers a free pilot with no setup fee and no long-term commitment, with its duration and conditions agreed with you in writing; coverage hours and languages are confirmed for your project before it starts.' },
     ],
   },
   {
@@ -134,7 +134,7 @@ export const ARTICLES: Article[] = [
     published: true,
     services: ['live-chat-customer-support', 'dedicated-outsourced-chat-teams'],
     industries: ['saas', 'ecommerce'],
-    cta: { primary: 'Start Your 7-Day Free Pilot' },
+    cta: { primary: 'Start Your Free Pilot' },
     body: [
       { type: 'p', text: 'Combining people and AI in a conversation operation is easy to describe badly. Either AI is oversold as something that handles customers on its own, or it is dismissed as irrelevant. The useful model is more specific: AI helps the operator, and the operator is responsible for what is sent.' },
       { type: 'h2', text: 'The roles' },
@@ -153,7 +153,7 @@ export const ARTICLES: Article[] = [
       { type: 'p', text: 'Because the work runs through a platform, there is a record of who handled a conversation, when it was assigned, who escalated it and how it was resolved. That record is what makes supervision, coaching and client reporting possible. The [platform page](/platform) shows how this looks in practice, and the [security overview](/security) describes the controls around it.' },
       { type: 'h2', text: 'What this means for you' },
       { type: 'p', text: 'You get operators who work faster and more consistently, supervised by team leads, with a clear path for decisions. This is the model behind [live chat and customer support](/services/live-chat-customer-support) and [dedicated chat teams](/services/dedicated-outsourced-chat-teams).' },
-      { type: 'callout', text: 'You can test the model on your own conversations. GCO offers a free 7-day pilot with no setup fee and no long-term commitment.' },
+      { type: 'callout', text: 'You can test the model on your own conversations. GCO offers a free pilot with no setup fee and no long-term commitment, with its duration and conditions agreed with you in writing.' },
     ],
   },
   {
@@ -165,7 +165,7 @@ export const ARTICLES: Article[] = [
     published: true,
     services: ['dedicated-outsourced-chat-teams', 'live-chat-customer-support', 'chat-moderation'],
     industries: ['ecommerce', 'online-communities', 'saas'],
-    cta: { primary: 'Start Your Free 7-Day Pilot' },
+    cta: { primary: 'Start Your Free Pilot' },
     body: [
       { type: 'p', text: 'Most companies do not decide to outsource chat in one meeting. They notice a series of problems that all point the same way. These are the signals worth paying attention to, and a way to test the decision before you commit to it.' },
       { type: 'h2', text: 'Message volume is climbing' },
@@ -186,7 +186,7 @@ export const ARTICLES: Article[] = [
       { type: 'h2', text: 'A quick self-check' },
       { type: 'p', text: 'If several of these are true, it is worth testing an outsourced operation:' },
       { type: 'ul', items: ["Chat volume has outgrown the team that handles it", "Replies slow down or vary at busy times or outside office hours", "Managers are answering chat instead of doing their own work", "You need languages or hours you cannot staff yourself", "You want visibility and supervision, not just extra people"] },
-      { type: 'callout', text: 'GCO runs a free 7-day pilot with no setup fee and no long-term commitment. After the pilot, you decide whether to continue, under agreed commercial terms.' },
+      { type: 'callout', text: 'GCO runs a free pilot with no setup fee and no long-term commitment, with its duration and conditions agreed with you in writing. After the pilot, you decide whether to continue, under agreed commercial terms.' },
     ],
   },
 ]

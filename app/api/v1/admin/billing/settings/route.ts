@@ -20,12 +20,14 @@ const cents = z.number().int().min(0).max(10_000_000)
 const Body = z
   .object({
     tenantId: z.string().max(100),
-    billingModel: z.enum(['PER_MESSAGE', 'PER_TICKET', 'PER_HOUR', 'MONTHLY_FLAT']).optional(),
+    billingModel: z.enum(['PER_MESSAGE', 'PER_TICKET', 'PER_HOUR', 'MONTHLY_FLAT', 'HOURLY_PLUS_TICKETS']).optional(),
     pricePerMessageEurCents: cents.optional(),
     operatorCostPerMessageEurCents: cents.optional(),
     pricePerTicketEurCents: cents.nullable().optional(),
     pricePerHourEurCents: cents.nullable().optional(),
     monthlyFeeEurCents: cents.nullable().optional(),
+    includedTicketsPerPeriod: z.number().int().min(0).max(1_000_000).nullable().optional(),
+    pricePerModeratedItemEurCents: cents.nullable().optional(),
     vatRatePercent: z.number().int().min(0).max(30).optional(),
     vatNote: z.string().max(300).nullable().optional(),
     paymentTermsDays: z.number().int().min(0).max(120).optional(),

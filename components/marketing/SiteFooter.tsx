@@ -14,7 +14,7 @@ export function SiteFooter() {
           <div className="max-w-sm">
             <GCOLockup size="sm" tone="onDark" withTagline />
             <p className="mt-4 text-sm leading-relaxed text-white/50">
-              Managed human conversation operations, supported by AI-assisted workflows, for businesses that need
+              Managed human conversation operations for businesses that need
               reliable coverage at scale.
             </p>
           </div>

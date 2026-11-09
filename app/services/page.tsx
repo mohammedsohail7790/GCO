@@ -9,7 +9,7 @@ import { INDUSTRIES } from '@/lib/content/industries'
 
 export const metadata = pageMetadata({
   title: 'Services',
-  description: 'Six chat-operations services from GCO: live chat support, chat moderation, community moderation, multilingual operations, 24/7 coverage and dedicated teams. Free 7-day pilot.',
+  description: 'Six chat-operations services from GCO: live chat support, chat moderation, community moderation, multilingual operations, 24/7 coverage and dedicated teams. Free pilot.',
   path: '/services',
 })
 
@@ -24,7 +24,7 @@ export default function ServicesPage() {
         <PageHero
           eyebrow="Services"
           title="Operations behind every conversation."
-          lead="GCO staffs, trains and supervises the human teams behind your chat, supported by an operations platform and AI-assisted workflows. Six focused services, each delivered the same supervised way."
+          lead="GCO staffs, trains and supervises the human teams behind your chat, supported by an operations platform. Six focused services, each delivered the same supervised way."
         />
         <SectionBlock eyebrow="What we run" title="Six services, one operating model" description="Every service runs on the same platform with the same supervision, QA and escalation path.">
           <LinkCards items={SERVICES.map((s) => ({ href: `/services/${s.slug}`, title: s.name, body: s.short }))} />

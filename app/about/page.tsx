@@ -26,7 +26,7 @@ const BELIEFS = [
   },
   {
     statement: 'Technology should make operators better, not replace them.',
-    body: 'AI-assisted workflows support our operators - drafting, routing, surfacing context - so people spend their judgment on what actually needs it, not on repetitive lookup work.',
+    body: 'Our platform supports operators with routing, timers, context and supervision, so people spend their judgment on what actually needs it, not on repetitive lookup work.',
   },
   {
     statement: 'Consistency is a system, not a personality trait.',
@@ -94,7 +94,7 @@ export default function AboutPage() {
               <Link className="font-medium text-accent-600 hover:underline" href="/platform">platform</Link>, our{' '}
               <Link className="font-medium text-accent-600 hover:underline" href="/security">security overview</Link> and{' '}
               <Link className="font-medium text-accent-600 hover:underline" href="/resources">resources</Link>, or{' '}
-              <Link className="font-medium text-accent-600 hover:underline" href="/pilot">start a free 7-day pilot</Link>.
+              <Link className="font-medium text-accent-600 hover:underline" href="/pilot">start a free pilot</Link>.
             </p>
           </Container>
         </section>

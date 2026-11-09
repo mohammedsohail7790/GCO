@@ -13,7 +13,7 @@ import { Bullets } from '@/components/marketing/Blocks'
 
 export const metadata = pageMetadata({
   title: 'Platform',
-  description: 'The GCO operations platform: live queues, assignment, response timers, supervisor visibility, escalation, reporting and AI-assisted workflows, with a human operator in charge of every reply.',
+  description: 'The GCO operations platform: live queues, assignment, response timers, supervisor visibility, escalation, reporting and quality review, with a human operator writing every reply.',
   path: '/platform',
 })
 
@@ -29,7 +29,7 @@ export default function PlatformPage() {
         <PageHero
           eyebrow="Platform"
           title="A real operations platform behind the workforce."
-          lead="Human judgment, AI assistance and operational infrastructure. The platform queues, assigns, times and records the work; trained operators do it; supervisors oversee it. AI assists the operator and never replaces them."
+          lead="Human judgment and operational infrastructure. The platform queues, assigns, times and records the work; trained operators do it; supervisors oversee it."
         />
         <SectionBlock eyebrow="How work flows" title="From message to resolution" description="Every conversation moves through the same supervised path.">
           <div className="max-w-2xl">
@@ -43,9 +43,9 @@ export default function PlatformPage() {
         </section>
         <HumanAiInfrastructure />
         <PlatformShowcase />
-        <SectionBlock eyebrow="AI-assisted human workflow" title="AI assists the operator. The operator replies." description="GCO combines human operators with operational infrastructure and AI-assisted workflows. AI is a drafting aid inside the operator's workspace.">
+        <SectionBlock eyebrow="Human workflow" title="The operator writes every reply." description="The platform includes optional AI-assisted drafting. It is currently disabled: every reply is written and sent by a trained operator.">
           <div className="max-w-2xl">
-            <Steps items={['AI can draft a suggested reply for the conversation', 'The human operator reviews and edits the draft', 'The operator decides, and sends the reply', 'Nothing is sent automatically by AI']} />
+            <Steps items={['The operator reads the conversation and the client\'s guidelines', 'The operator writes the reply', 'The operator decides, and sends the reply', 'Nothing is ever sent automatically']} />
           </div>
         </SectionBlock>
         <SectionBlock tone="surface" eyebrow="Capabilities" title="What the platform does">

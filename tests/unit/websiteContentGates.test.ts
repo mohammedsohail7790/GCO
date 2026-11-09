@@ -29,17 +29,22 @@ describe('approved business claims (lib/content/site.ts)', () => {
     expect(terms).toMatch(/No setup fee/)
     expect(terms).toMatch(/No long-term commitment/)
     expect(terms).toMatch(/decide whether to continue/)
-    expect(content.CTA.pilot).toBe('Start Your 7-Day Free Pilot')
+    expect(terms).toMatch(/duration and conditions are agreed with you in writing/) // CEO, 8 Nov 2026: pilot length agreed per client
+    expect(terms).toMatch(/custom integrations may be priced separately/)
+    expect(content.CTA.pilot).toBe('Start Your Free Pilot')
     expect(content.CTA.pilotShort).toBe('Start Free Pilot')
   })
 
   it('24/7 is a capability subject to staffing - never implied automatic', () => {
     expect(content.HERO.headlineLead).toBe('24/7 Human Conversation Operations.')
-    expect(content.HERO.note).toMatch(/confirmed per project, based on staffing/)
+    // CEO wording, 5 Nov 2026
+    expect(content.HERO.note).toBe('24/7 multilingual chat and customer support coverage available for eligible projects, subject to agreed staffing, onboarding and service requirements.')
     expect(content.STAFFING_NOTE).toMatch(/confirmed per project/)
     const cov = SERVICES.find((s) => s.slug === '24-7-chat-coverage')!
-    expect(JSON.stringify(cov)).toMatch(/subject to project staffing|confirmed with you before go-live/)
-    expect(JSON.stringify(cov.faqs)).toMatch(/No\. 24\/7 coverage is available subject to project staffing/)
+    expect(JSON.stringify(cov)).toMatch(/for eligible projects, subject to agreed staffing, onboarding and service requirements/)
+    expect(JSON.stringify(cov.faqs)).toMatch(/No\. 24\/7 coverage is available for eligible projects, subject to agreed staffing/)
+    // No fixed-length pilot anywhere (CEO, 8 Nov 2026)
+    expect(JSON.stringify(SERVICES)).not.toMatch(/Day 7|Days 2|seven days|7-day/i)
   })
 
   it('publishes exactly the six approved languages, with staffing confirmed per project', () => {
@@ -73,7 +78,7 @@ describe('approved business claims (lib/content/site.ts)', () => {
       expect(s.heroLead.length, s.slug).toBeGreaterThan(60)
       expect(s.problem.points.length, s.slug).toBeGreaterThanOrEqual(3)
       for (const k of ['manages', 'delivery', 'workflow', 'capabilities', 'idealFor', 'faqs'] as const) expect(s[k].length, `${s.slug}.${k}`).toBeGreaterThanOrEqual(3)
-      expect(s.pilot, s.slug).toMatch(/pilot|Day 7/i)
+      expect(s.pilot, s.slug).toMatch(/pilot/i)
       expect(s.industries.length, s.slug).toBeGreaterThan(0)
       for (const r of s.related) expect(SERVICES.some((x) => x.slug === r), `${s.slug} related ${r}`).toBe(true)
       for (const i of s.industries) expect(INDUSTRIES.some((x) => x.slug === i), `${s.slug} industry ${i}`).toBe(true)
@@ -108,16 +113,17 @@ describe('claim safety (nothing outside the approved truth)', () => {
     expect(text).not.toMatch(re)
   })
 
-  it('AI is positioned as assisting a human who sends every reply', () => {
-    expect(JSON.stringify(content.PILLARS)).toMatch(/A human always sends/)
-    expect(JSON.stringify(PLATFORM_CAPABILITIES)).toMatch(/nothing is sent automatically/)
+  it('AI drafting is described as currently disabled, and a human writes and sends every reply', () => {
+    expect(JSON.stringify(content.PILLARS)).toMatch(/Every reply is written and sent by a trained operator\. AI-assisted drafting is currently disabled\./)
+    expect(JSON.stringify(PLATFORM_CAPABILITIES)).toMatch(/currently disabled/)
+    expect(JSON.stringify(PLATFORM_CAPABILITIES)).toMatch(/the operator still approves and sends every reply/)
   })
 })
 
 describe('platform positioning and assets', () => {
   it('only describes capabilities that exist; only approved real screenshots are published', () => {
     expect(PLATFORM_CAPABILITIES.map((c) => c.title)).toEqual(
-      expect.arrayContaining(['Live conversation queues', 'Automatic and manual assignment', 'Response timers', 'Reassignment', 'Escalation workflow', 'AI-assisted workflows']),
+      expect.arrayContaining(['Live conversation queues', 'Automatic and manual assignment', 'Response timers', 'Reassignment', 'Escalation workflow', 'AI-assisted drafting (currently disabled)']),
     )
     // Only the three screenshots Cristian approved are published. CRM pipeline and client panel are NOT approved.
     expect(PLATFORM_SCREENSHOTS.map((s) => s.id)).toEqual(['operator-workspace', 'supervisor-operations', 'escalation-workflow'])
@@ -136,8 +142,8 @@ describe('platform positioning and assets', () => {
 })
 
 describe('shared wiring', () => {
-  it('pilot has discovery before Day 1, matching docs/7-day-pilot.md', () => {
-    expect(content.PILOT_STEPS.map((s) => s.marker)).toEqual(['Step 0', 'Day 1', 'Days 2–6', 'Day 7', 'After Day 7'])
+  it('pilot has discovery before it starts; steps, not fixed days (length agreed per client)', () => {
+    expect(content.PILOT_STEPS.map((s) => s.marker)).toEqual(['Step 0', 'Step 1', 'Step 2', 'Step 3', 'Step 4'])
   })
 
   it('only the approved public email', () => {

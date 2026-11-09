@@ -104,7 +104,7 @@ export function PilotCallout({ text, location }: { text: string; location: strin
       <Container>
         <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:gap-16">
           <div>
-            <SectionHeader eyebrow="The 7-day pilot" title="What the pilot looks like" description={text} />
+            <SectionHeader eyebrow="The pilot" title="What the pilot looks like" description={text} />
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <PilotCtaLink location={location} />
               <BookCallLink variant="ghostLight" location={location} />

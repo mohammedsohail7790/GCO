@@ -7,8 +7,9 @@ import { writeAuditLog } from '@/lib/audit/log'
 import { ok, fail, handleRouteError } from '@/lib/api/response'
 import { isValidTimezone, validateOperatingHours } from '@/lib/tenant/settings'
 
-const view = (t: { id: string; name: string; defaultResponseSlaSeconds: number; defaultOperatorCapacity: number; timezone: string; operatingHours: unknown }) => ({
+const view = (t: { id: string; name: string; defaultResponseSlaSeconds: number; defaultOperatorCapacity: number; timezone: string; operatingHours: unknown; aiMode: string; aiDailyCallLimit: number; aiMaskPersonalData: boolean }) => ({
   tenantId: t.id, name: t.name, responseSlaSeconds: t.defaultResponseSlaSeconds, operatorCapacity: t.defaultOperatorCapacity, timezone: t.timezone, operatingHours: t.operatingHours,
+  aiMode: t.aiMode, aiDailyCallLimit: t.aiDailyCallLimit, aiMaskPersonalData: t.aiMaskPersonalData,
 })
 
 export async function GET(req: NextRequest) {
@@ -32,6 +33,8 @@ const Patch = z
     operatingHours: z.unknown().optional(),
     requireOperatorApproval: z.boolean().optional(),
     aiMode: z.enum(['HUMAN_ONLY', 'AI_ASSISTED']).optional(), // AI_PLUS_HUMAN is not available yet
+    aiDailyCallLimit: z.number().int().min(0).max(100_000).optional(), // 0 = no AI calls for this client
+    aiMaskPersonalData: z.boolean().optional(),
   })
   .strict()
 
@@ -54,6 +57,8 @@ export async function PATCH(req: NextRequest) {
       ...(body.timezone !== undefined ? { timezone: body.timezone } : {}),
       ...(body.requireOperatorApproval !== undefined ? { requireOperatorApproval: body.requireOperatorApproval } : {}),
       ...(body.aiMode !== undefined ? { aiMode: body.aiMode } : {}),
+      ...(body.aiDailyCallLimit !== undefined ? { aiDailyCallLimit: body.aiDailyCallLimit } : {}),
+      ...(body.aiMaskPersonalData !== undefined ? { aiMaskPersonalData: body.aiMaskPersonalData } : {}),
       ...('operatingHours' in body ? { operatingHours: (body.operatingHours ?? null) as never } : {}),
     }
     if (Object.keys(data).length === 0) return fail('Nothing to change', 400)
@@ -64,7 +69,7 @@ export async function PATCH(req: NextRequest) {
       action: 'tenant.settings_changed',
       resource: 'tenant',
       resourceId: tenantId,
-      metadata: { changed: Object.keys(data), before: { sla: t.defaultResponseSlaSeconds, capacity: t.defaultOperatorCapacity, timezone: t.timezone }, after: { sla: updated.defaultResponseSlaSeconds, capacity: updated.defaultOperatorCapacity, timezone: updated.timezone } },
+      metadata: { changed: Object.keys(data), before: { sla: t.defaultResponseSlaSeconds, capacity: t.defaultOperatorCapacity, timezone: t.timezone, aiMode: t.aiMode, aiDailyCallLimit: t.aiDailyCallLimit, aiMaskPersonalData: t.aiMaskPersonalData }, after: { sla: updated.defaultResponseSlaSeconds, capacity: updated.defaultOperatorCapacity, timezone: updated.timezone, aiMode: updated.aiMode, aiDailyCallLimit: updated.aiDailyCallLimit, aiMaskPersonalData: updated.aiMaskPersonalData } },
     })
     return ok(view(updated))
   } catch (err) {

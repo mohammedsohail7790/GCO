@@ -18,6 +18,7 @@ import { NotificationBell } from '@/components/ui/NotificationBell'
 import { RequestsInbox } from '@/components/manager/RequestsInbox'
 import { WeeklyReports } from '@/components/manager/WeeklyReports'
 import { ShiftPlanner } from '@/components/manager/ShiftPlanner'
+import { ProductivityPanel } from '@/components/manager/ProductivityPanel'
 import { TrainingPanel } from '@/components/manager/TrainingPanel'
 import { ManagerKnowledgePanel } from '@/components/manager/KnowledgePanel'
 import { ModerationPanel } from '@/components/manager/ModerationPanel'
@@ -153,6 +154,7 @@ export default function ManagerPage() {
       <ModerationPanel />
 
       <ShiftPlanner />
+      <ProductivityPanel />
 
       <WeeklyReports />
 

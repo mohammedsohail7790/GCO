@@ -8,7 +8,7 @@ import { shiftRouteError } from '@/lib/shifts/http'
 export async function GET(req: NextRequest) {
   try {
     const session = await requirePermission(req, 'SHIFT_VIEW_OWN')
-    const op = await db.operator.findUnique({ where: { userId: session.sub }, select: { id: true } })
+    const op = await db.operator.findUnique({ where: { userId: session.sub }, select: { id: true, timezone: true, tenant: { select: { timezone: true } } } })
     if (!op) return fail('Operator profile not found', 404)
     const from = new Date(Date.now() - 86_400_000)
     const to = new Date(Date.now() + 14 * 86_400_000)
@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
       db.shift.findMany({ where: { operatorId: op.id, status: 'SCHEDULED', endsAt: { gt: from }, startsAt: { lt: to } }, orderBy: { startsAt: 'asc' }, select: { id: true, startsAt: true, endsAt: true, note: true } }),
       db.absence.findMany({ where: { operatorId: op.id, endsAt: { gt: from }, startsAt: { lt: to } }, orderBy: { startsAt: 'asc' }, select: { id: true, kind: true, startsAt: true, endsAt: true } }),
     ])
-    return ok({ shifts, absences })
+    return ok({ shifts, absences, timezone: op.timezone, clientTimezone: op.tenant.timezone })
   } catch (err) {
     return shiftRouteError(err)
   }

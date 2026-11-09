@@ -4,6 +4,7 @@ const calls = vi.hoisted(() => ({ gen: undefined as any, conv: [] as any[], msg:
 
 vi.mock('@/lib/observability/logger', () => ({ logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn() } }))
 vi.mock('@/lib/config/flags', () => ({ flags: { aiSuggestions: true } }))
+vi.mock('@/lib/ai/budget', () => ({ takeAiCall: async () => true })) // the daily cap has its own integration test
 vi.mock('@/lib/ai/provider', () => ({ getAiProvider: () => ({ name: 'openai', generateReply: vi.fn().mockRejectedValue(Object.assign(new Error('SECRET-CUSTOMER-TEXT'), { status: 429 })) }) }))
 
 // Two tenants' data in one fake store; the fake honours `where` like Postgres would.
@@ -40,7 +41,9 @@ vi.mock('@/lib/db/client', () => ({
     aiMemory: { findMany: async ({ where }: any) => { calls.mem.push(where); return store.memories.filter((m) => match(m, where)) } },
     aiGeneration: { create: async ({ data }: any) => { calls.gen = data; return data } },
     messageEvent: { create: async () => ({}) },
-    tenant: { findUnique: async () => ({ aiMode: 'AI_ASSISTED' }) },
+    tenant: { findUnique: async () => ({ aiMode: 'AI_ASSISTED', aiDailyCallLimit: 2000 }), findUniqueOrThrow: async () => ({ aiMaskPersonalData: true }) },
+    // Instructions are tenant-scoped too; this fake honours tenantId and returns none for either tenant.
+    knowledgeEntry: { findMany: async ({ where }: any) => { calls.conv.push({ tenantId: where.tenantId }); return [] } },
   },
 }))
 

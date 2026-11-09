@@ -7,6 +7,17 @@
       "runtimeArgs": ["run", "dev"],
       "port": 3000,
       "autoPort": true
+    },
+    {
+      "name": "gco-realtime",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["tsx", "workers/realtime-server.ts"],
+      "port": 3001
+    },
+    {
+      "name": "gco-worker",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "worker"]
     }
   ]
 }

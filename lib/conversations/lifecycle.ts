@@ -45,8 +45,11 @@ export async function resolveConversation(conversationId: string, actor: Actor) 
 
   const assignmentId = c.currentAssignment?.status === 'ACTIVE' ? c.currentAssignment.id : null
   await db.$transaction(async (tx) => {
-    const moved = await tx.conversation.updateMany({ where: { id: c.id, state: { not: 'CLOSED' } }, data: { state: 'CLOSED', closedAt: new Date(), currentAssignmentId: null } })
+    const now = new Date()
+    const moved = await tx.conversation.updateMany({ where: { id: c.id, state: { not: 'CLOSED' } }, data: { state: 'CLOSED', closedAt: now, currentAssignmentId: null } })
     if (moved.count === 0) throw new LifecycleError('Conversation is already resolved', 409)
+    // The first resolution is the billing date for a completed ticket; a reopen and second resolution never moves it.
+    await tx.conversation.updateMany({ where: { id: c.id, firstClosedAt: null }, data: { firstClosedAt: now } })
     if (assignmentId) {
       await tx.assignment.update({ where: { id: assignmentId }, data: { status: 'COMPLETED', releaseReason: 'resolved' } })
       await tx.assignmentHistoryEntry.create({ data: { assignmentId, event: 'resolved', actorUserId: actor.userId } })

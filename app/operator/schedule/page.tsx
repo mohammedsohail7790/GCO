@@ -2,12 +2,12 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { apiFetch } from '@/lib/api/client'
+import { formatInZone, rangeInZone } from '@/lib/shifts/zones'
 
-interface Mine { shifts: { id: string; startsAt: string; endsAt: string; note: string | null }[]; absences: { id: string; kind: string; startsAt: string; endsAt: string }[] }
+interface Mine { shifts: { id: string; startsAt: string; endsAt: string; note: string | null }[]; absences: { id: string; kind: string; startsAt: string; endsAt: string }[]; timezone: string | null; clientTimezone: string }
 interface Handover { id: string; body: string; createdAt: string; acknowledgedAt: string | null; fromOperatorId: string; toOperatorId: string | null }
 interface Held { assignmentId: string; conversation: { id: string; externalUserId: string } }
 
-const when = (iso: string) => new Date(iso).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 
 export default function OperatorSchedulePage() {
   const [mine, setMine] = useState<Mine | null>(null)
@@ -31,6 +31,10 @@ export default function OperatorSchedulePage() {
   )
   useEffect(() => { load() }, [load])
 
+  // Shifts read in the operator's own zone (set by their supervisor); until it is set, in the client's zone, always named.
+  const myTz = mine?.timezone ?? mine?.clientTimezone ?? 'UTC'
+  const when = (iso: string) => formatInZone(iso, myTz)
+
   const send = async (e: React.FormEvent) => {
     e.preventDefault()
     try { await apiFetch('/handovers', { method: 'POST', body: JSON.stringify({ body: note, conversationIds: picked }) }); setNote(''); setPicked([]); setMsg('Handover note sent to the team.'); await load() } catch (err) { setMsg(err instanceof Error ? err.message : 'Failed') }
@@ -47,7 +51,8 @@ export default function OperatorSchedulePage() {
         {msg && <p className="rounded-lg bg-slate-100 px-4 py-2 text-sm text-slate-700">{msg}</p>}
         <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <h2 className="mb-2 text-sm font-semibold text-slate-900">Upcoming shifts</h2>
-          {!mine || mine.shifts.length === 0 ? <p className="text-sm text-slate-400">No shifts planned.</p> : <ul className="divide-y divide-slate-100 text-sm">{mine.shifts.map((s) => <li key={s.id} className="py-1.5">{when(s.startsAt)} → {when(s.endsAt)}{s.note ? <span className="ml-2 text-xs text-slate-400">{s.note}</span> : null}</li>)}</ul>}
+          {!mine || mine.shifts.length === 0 ? <p className="text-sm text-slate-400">No shifts planned.</p> : <ul className="divide-y divide-slate-100 text-sm">{mine.shifts.map((s) => <li key={s.id} className="py-1.5">{rangeInZone(s.startsAt, s.endsAt, myTz)}{s.note ? <span className="ml-2 text-xs text-slate-400">{s.note}</span> : null}{mine.timezone && mine.timezone !== mine.clientTimezone && <><br /><span className="text-xs text-slate-500">Client time: {rangeInZone(s.startsAt, s.endsAt, mine.clientTimezone)}</span></>}</li>)}</ul>}
+          {mine && !mine.timezone && <p className="mt-2 text-xs text-amber-700">Your time zone is not set, so times are shown in the client&apos;s time zone ({mine.clientTimezone}). Ask your supervisor to set it.</p>}
           {mine && mine.absences.length > 0 && <><h3 className="mb-1 mt-3 text-xs font-semibold uppercase text-slate-500">Absences</h3><ul className="text-sm">{mine.absences.map((a) => <li key={a.id}>{a.kind.toLowerCase()} · {when(a.startsAt)} → {when(a.endsAt)}</li>)}</ul></>}
         </section>
         <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">

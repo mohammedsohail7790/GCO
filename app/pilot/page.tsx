@@ -9,8 +9,8 @@ import { pageMetadata } from '@/lib/config/site'
 import { CTA, PILOT_IS, PILOT_TERMS, PUBLIC_EMAIL } from '@/lib/content/site'
 
 export const metadata = pageMetadata({
-  title: 'Start a 7-Day Pilot',
-  description: 'Request a scoped 7-day pilot of GCO managed conversation operations with your real workflow.',
+  title: 'Start a Pilot',
+  description: 'Request a scoped pilot of GCO managed conversation operations with your real workflow.',
   path: '/pilot',
 })
 
@@ -24,13 +24,13 @@ export default function PilotPage() {
       <main id="main-content">
         <section className="border-b border-paper-border bg-ink text-white">
           <Container className="py-16 sm:py-20">
-            <Eyebrow tone="dark">7-day pilot</Eyebrow>
+            <Eyebrow tone="dark">Pilot</Eyebrow>
             <h1 className="font-display mt-4 max-w-2xl text-3xl font-semibold tracking-tight sm:text-4xl">
               Test GCO with your real workflow.
             </h1>
             <p className="mt-5 max-w-2xl text-[15.5px] leading-relaxed text-white/65">
               Tell us a little about your operation. We&apos;ll follow up to scope the pilot together: channels,
-              volume, languages and coverage are agreed before Day 1.
+              volume, languages and coverage are agreed before the pilot starts.
             </p>
             {PILOT_TERMS.length > 0 && <p className="mt-3 max-w-2xl text-[14.5px] text-white/60">{PILOT_TERMS.join(' ')}</p>}
           </Container>

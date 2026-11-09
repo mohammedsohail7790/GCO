@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { buildLines, totals, invoiceNumber, BillingConfigError, type BillingInputs } from '@/lib/billing/calc'
 import { isValidItalianVat, missingBusinessDetails, legalIdentityLine, BUSINESS } from '@/lib/config/business'
 
-const base: BillingInputs = { messages: { count: 1000, amountEurCents: 14000 }, tickets: { resolved: 40 }, hours: 120.456, settings: { pricePerTicketEurCents: 250, pricePerHourEurCents: 1800, monthlyFeeEurCents: 500000 } }
+const base: BillingInputs = { messages: { count: 1000, amountEurCents: 14000 }, tickets: { resolved: 40 }, hours: 120.456, moderated: 0, settings: { pricePerTicketEurCents: 250, pricePerHourEurCents: 1800, monthlyFeeEurCents: 500000, includedTicketsPerPeriod: null, pricePerModeratedItemEurCents: null } }
 
 describe('invoice lines per billing model', () => {
   it('per message bills the snapshotted amounts, not today\'s price', () => {
@@ -17,6 +17,27 @@ describe('invoice lines per billing model', () => {
   it('refuses to bill a model whose price is not configured (never silently zero)', () => {
     const s = { ...base.settings, pricePerTicketEurCents: null, pricePerHourEurCents: null, monthlyFeeEurCents: null }
     for (const m of ['PER_TICKET', 'PER_HOUR', 'MONTHLY_FLAT'] as const) expect(() => buildLines(m, { ...base, settings: s })).toThrow(BillingConfigError)
+  })
+  it('hourly plus tickets: hours, then only the tickets above the included volume', () => {
+    const s = { ...base.settings, pricePerTicketEurCents: 350, includedTicketsPerPeriod: 30 }
+    const [hours, tickets] = buildLines('HOURLY_PLUS_TICKETS', { ...base, hours: 160, settings: s })
+    expect(hours).toMatchObject({ quantity: 160, amountEurCents: 160 * 1800 })
+    expect(tickets).toMatchObject({ quantity: 10, unitPriceEurCents: 350, amountEurCents: 3500 })
+    // Under the included volume: a zero overage line, never negative
+    expect(buildLines('HOURLY_PLUS_TICKETS', { ...base, tickets: { resolved: 12 }, settings: s })[1]).toMatchObject({ quantity: 0, amountEurCents: 0 })
+    // No included volume set = every ticket is extra
+    expect(buildLines('HOURLY_PLUS_TICKETS', { ...base, settings: { ...s, includedTicketsPerPeriod: null } })[1]!.quantity).toBe(40)
+    // Both prices are required
+    expect(() => buildLines('HOURLY_PLUS_TICKETS', { ...base, settings: { ...s, pricePerTicketEurCents: null } })).toThrow(BillingConfigError)
+    expect(() => buildLines('HOURLY_PLUS_TICKETS', { ...base, settings: { ...s, pricePerHourEurCents: null } })).toThrow(BillingConfigError)
+  })
+  it('moderated items are an extra line under any model, only when priced and non-zero', () => {
+    const s = { ...base.settings, pricePerModeratedItemEurCents: 30 }
+    const lines = buildLines('PER_TICKET', { ...base, moderated: 2000, settings: s })
+    expect(lines).toHaveLength(2)
+    expect(lines[1]).toMatchObject({ description: 'Moderated items', quantity: 2000, unitPriceEurCents: 30, amountEurCents: 60000 })
+    expect(buildLines('PER_TICKET', { ...base, moderated: 0, settings: s })).toHaveLength(1)
+    expect(buildLines('PER_TICKET', { ...base, moderated: 2000 })).toHaveLength(1) // no price set
   })
   it('a month with no messages gives a zero line (the service layer then refuses to invoice nothing)', () => {
     expect(buildLines('PER_MESSAGE', { ...base, messages: { count: 0, amountEurCents: 0 } })[0]).toMatchObject({ amountEurCents: 0, unitPriceEurCents: null })

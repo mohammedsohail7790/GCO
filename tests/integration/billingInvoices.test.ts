@@ -1,6 +1,6 @@
 import { describe, it, expect, afterAll } from 'vitest'
 import { db } from '@/lib/db/client'
-import { createDraftInvoice, issueInvoice, markInvoicePaid, voidInvoice, updateBillingSettings, reconcile, BillingError } from '@/lib/billing/service'
+import { createDraftInvoice, issueInvoice, markInvoicePaid, voidInvoice, updateBillingSettings, reconcile, BillingError, recordExternalTicketCount, deleteExternalTicketCount, completedTickets } from '@/lib/billing/service'
 
 describe('invoices and reconciliation (real database)', () => {
   const base = `bi-${Date.now()}`
@@ -16,6 +16,8 @@ describe('invoices and reconciliation (real database)', () => {
   }
 
   afterAll(async () => {
+    await db.externalTicketCount.deleteMany({ where: { tenantId: { in: tenantIds } } })
+    await db.moderationItem.deleteMany({ where: { tenantId: { in: tenantIds } } })
     await db.invoice.deleteMany({ where: { tenantId: { in: tenantIds } } })
     await db.usageRecord.deleteMany({ where: { tenantId: { in: tenantIds } } })
     await db.message.deleteMany({ where: { tenantId: { in: tenantIds } } })
@@ -66,12 +68,58 @@ describe('invoices and reconciliation (real database)', () => {
     await updateBillingSettings(t, { monthlyFeeEurCents: 100000, vatRatePercent: 0, vatNote: 'Reverse charge' }, 'u')
     const inv = await createDraftInvoice({ tenantId: t, periodStart: s, periodEnd: e, actorUserId: 'u' })
     expect(inv).toMatchObject({ subtotalEurCents: 100000, vatEurCents: 0, totalEurCents: 100000, vatNote: 'Reverse charge' })
-    const t2 = await mkTenant('d', { billingModel: 'PER_TICKET', pricePerTicketEurCents: 300 })
-    const creator = await db.user.create({ data: { email: `${base}-tk@test.gco`, passwordHash: 'x', role: 'CLIENT', tenantId: t2, displayName: 'c' } })
-    for (const status of ['RESOLVED', 'CLOSED', 'OPEN'] as const) await db.ticket.create({ data: { tenantId: t2, creatorUserId: creator.id, type: 'FEEDBACK', status, subject: 's', description: 'd' } })
-    const inv2 = await createDraftInvoice({ tenantId: t2, periodStart: new Date(Date.now() - 2 * D), periodEnd: new Date(Date.now() + 0.5 * D), actorUserId: 'u' })
-    expect(inv2.subtotalEurCents).toBe(600) // two resolved/closed tickets
-    await db.invoice.deleteMany({ where: { tenantId: t2 } }); await db.ticket.deleteMany({ where: { tenantId: t2 } }); await db.user.delete({ where: { id: creator.id } })
+  })
+
+  // Per-ticket billing counts completed CUSTOMER conversations (changed 9 Nov 2026: it previously counted the client's own requests
+  // to GCO in the Ticket table, which is not what a per-ticket price means).
+  it('per ticket bills conversations first resolved in the period with an operator reply - once, even if reopened - and never client requests', async () => {
+    const t = await mkTenant('d', { billingModel: 'PER_TICKET', pricePerTicketEurCents: 300 })
+    const s = new Date(Date.now() - 20 * D); const e = new Date(Date.now() - 10 * D)
+    const conv = async (opts: { replied: boolean; firstClosedAt: Date | null }) => {
+      const c = await db.conversation.create({ data: { tenantId: t, externalUserId: `${base}-${Math.random()}`, state: opts.firstClosedAt ? 'CLOSED' : 'ACTIVE', closedAt: opts.firstClosedAt, firstClosedAt: opts.firstClosedAt } })
+      await db.message.create({ data: { tenantId: t, conversationId: c.id, direction: 'INBOUND', status: 'RECEIVED', content: 'x', externalMessageId: `${base}-${Math.random()}` } })
+      if (opts.replied) await db.message.create({ data: { tenantId: t, conversationId: c.id, direction: 'OUTBOUND', status: 'DELIVERED', content: 'y' } })
+      return c.id
+    }
+    await conv({ replied: true, firstClosedAt: new Date(s.getTime() + D) }) // counts
+    await conv({ replied: true, firstClosedAt: new Date(s.getTime() + 2 * D) }) // counts
+    await conv({ replied: false, firstClosedAt: new Date(s.getTime() + 3 * D) }) // no operator reply: not eligible
+    await conv({ replied: true, firstClosedAt: null }) // still open
+    // Reopened later and resolved again in a later period: billed in its first period only
+    const reopened = await conv({ replied: true, firstClosedAt: new Date(s.getTime() + 4 * D) })
+    await db.conversation.update({ where: { id: reopened }, data: { closedAt: new Date(Date.now() - 2 * D) } })
+    // A client request to GCO (Ticket) is never a billable ticket
+    const creator = await db.user.create({ data: { email: `${base}-tk@test.gco`, passwordHash: 'x', role: 'CLIENT', tenantId: t, displayName: 'c' } })
+    await db.ticket.create({ data: { tenantId: t, creatorUserId: creator.id, type: 'FEEDBACK', status: 'RESOLVED', subject: 's', description: 'd', updatedAt: new Date(s.getTime() + D) } })
+
+    expect(await completedTickets(t, s, e)).toEqual({ gco: 3, external: 0, total: 3 })
+    expect(await completedTickets(t, e, new Date(Date.now() - D))).toMatchObject({ gco: 0 }) // the re-resolution is not counted again
+    const inv = await createDraftInvoice({ tenantId: t, periodStart: s, periodEnd: e, actorUserId: 'u' })
+    expect(inv.subtotalEurCents).toBe(900)
+    await db.ticket.deleteMany({ where: { tenantId: t } }); await db.user.delete({ where: { id: creator.id } })
+  })
+
+  it('hourly plus tickets uses counts recorded from the client tool; a moderation line is added; counts are locked once invoiced', async () => {
+    const t = await mkTenant('e', { billingModel: 'HOURLY_PLUS_TICKETS', pricePerHourEurCents: 2000, pricePerTicketEurCents: 350, includedTicketsPerPeriod: 100, pricePerModeratedItemEurCents: 30, vatRatePercent: 0 })
+    const s = new Date(Date.now() - 40 * D); const e = new Date(Date.now() - 10 * D)
+    await expect(recordExternalTicketCount({ tenantId: t, periodStart: e, periodEnd: s, count: 1, source: 'Zendesk report', actorUserId: 'u' })).rejects.toBeInstanceOf(BillingError)
+    const entry = await recordExternalTicketCount({ tenantId: t, periodStart: s, periodEnd: e, count: 130, source: 'Zendesk report', actorUserId: 'u' })
+    // An entry outside the invoice period is not counted
+    await recordExternalTicketCount({ tenantId: t, periodStart: new Date(e.getTime() - 5 * D), periodEnd: new Date(e.getTime() + 5 * D), count: 999, source: 'Zendesk report', actorUserId: 'u' })
+    for (let n = 0; n < 3; n++) await db.moderationItem.create({ data: { tenantId: t, kind: 'MESSAGE', externalItemId: `${base}-m${n}`, subjectExternalId: 'u1', status: n < 2 ? 'DECIDED' : 'PENDING', decidedAt: n < 2 ? new Date(s.getTime() + D) : null } })
+    expect(await completedTickets(t, s, e)).toEqual({ gco: 0, external: 130, total: 130 })
+
+    const inv = await createDraftInvoice({ tenantId: t, periodStart: s, periodEnd: e, actorUserId: 'u' })
+    const lines = inv.lines as { description: string; quantity: number; amountEurCents: number }[]
+    expect(lines.map((l) => [l.quantity, l.amountEurCents])).toEqual([[0, 0], [30, 30 * 350], [2, 60]]) // no shifts planned = 0 hours
+    expect(inv.subtotalEurCents).toBe(30 * 350 + 60)
+    expect(await db.auditLog.count({ where: { tenantId: t, action: 'billing.external_tickets_recorded' } })).toBe(2)
+    // Locked while an invoice covers the period
+    await expect(deleteExternalTicketCount({ id: entry.id, actorUserId: 'u' })).rejects.toMatchObject({ status: 409 })
+    await expect(recordExternalTicketCount({ tenantId: t, periodStart: s, periodEnd: e, count: 5, source: 'again', actorUserId: 'u' })).rejects.toMatchObject({ status: 409 })
+    await voidInvoice({ id: inv.id, reason: 'wrong count', actorUserId: 'u' })
+    await deleteExternalTicketCount({ id: entry.id, actorUserId: 'u' })
+    expect(await db.auditLog.count({ where: { tenantId: t, action: 'billing.external_tickets_deleted' } })).toBe(1)
   })
 
   it('reconciliation exposes customer messages that were received but never billed (operator replies are not billed per message)', async () => {

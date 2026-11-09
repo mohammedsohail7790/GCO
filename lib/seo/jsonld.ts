@@ -21,7 +21,7 @@ export function organizationJsonLd(): Json {
     name: 'Global Conversation Operations',
     alternateName: SITE_NAME,
     url: SITE_URL,
-    description: 'Human conversation operations: trained operators, supervised and supported by an operations platform and AI-assisted workflows.',
+    description: 'Human conversation operations: trained operators, supervised and supported by an operations platform.',
     email: PUBLIC_EMAIL,
     contactPoint: [{ '@type': 'ContactPoint', contactType: 'sales', email: PUBLIC_EMAIL, availableLanguage: ['English'] }],
     ...confirmed,

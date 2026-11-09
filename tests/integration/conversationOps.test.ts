@@ -71,11 +71,19 @@ describe('conversation lifecycle, search, alerts and client report (real databas
     await db.escalation.updateMany({ where: { conversationId: conv }, data: { status: 'RESOLVED' } })
     await expect(resolveConversation(conv, asActor(otherMgr))).rejects.toMatchObject({ status: 404 })
     await resolveConversation(conv, asActor(mgr))
+    const firstClosedAt = (await db.conversation.findUniqueOrThrow({ where: { id: conv } })).firstClosedAt
+    expect(firstClosedAt).not.toBeNull()
     await expect(reopenConversation(conv, asActor(otherMgr))).rejects.toMatchObject({ status: 404 })
     const reopened = await reopenConversation(conv, asActor(mgr))
     expect(['ACTIVE', 'QUEUED']).toContain(reopened.state)
-    expect((await db.conversation.findUniqueOrThrow({ where: { id: conv } })).closedAt).toBeNull()
+    const afterReopen = await db.conversation.findUniqueOrThrow({ where: { id: conv } })
+    expect(afterReopen.closedAt).toBeNull()
+    expect(afterReopen.firstClosedAt).toEqual(firstClosedAt) // the billing date survives a reopen
     await expect(reopenConversation(conv, asActor(mgr))).rejects.toMatchObject({ status: 409 }) // not closed any more
+    // Resolving again moves closedAt but never the first-resolution (billing) date
+    await db.escalation.updateMany({ where: { conversationId: conv }, data: { status: 'RESOLVED' } })
+    await resolveConversation(conv, asActor(mgr))
+    expect((await db.conversation.findUniqueOrThrow({ where: { id: conv } })).firstClosedAt).toEqual(firstClosedAt)
   })
 
   it('notes: operators may only note their own conversations; validation; audit has ids only', async () => {

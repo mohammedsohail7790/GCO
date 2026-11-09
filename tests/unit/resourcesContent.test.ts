@@ -55,12 +55,12 @@ describe('resources: the five foundational articles', () => {
       expect(links.some((l) => l === '/platform' || l === '/security' || l === '/how-it-works' || l.startsWith('/services/') || l.startsWith('/industries/')), a.slug).toBe(true)
       expect(a.cta.primary, a.slug).toMatch(/Pilot/)
     }
-    expect(getArticle('when-should-a-company-outsource-chat-support-or-moderation')!.cta.primary).toBe('Start Your Free 7-Day Pilot')
+    expect(getArticle('when-should-a-company-outsource-chat-support-or-moderation')!.cta.primary).toBe('Start Your Free Pilot')
     expect(getArticle('human-moderation-vs-automated-moderation')!.cta.secondary).toBe('contact')
   })
 
   it('required qualifiers are present: 24/7 subject to staffing; human operator responsible; nothing sent automatically', () => {
-    expect(textOf(getArticle('what-it-takes-to-run-chat-coverage-24-7')!)).toMatch(/24\/7 coverage is available subject to project staffing requirements\./)
+    expect(textOf(getArticle('what-it-takes-to-run-chat-coverage-24-7')!)).toMatch(/24\/7 coverage is available for eligible projects, subject to agreed staffing, onboarding and service requirements\./)
     const hai = textOf(getArticle('how-a-human-ai-conversation-operations-model-works')!)
     expect(hai).toMatch(/human operator remains responsible for the final response/)
     expect(hai).toMatch(/Nothing is sent automatically by AI/)

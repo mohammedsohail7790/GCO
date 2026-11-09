@@ -65,7 +65,7 @@ export const SECURITY_SECTIONS: SecuritySection[] = [
     id: 'data-handling',
     title: 'Operational data handling',
     body: 'Operational data is handled on a need-to-know basis.',
-    points: ['Server-side secrets are kept in server configuration and are not exposed to the browser', 'When AI-assisted drafting is used, conversation context is sent to a third-party AI service to produce a draft; the AI credential is held only by the background worker, and a human operator reviews every reply before it is sent'],
+    points: ['Server-side secrets are kept in server configuration and are not exposed to the browser', 'AI-assisted drafting is currently disabled. When it is used, conversation context is sent to a third-party AI service to produce a draft; the AI credential is held only by the background worker, and a human operator reviews every reply before it is sent'],
   },
 ]
 

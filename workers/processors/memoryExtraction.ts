@@ -4,6 +4,7 @@ import { getAiProvider } from '@/lib/ai/provider'
 import { AiDisabledError, isAiEnabled } from '@/lib/ai/guard'
 import { buildConversationContext } from '@/lib/ai/service'
 import { categorizeAiError } from '@/lib/ai/observability'
+import { takeAiCall } from '@/lib/ai/budget'
 import { logger } from '@/lib/observability/logger'
 
 export async function memoryExtractionProcessor(
@@ -15,7 +16,8 @@ export async function memoryExtractionProcessor(
   const conversation = await db.conversation.findUniqueOrThrow({ where: { id: conversationId } })
   // tenantId is derived from the trusted conversation row, never from job input.
   const tenantId = conversation.tenantId
-  if ((await db.tenant.findUnique({ where: { id: tenantId }, select: { aiMode: true } }))?.aiMode === 'HUMAN_ONLY') return // human-only clients: no AI processing at all
+  const tenant = await db.tenant.findUnique({ where: { id: tenantId }, select: { aiMode: true, aiDailyCallLimit: true } })
+  if (!tenant || tenant.aiMode === 'HUMAN_ONLY') return // human-only clients: no AI processing at all
 
   // The trigger message must belong to this same conversation AND tenant, or the
   // job is malformed/cross-tenant and is skipped without touching the provider.
@@ -35,6 +37,8 @@ export async function memoryExtractionProcessor(
     if (err instanceof AiDisabledError) return
     throw err
   }
+  // Same daily cap as drafts (lib/ai/budget.ts): over it, extraction is skipped.
+  if (!(await takeAiCall(tenantId, tenant.aiDailyCallLimit))) return
   const context = await buildConversationContext(conversationId, tenantId)
 
   let facts

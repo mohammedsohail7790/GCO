@@ -10,7 +10,7 @@ import { PILOT_IS, PILOT_IS_NOT, PILOT_TERMS } from '@/lib/content/site'
 
 export const metadata = pageMetadata({
   title: 'How It Works',
-  description: 'How a GCO 7-day pilot runs: discovery and feasibility, setup, a live pilot, a performance review, then scaling.',
+  description: 'How a GCO pilot runs: discovery and feasibility, setup, a live pilot, a performance review, then scaling.',
   path: '/how-it-works',
 })
 
@@ -26,7 +26,7 @@ export default function HowItWorksPage() {
           <Container className="py-16 sm:py-20">
             <Eyebrow tone="dark">How It Works</Eyebrow>
             <h1 className="font-display mt-4 max-w-2xl text-3xl font-semibold tracking-tight sm:text-4xl">
-              From first conversation to a running operation, through a 7-day pilot.
+              From first conversation to a running operation, through a pilot of agreed length.
             </h1>
             <p className="mt-5 max-w-2xl text-[15.5px] leading-relaxed text-white/65">
               The pilot is how we prove the operation on your real workflow before you commit to scaling it.

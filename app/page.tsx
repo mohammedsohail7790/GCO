@@ -126,9 +126,9 @@ export default function Home() {
             <div className="grid gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:gap-16">
               <div>
                 <SectionHeader
-                  eyebrow="The 7-day pilot"
+                  eyebrow="The pilot"
                   title="Evaluate the operation on your real workflow."
-                  description="A scoped, monitored pilot: agreed in advance, run for seven days, and reviewed together at the end."
+                  description="A scoped, monitored pilot: agreed in advance, run for the period agreed with you, and reviewed together at the end."
                 />
                 <div className="mt-8 flex flex-col gap-3 sm:flex-row lg:flex-col lg:items-start">
                   <PilotCtaLink location="pilot-section" />
@@ -171,7 +171,7 @@ export default function Home() {
                 </ul>
               </div>
               <div>
-                <SectionHeader eyebrow="Platform" title="A real operations platform behind the workforce." description="Live queues, assignment, response timers, supervisor visibility, escalation and reporting - with AI assisting the operator, and a human sending every reply." />
+                <SectionHeader eyebrow="Platform" title="A real operations platform behind the workforce." description="Live queues, assignment, response timers, supervisor visibility, escalation and reporting - with a human writing and sending every reply." />
                 <Link href="/platform" className="mt-6 inline-flex min-h-11 items-center text-sm font-semibold text-accent-600 transition-colors hover:text-accent-700">
                   Explore the platform <span aria-hidden="true" className="ml-2">→</span>
                 </Link>

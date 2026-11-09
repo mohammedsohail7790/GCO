@@ -9,8 +9,8 @@
 const INBOUND = ['Chat', 'Support', 'Community']
 
 const LAYER = [
-  { step: '1', title: 'AI-assisted triage', body: 'Routes the conversation and suggests a draft.', tone: 'bg-accent-400' },
-  { step: '2', title: 'Human operator', body: 'Reviews, edits and sends every reply.', tone: 'bg-emerald-400' },
+  { step: '1', title: 'Triage', body: 'Routes the conversation to the right queue.', tone: 'bg-accent-400' },
+  { step: '2', title: 'Human operator', body: 'Writes and sends every reply.', tone: 'bg-emerald-400' },
   { step: '3', title: 'Team lead supervision', body: 'Owns escalations and quality review.', tone: 'bg-amber-300' },
 ]
 

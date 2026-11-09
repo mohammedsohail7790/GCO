@@ -12,18 +12,20 @@ export class BillingError extends Error {
 }
 
 export interface BillingSettings {
-  billingModel: 'PER_MESSAGE' | 'PER_TICKET' | 'PER_HOUR' | 'MONTHLY_FLAT'
+  billingModel: 'PER_MESSAGE' | 'PER_TICKET' | 'PER_HOUR' | 'MONTHLY_FLAT' | 'HOURLY_PLUS_TICKETS'
   pricePerMessageEurCents: number
   operatorCostPerMessageEurCents: number
   pricePerTicketEurCents: number | null
   pricePerHourEurCents: number | null
   monthlyFeeEurCents: number | null
+  includedTicketsPerPeriod: number | null
+  pricePerModeratedItemEurCents: number | null
   vatRatePercent: number
   vatNote: string | null
   paymentTermsDays: number
 }
 
-const SETTINGS_SELECT = { billingModel: true, pricePerMessageEurCents: true, operatorCostPerMessageEurCents: true, pricePerTicketEurCents: true, pricePerHourEurCents: true, monthlyFeeEurCents: true, vatRatePercent: true, vatNote: true, paymentTermsDays: true } as const
+const SETTINGS_SELECT = { billingModel: true, pricePerMessageEurCents: true, operatorCostPerMessageEurCents: true, pricePerTicketEurCents: true, pricePerHourEurCents: true, monthlyFeeEurCents: true, includedTicketsPerPeriod: true, pricePerModeratedItemEurCents: true, vatRatePercent: true, vatNote: true, paymentTermsDays: true } as const
 
 export async function getBillingSettings(tenantId: string): Promise<BillingSettings> {
   const t = await db.tenant.findUnique({ where: { id: tenantId }, select: SETTINGS_SELECT })
@@ -46,6 +48,38 @@ async function scheduledHours(tenantId: string, from: Date, to: Date) {
   return h
 }
 
+/**
+ * Completed eligible tickets in a period: GCO conversations FIRST resolved in the period with at least one operator reply (a reopened
+ * and re-resolved conversation is never counted twice), plus ticket counts recorded from the client's own tool whose period lies
+ * inside the invoice period.
+ */
+export async function completedTickets(tenantId: string, from: Date, to: Date) {
+  const [gco, external] = await Promise.all([
+    db.conversation.count({ where: { tenantId, firstClosedAt: { gte: from, lt: to }, messages: { some: { direction: 'OUTBOUND' } } } }),
+    db.externalTicketCount.aggregate({ where: { tenantId, periodStart: { gte: from }, periodEnd: { lte: to } }, _sum: { count: true } }),
+  ])
+  return { gco, external: external._sum.count ?? 0, total: gco + (external._sum.count ?? 0) }
+}
+
+export async function recordExternalTicketCount(i: { tenantId: string; periodStart: Date; periodEnd: Date; count: number; source: string; note?: string | null; actorUserId: string }) {
+  if (!(i.periodEnd.getTime() > i.periodStart.getTime()) || i.periodEnd.getTime() - i.periodStart.getTime() > 93 * 86_400_000) throw new BillingError('Choose a period of up to 3 months')
+  if (!(await db.tenant.findUnique({ where: { id: i.tenantId }, select: { id: true } }))) throw new BillingError('Client not found', 404)
+  const billed = await db.invoice.findFirst({ where: { tenantId: i.tenantId, status: { not: 'VOID' }, periodStart: { lte: i.periodStart }, periodEnd: { gte: i.periodEnd } } })
+  if (billed) throw new BillingError('An invoice already covers this period (void it first to change its ticket count)', 409)
+  const row = await db.externalTicketCount.create({ data: { tenantId: i.tenantId, periodStart: i.periodStart, periodEnd: i.periodEnd, count: i.count, source: i.source, note: i.note ?? null, createdByUserId: i.actorUserId } })
+  await writeAuditLog({ tenantId: i.tenantId, actorUserId: i.actorUserId, action: 'billing.external_tickets_recorded', resource: 'external_ticket_count', resourceId: row.id, metadata: { count: i.count, source: i.source, periodStart: i.periodStart, periodEnd: i.periodEnd } })
+  return row
+}
+
+export async function deleteExternalTicketCount(i: { id: string; actorUserId: string }) {
+  const row = await db.externalTicketCount.findUnique({ where: { id: i.id } })
+  if (!row) throw new BillingError('Entry not found', 404)
+  const billed = await db.invoice.findFirst({ where: { tenantId: row.tenantId, status: { not: 'VOID' }, periodStart: { lte: row.periodStart }, periodEnd: { gte: row.periodEnd } } })
+  if (billed) throw new BillingError('An invoice already covers this period (void it first)', 409)
+  await db.externalTicketCount.delete({ where: { id: row.id } })
+  await writeAuditLog({ tenantId: row.tenantId, actorUserId: i.actorUserId, action: 'billing.external_tickets_deleted', resource: 'external_ticket_count', resourceId: row.id, metadata: { count: row.count, source: row.source } })
+}
+
 export async function createDraftInvoice(i: { tenantId: string; periodStart: Date; periodEnd: Date; actorUserId: string }) {
   if (!(i.periodEnd.getTime() > i.periodStart.getTime()) || i.periodEnd.getTime() - i.periodStart.getTime() > 93 * 86_400_000) throw new BillingError('Choose a period of up to 3 months')
   if (i.periodEnd.getTime() > Date.now() + 86_400_000) throw new BillingError('The period cannot end in the future')
@@ -54,14 +88,16 @@ export async function createDraftInvoice(i: { tenantId: string; periodStart: Dat
   if (overlap) throw new BillingError('An invoice already covers part of this period (void it first to re-bill)', 409)
 
   const inPeriod = { gte: i.periodStart, lt: i.periodEnd }
-  const [usage, resolved, hours] = await Promise.all([
+  // Tickets are completed customer conversations (and counts from the client's own tool) - NOT the client's requests to GCO (Ticket).
+  const [usage, tickets, hours, moderated] = await Promise.all([
     db.usageRecord.aggregate({ where: { tenantId: i.tenantId, billable: true, createdAt: inPeriod }, _count: { _all: true }, _sum: { priceEurCents: true } }),
-    db.ticket.count({ where: { tenantId: i.tenantId, status: { in: ['RESOLVED', 'CLOSED'] }, updatedAt: inPeriod } }),
-    s.billingModel === 'PER_HOUR' ? scheduledHours(i.tenantId, i.periodStart, i.periodEnd) : Promise.resolve(0),
+    completedTickets(i.tenantId, i.periodStart, i.periodEnd),
+    s.billingModel === 'PER_HOUR' || s.billingModel === 'HOURLY_PLUS_TICKETS' ? scheduledHours(i.tenantId, i.periodStart, i.periodEnd) : Promise.resolve(0),
+    db.moderationItem.count({ where: { tenantId: i.tenantId, status: 'DECIDED', decidedAt: inPeriod } }),
   ])
   let lines
   try {
-    lines = buildLines(s.billingModel, { messages: { count: usage._count._all, amountEurCents: usage._sum.priceEurCents ?? 0 }, tickets: { resolved }, hours, settings: s })
+    lines = buildLines(s.billingModel, { messages: { count: usage._count._all, amountEurCents: usage._sum.priceEurCents ?? 0 }, tickets: { resolved: tickets.total }, hours, moderated, settings: s })
   } catch (e) {
     if (e instanceof BillingConfigError) throw new BillingError(e.message)
     throw e

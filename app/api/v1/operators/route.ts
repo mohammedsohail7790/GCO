@@ -30,6 +30,7 @@ export async function GET(req: NextRequest) {
         status: op.status,
         capacity: op.capacity,
         languages: op.languages,
+        timezone: op.timezone,
         activeAssignments: op.assignments.length,
         user: op.user,
       })),

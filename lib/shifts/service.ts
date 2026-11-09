@@ -54,7 +54,7 @@ export async function getCoverage(tenantId: string, from: Date, to: Date) {
     db.absence.findMany({ where: { tenantId, startsAt: { lt: to }, endsAt: { gt: from } }, select: { operatorId: true, startsAt: true, endsAt: true } }),
   ])
   const slots = coverageSlots({ from, to, timezone: tenant.timezone, hours: tenant.operatingHours as OperatingHours | null, shifts, absences })
-  return { planned: shifts.length > 0, slots, gaps: slots.filter((s) => s.gap).length }
+  return { planned: shifts.length > 0, timezone: tenant.timezone, slots, gaps: slots.filter((s) => s.gap).length }
 }
 
 /** Scheduled hours (net of absences) and absence count for an operator-week; null when there is nothing planned or recorded. */

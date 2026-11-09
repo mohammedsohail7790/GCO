@@ -9,7 +9,7 @@ import { SERVICES } from '@/lib/content/services'
 
 export const metadata = pageMetadata({
   title: 'Industries',
-  description: 'Chat operations for dating & social platforms, online communities, SaaS, e-commerce and apps & digital platforms. Supervised human operators and a free 7-day pilot.',
+  description: 'Chat operations for dating & social platforms, online communities, SaaS, e-commerce and apps & digital platforms. Supervised human operators and a free pilot.',
   path: '/industries',
 })
 
