@@ -79,9 +79,13 @@ export async function claimBatch(operatorId: string, want = MAX_CLAIMED) {
   const held = await db.moderationItem.count({ where: { assignedOperatorId: operatorId, status: 'IN_REVIEW' } })
   const room = Math.max(0, Math.min(want, MAX_CLAIMED) - held)
   if (room > 0) {
+    // The pick is a MATERIALIZED CTE so the planner evaluates it exactly once: as a bare `IN (SELECT ... LIMIT n FOR UPDATE SKIP LOCKED)`
+    // it may be re-run per outer row and claim more than `room` items (seen on a local PostgreSQL 16 build: 12 claimed, 5 allowed).
     await db.$executeRaw`
+      WITH picked AS MATERIALIZED (
+        SELECT "id" FROM "ModerationItem" WHERE "tenantId" = ${op.tenantId} AND "status" = 'PENDING' ORDER BY "priority" DESC, "createdAt" ASC LIMIT ${room} FOR UPDATE SKIP LOCKED)
       UPDATE "ModerationItem" SET "status" = 'IN_REVIEW', "assignedOperatorId" = ${operatorId}, "claimedAt" = now()
-      WHERE "id" IN (SELECT "id" FROM "ModerationItem" WHERE "tenantId" = ${op.tenantId} AND "status" = 'PENDING' ORDER BY "priority" DESC, "createdAt" ASC LIMIT ${room} FOR UPDATE SKIP LOCKED)`
+      WHERE "id" IN (SELECT "id" FROM picked)`
   }
   return myItems(operatorId)
 }

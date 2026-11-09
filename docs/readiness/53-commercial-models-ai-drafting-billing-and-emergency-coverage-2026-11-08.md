@@ -82,7 +82,7 @@ These are estimates from the code's own limits (12 messages of context, 400 outp
 
 **Platform support:** absences, coverage gaps, offline alerts, transfer and handovers exist today. Approved improvement: every shift shown with its time zone and each operator's local time (to build). Proposed next: a "who can cover?" list for a gap.
 
-## 8. Built on 9 Nov 2026 (release branch, local, not deployed, not committed)
+## 8. Built on 9 Nov 2026 (release branch, committed locally as `f6e2a60` and `144eaa0`; not deployed; not pushed)
 | Item | What changed |
 |---|---|
 | Per-ticket billing defect | A completed eligible ticket = a conversation **first** resolved in the period with at least one operator reply (`Conversation.firstClosedAt`, set once and never cleared by a reopen; backfilled from `closedAt`). The internal `Ticket` table (client requests to GCO) is no longer billed. The integration test that asserted the old behaviour was changed accordingly. |
@@ -96,3 +96,16 @@ These are estimates from the code's own limits (12 messages of context, 400 outp
 | Migrations | Three new additive migrations in total: 16 → **33** on production when released. |
 
 **Tests after the AI safeguards (9 Nov, local, fictional data):** unit 764 of 764; integration 236 of 236; end-to-end with AI off 310 passed, 2 skipped, 2 failed (the two AI specs, by design); end-to-end with the mock AI on 308 passed, 5 skipped, 1 failed (`01b`, the AI-off check, by design). Both AI specs pass with masking and client instructions active. Still required before a real provider: the OpenAI project's own monthly budget, OpenAI's data processing terms, each client's agreement, the transfer assessment and the lawyer's review.
+
+## 9. Fresh verification, 9 Nov 2026 (commit `144eaa0` plus one fix; local, fictional data)
+| Check | Result |
+|---|---|
+| typecheck, lint | clean |
+| unit | **764 of 764** |
+| integration (real PostgreSQL and Redis) | **236 of 236** after the fix below |
+| production build | OK |
+| end-to-end, AI off | **310 passed, 2 skipped, 2 failed**: only specs `01` and `08` (the two AI specs, which fail with AI off by design) |
+| end-to-end, mock AI on (`AI_MASTER_SWITCH=enabled`, `AI_PROVIDER=mock`, no external provider approval) | **308 passed, 5 skipped, 1 failed**: only spec `01b` (the AI-off lifecycle, which asserts no draft and so fails with AI on by design). **Both AI specs (`01`, `08`) pass with AI enabled.** |
+| moderation and related specs after the fix | 111 passed |
+**Bug found and fixed (moderation claim queue).** The "claim up to 5 items" statement used `UPDATE ... WHERE id IN (SELECT ... LIMIT n FOR UPDATE SKIP LOCKED)`. On this machine's PostgreSQL 16 build the planner re-ran the subquery per row and one operator claimed all 12 items instead of 5 (the integration test failed every time here; it had passed in earlier runs on another PostgreSQL build, which explains the "intermittent" failure recorded in `28` §9). The pick is now a `MATERIALIZED` common table expression so it is evaluated once. Before: failed each time; after: 3 of 3 targeted runs and the full integration suite pass. It is a functional defect (an operator could hold more than 5 items), not a security one. `lib/moderation/service.ts`.
+**Environment notes (not product defects):** the local `.env` sets `NODE_ENV=development` (breaks `next build`: build with `NODE_ENV` unset) and `ALLOW_DEV_ADAPTERS=true` (needed by E2E specs `24`, `25`, `27`, `53`, but it makes integration test `integrationEnvironment` fail; run integration with `ALLOW_DEV_ADAPTERS=false`). Not run against any real AI provider: no cost incurred, no OpenAI key used.
