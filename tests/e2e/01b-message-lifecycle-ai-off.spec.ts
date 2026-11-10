@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { seedIsolatedTenant, sendWebhook, waitFor, cleanupTenant } from './helpers'
+import { seedIsolatedTenant, sendWebhook, waitFor, cleanupTenant, aiDraftsEnabled } from './helpers'
 import { db } from '@/lib/db/client'
 
 // TEST 1b - the same lifecycle with AI off: no draft is created, and a human operator's reply is still sent and delivered.
@@ -7,11 +7,12 @@ test.describe('normal message lifecycle (AI off)', () => {
   let tenant: Awaited<ReturnType<typeof seedIsolatedTenant>>
 
   test.beforeAll(async () => {
+    test.skip(await aiDraftsEnabled(), 'runs only on the AI-off stack (the AI-enabled stack is covered by specs 01 and 08)')
     tenant = await seedIsolatedTenant('lifecycle-aioff')
   })
 
   test.afterAll(async () => {
-    await cleanupTenant(tenant.tenantId)
+    if (tenant) await cleanupTenant(tenant.tenantId)
   })
 
   test('webhook -> message -> conversation -> assignment -> no AI draft -> operator reply -> send -> delivery -> usage', async () => {

@@ -40,6 +40,16 @@ export async function anonymousContext(): Promise<APIRequestContext> {
   return request.newContext({ baseURL: BASE_URL })
 }
 
+/** Whether the running stack has AI drafting enabled (read from the public health page). The AI specs run only when it is, the AI-off spec only when it is not,
+ *  so both configurations of the stack pass completely instead of failing by design. */
+export async function aiDraftsEnabled(): Promise<boolean> {
+  const ctx = await anonymousContext()
+  const res = await ctx.get('/api/v1/health')
+  const body = await res.json().catch(() => null)
+  await ctx.dispose()
+  return body?.data?.ai?.enabled === true
+}
+
 // The whole suite seeds many isolated tenants, each of which used to call
 // loginAs('admin@demo.gco') fresh - that repeatedly tripped the app's own
 // (correct, intentional) login rate limiter (10 attempts/15min per

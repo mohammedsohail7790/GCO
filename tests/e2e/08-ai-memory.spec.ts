@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { seedIsolatedTenant, sendWebhook, waitFor, cleanupTenant } from './helpers'
+import { seedIsolatedTenant, sendWebhook, waitFor, cleanupTenant, aiDraftsEnabled } from './helpers'
 import { db } from '@/lib/db/client'
 
 // TEST 13 - AI memory extraction: traceable, non-hallucinated, async, and
@@ -8,11 +8,12 @@ test.describe('AI memory extraction', () => {
   let tenant: Awaited<ReturnType<typeof seedIsolatedTenant>>
 
   test.beforeAll(async () => {
+    test.skip(!(await aiDraftsEnabled()), 'needs the AI-enabled stack (AI_MASTER_SWITCH=enabled)')
     tenant = await seedIsolatedTenant('ai-memory')
   })
 
   test.afterAll(async () => {
-    await cleanupTenant(tenant.tenantId)
+    if (tenant) await cleanupTenant(tenant.tenantId)
   })
 
   test('extracts an explicitly-stated fact with full traceability, and never invents facts from vague text', async () => {

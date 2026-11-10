@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { seedIsolatedTenant, sendWebhook, waitFor, cleanupTenant } from './helpers'
+import { seedIsolatedTenant, sendWebhook, waitFor, cleanupTenant, aiDraftsEnabled } from './helpers'
 import { db } from '@/lib/db/client'
 
 // TEST 1 - full normal message flow, DB-verified at every step.
@@ -7,11 +7,12 @@ test.describe('normal message lifecycle', () => {
   let tenant: Awaited<ReturnType<typeof seedIsolatedTenant>>
 
   test.beforeAll(async () => {
+    test.skip(!(await aiDraftsEnabled()), 'needs the AI-enabled stack (AI_MASTER_SWITCH=enabled)')
     tenant = await seedIsolatedTenant('lifecycle')
   })
 
   test.afterAll(async () => {
-    await cleanupTenant(tenant.tenantId)
+    if (tenant) await cleanupTenant(tenant.tenantId)
   })
 
   test('webhook -> message -> conversation -> assignment -> AI suggestion -> operator edit -> send -> delivery -> usage', async () => {
