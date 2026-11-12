@@ -4,7 +4,8 @@ import { completedTickets } from '@/lib/billing/service'
 
 // Operator productivity and AI-draft effect for one client and period, computed from rows the platform already records:
 // reply time = an operator reply's time minus the latest customer message before it in the same conversation; "with draft" = the
-// reply was sent from an AI suggestion (accepted unchanged or edited). Nothing here is estimated or stored.
+// reply was sent from an AI suggestion (accepted unchanged or edited). Counts and times are measured; the AI cost line is an ESTIMATE
+// from the token counts the provider returned (see estimateAiCostUsd).
 
 /** Below this many replies in either group the time-saved comparison is not shown (too few to mean anything). */
 export const MIN_SAMPLE = 20
@@ -20,6 +21,13 @@ export function median(xs: number[]): number | null {
 export function timeSavedPerReply(withDraft: number[], withoutDraft: number[]): number | null {
   if (withDraft.length < MIN_SAMPLE || withoutDraft.length < MIN_SAMPLE) return null
   return Math.round(median(withoutDraft)! - median(withDraft)!)
+}
+
+/** Estimated provider cost in US dollars of the drafts' token use. Prices are per million tokens (defaults: gpt-4o-mini list prices, OpenAI price page, 8 Nov 2026;
+ *  override with AI_PRICE_INPUT_USD_PER_M / AI_PRICE_OUTPUT_USD_PER_M when another model is used). For budget tracking, not an invoice: the provider's bill decides.
+ *  Memory-extraction calls are not recorded per call, so they are not included. */
+export function estimateAiCostUsd(promptTokens: number, completionTokens: number, inPerM = Number(process.env.AI_PRICE_INPUT_USD_PER_M ?? 0.15), outPerM = Number(process.env.AI_PRICE_OUTPUT_USD_PER_M ?? 0.6)): number {
+  return (promptTokens * inPerM + completionTokens * outPerM) / 1_000_000
 }
 
 interface ReplyRow { operatorId: string; withDraft: boolean; secs: number }
@@ -43,10 +51,13 @@ export async function productivityReport(tenantId: string, from: Date, to: Date,
     orderBy: { operatorNumber: 'asc' },
   })
   const inPeriod = { gte: from, lt: to }
-  const [moderated, generations, tickets] = await Promise.all([
+  const [moderated, generations, tickets, usage] = await Promise.all([
     db.moderationItem.groupBy({ by: ['assignedOperatorId'], where: { tenantId, status: 'DECIDED', decidedAt: inPeriod }, _count: { _all: true } }),
     db.aiGeneration.groupBy({ by: ['status'], where: { tenantId, createdAt: inPeriod }, _count: { _all: true } }),
     completedTickets(tenantId, from, to),
+    db.$queryRaw<{ prompt: number; completion: number; counted: number }[]>`
+      SELECT COALESCE(SUM(("tokenUsage"->>'promptTokens')::int), 0)::int AS "prompt", COALESCE(SUM(("tokenUsage"->>'completionTokens')::int), 0)::int AS "completion", COUNT(*)::int AS "counted"
+      FROM "AiGeneration" WHERE "tenantId" = ${tenantId} AND "createdAt" >= ${from} AND "createdAt" < ${to} AND "tokenUsage" IS NOT NULL`,
   ])
 
   const rows = await Promise.all(
@@ -88,6 +99,10 @@ export async function productivityReport(tenantId: string, from: Date, to: Date,
       // Null until both groups have MIN_SAMPLE replies - an early number would mislead.
       secondsSavedPerReply: timeSavedPerReply(withD, without),
     },
-    aiDrafts: { generated: gen('generated') + gen('accepted') + gen('edited') + gen('rejected'), usedUnchanged: gen('accepted'), edited: gen('edited'), notUsed: gen('generated') + gen('rejected'), failed: gen('failed') },
+    aiDrafts: { generated: gen('generated') + gen('accepted') + gen('edited') + gen('rejected'), usedUnchanged: gen('accepted'), edited: gen('edited'), notUsed: gen('generated') + gen('rejected'), failed: gen('failed'),
+      // Token use as returned by the provider, and the estimated cost (see estimateAiCostUsd); null cost when no draft recorded token use (mock provider, AI off).
+      tokens: { prompt: usage[0]?.prompt ?? 0, completion: usage[0]?.completion ?? 0, draftsWithUsage: usage[0]?.counted ?? 0 },
+      estimatedCostUsd: (usage[0]?.counted ?? 0) > 0 ? Math.round(estimateAiCostUsd(usage[0]!.prompt, usage[0]!.completion) * 1e6) / 1e6 : null,
+      estimatedCostPerDraftUsd: (usage[0]?.counted ?? 0) > 0 ? Math.round((estimateAiCostUsd(usage[0]!.prompt, usage[0]!.completion) / usage[0]!.counted) * 1e6) / 1e6 : null },
   }
 }

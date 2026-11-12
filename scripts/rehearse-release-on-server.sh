@@ -61,7 +61,11 @@ say "dump to copy (read only): $(basename "$DUMP") $(wc -c < "$DUMP") bytes"
 
 # 1. Isolated workspace, code, throw-away services
 mkdir -p "$REH/src"; chmod 700 "$REH"; cp "$DUMP" "$REH/prod.dump"; chmod 600 "$REH/prod.dump"
+# The directory is private (0700) and the dump copy is 0600; the SOURCE must be world-readable, otherwise `COPY` bakes owner-only files into the
+# image and the non-root user inside it cannot read prisma/schema.prisma (first run, 11 Nov: EACCES).
+umask 022
 tar -xzf "$TARBALL" -C "$REH/src"
+chmod -R a+rX "$REH/src"
 NEWMIG="$(ls "$REH/src/prisma/migrations" | grep -c '^[0-9]')"; say "migrations in the release: $NEWMIG"
 docker network create "$NET" >/dev/null
 docker run -d --name "$PG" --network "$NET" -e POSTGRES_PASSWORD="$PGPASS" -e POSTGRES_USER=gco -e POSTGRES_DB=gco postgres:16-alpine >/dev/null
@@ -82,28 +86,36 @@ MIG_BEFORE="${BEFORE_COUNTS##*|}"
 
 # 3. Migrate forward with the NEW image
 DBURL="postgresql://gco:$PGPASS@$PG:5432/gco?schema=public"
-docker run --rm --network "$NET" -e DATABASE_URL="$DBURL" "$NEWIMG" sh -c 'cd /app 2>/dev/null || true; ./node_modules/.bin/prisma migrate deploy' >"$REH/migrate.log" 2>&1 </dev/null || { say "FAIL migrate deploy"; tail -5 "$REH/migrate.log" | sed 's/postgresql:[^ ]*/<db-url>/' | tee -a "$REPORT"; PASS=0; }
+MIGRATED=1
+docker run --rm --network "$NET" -e DATABASE_URL="$DBURL" "$NEWIMG" sh -c 'cd /app 2>/dev/null || true; ./node_modules/.bin/prisma migrate deploy' >"$REH/migrate.log" 2>&1 </dev/null || { MIGRATED=0; say "FAIL migrate deploy"; tail -5 "$REH/migrate.log" | sed 's/postgresql:[^ ]*/<db-url>/' | tee -a "$REPORT"; PASS=0; }
 AFTER_COUNTS="$(COUNT)"; say "after  (tenants|users|conversations|messages|migrations): $AFTER_COUNTS"
 check "migrations applied" "${AFTER_COUNTS##*|}" "$NEWMIG"
 check "rows unchanged (tenants|users|conversations|messages)" "${AFTER_COUNTS%|*}" "${BEFORE_COUNTS%|*}"
 check "failed or rolled-back migrations" "$(PSQL -c 'select count(*) from _prisma_migrations where finished_at is null or rolled_back_at is not null')" "0"
-VIOL="$(docker exec -i "$PG" psql -U gco -d gco -At -F' | ' < "$REH/src/scripts/restore-verify.sql" | awk -F' \\| ' '$2!=0' | wc -l | tr -d ' ')"
+# The integrity script must RUN without error (a missing table is a failure, not a pass) and report no violations.
+set +e
+docker exec -i "$PG" psql -v ON_ERROR_STOP=1 -U gco -d gco -At -F' | ' < "$REH/src/scripts/restore-verify.sql" > "$REH/verify.out" 2> "$REH/verify.err"; VERIFY_RC=$?
+set -e
+check "integrity script ran without error (exit code)" "$VERIFY_RC" "0"
+VIOL="$(awk -F' \\| ' '$2!=0' "$REH/verify.out" | wc -l | tr -d ' ')"
 check "integrity checks with violations" "$VIOL" "0"
+[ "$MIGRATED" = 1 ] || say "NOTE: the migration step failed, so the next two sections (new web, old web on the new schema) do NOT prove anything and are reported as FAIL/not tested"
 
 # 4. New web image healthy, AI disabled
 docker run -d --name "gcorehearsal-newweb-$STAMP" --network "$NET" -e DATABASE_URL="$DBURL" -e REDIS_URL="redis://$RD:6379" -e AUTH_SECRET="$AUTHSECRET" -e AI_MASTER_SWITCH=disabled -e NODE_ENV=production "$NEWIMG" >/dev/null
 HEALTH_NEW=""; for i in $(seq 1 30); do HEALTH_NEW="$(docker exec "gcorehearsal-newweb-$STAMP" node -e "require('http').get('http://localhost:3000/api/v1/health',r=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>console.log(d))}).on('error',()=>{})" 2>/dev/null || true)"; echo "$HEALTH_NEW" | grep -q '"healthy":true' && break; sleep 2; done
 check "new web healthy" "$(echo "$HEALTH_NEW" | grep -c '"healthy":true')" "1"
 check "new web reports AI disabled" "$(echo "$HEALTH_NEW" | grep -c '"enabled":false')" "1"
+echo "$HEALTH_NEW" | grep -q '"healthy":true' || { say "new web log (last 8 lines, addresses removed):"; docker logs --tail 8 "gcorehearsal-newweb-$STAMP" 2>&1 | sed -E 's#(postgresql|redis)://[^ ]*#<url>#g' | tee -a "$REPORT"; }
 
 # 5. CODE ROLLBACK proof: the OLD production web image on the MIGRATED schema (same image id, read-only use; no production container is touched)
 docker run -d --name "gcorehearsal-oldweb-$STAMP" --network "$NET" -e DATABASE_URL="$DBURL" -e REDIS_URL="redis://$RD:6379" -e AUTH_SECRET="$AUTHSECRET" -e NODE_ENV=production "$OLDWEB" >/dev/null
 HEALTH_OLD=""; for i in $(seq 1 30); do HEALTH_OLD="$(docker exec "gcorehearsal-oldweb-$STAMP" node -e "require('http').get('http://localhost:3000/api/v1/health',r=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>console.log(d))}).on('error',()=>{})" 2>/dev/null || true)"; echo "$HEALTH_OLD" | grep -q '"healthy":true' && break; sleep 2; done
-check "OLD web image healthy on the new schema (code rollback)" "$(echo "$HEALTH_OLD" | grep -c '"healthy":true')" "1"
+check "OLD web image healthy on the NEW schema (code rollback; only valid if the migration step passed)" "$([ "$MIGRATED" = 1 ] && echo "$HEALTH_OLD" | grep -c '"healthy":true' || echo 0)" "1"
 if [ -n "$OLDWORKER" ]; then
   docker run -d --name "gcorehearsal-oldworker-$STAMP" --network "$NET" -e DATABASE_URL="$DBURL" -e REDIS_URL="redis://$RD:6379" -e AUTH_SECRET="$AUTHSECRET" -e NODE_ENV=production "$OLDWORKER" npx tsx workers/index.ts >/dev/null 2>&1 || true
   sleep 20
-  check "OLD worker error lines after 20 s on the new schema" "$(docker logs "gcorehearsal-oldworker-$STAMP" 2>&1 | grep -c -i -E 'error|fatal' || true)" "0"
+  check "OLD worker error lines after 20 s on the NEW schema (only valid if the migration step passed)" "$([ "$MIGRATED" = 1 ] && { docker logs "gcorehearsal-oldworker-$STAMP" 2>&1 | grep -c -i -E 'error|fatal' || true; } || echo 999)" "0"
 fi
 
 # 6. DATABASE ROLLBACK: drop schema, plain pg_restore of the pre-release dump (never --clean)

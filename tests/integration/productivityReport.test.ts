@@ -32,7 +32,7 @@ describe('productivity report (real database)', () => {
       // An earlier customer message must not be used: the reply answers the LATEST one before it
       await db.message.create({ data: { tenantId, conversationId: c.id, direction: 'INBOUND', status: 'RECEIVED', content: 'first', externalMessageId: `${base}-${Math.random()}`, createdAt: at(-600) } })
       await db.message.create({ data: { tenantId, conversationId: c.id, direction: 'INBOUND', status: 'RECEIVED', content: 'q', externalMessageId: `${base}-${Math.random()}`, createdAt: at(0) } })
-      const gen = draft ? await db.aiGeneration.create({ data: { tenantId, conversationId: c.id, provider: 'mock', model: 'mock', suggestedReply: 'x', status: draft, createdAt: at(1) } }) : null
+      const gen = draft ? await db.aiGeneration.create({ data: { tenantId, conversationId: c.id, provider: 'mock', model: 'mock', suggestedReply: 'x', status: draft, createdAt: at(1), tokenUsage: { promptTokens: 2000, completionTokens: 350 } } }) : null
       await db.message.create({ data: { tenantId, conversationId: c.id, direction: 'OUTBOUND', status: 'DELIVERED', content: 'a', operatorId, aiGenerationId: gen?.id ?? null, createdAt: at(replySecs) } })
     }
     await exchange(t, op1.id, 30, 'accepted', { resolved: true })
@@ -50,7 +50,10 @@ describe('productivity report (real database)', () => {
     expect(o1).toMatchObject({ replies: 3, repliesWithDraft: 2, medianReplySeconds: 50, medianReplySecondsWithDraft: 40, medianReplySecondsWithoutDraft: 120, moderatedItems: 0 })
     expect(r.operators.find((o) => o.operatorId === op2.id)).toMatchObject({ replies: 1, moderatedItems: 1, repliesPerScheduledHour: null })
     expect(r.totals).toMatchObject({ replies: 4, completedTickets: 2, moderatedItems: 1, medianReplySecondsWithDraft: 40, medianReplySecondsWithoutDraft: 160, secondsSavedPerReply: null }) // too few replies to compare
-    expect(r.aiDrafts).toEqual({ generated: 3, usedUnchanged: 1, edited: 1, notUsed: 1, failed: 0 })
+    expect(r.aiDrafts).toMatchObject({ generated: 3, usedUnchanged: 1, edited: 1, notUsed: 1, failed: 0, tokens: { prompt: 4000, completion: 700, draftsWithUsage: 2 } })
+    // Cost estimate at the default gpt-4o-mini prices: (4000 x 0.15 + 700 x 0.60) / 1e6 over the two drafts that recorded token use
+    expect(r.aiDrafts.estimatedCostUsd).toBeCloseTo(0.00102, 6)
+    expect(r.aiDrafts.estimatedCostPerDraftUsd).toBeCloseTo(0.00051, 6)
 
     // A supervisor's team filter limits the operators and the replies counted
     const team = await productivityReport(t, from, to, [op2.id])
