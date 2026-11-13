@@ -109,3 +109,13 @@ Total website effort for all of it: roughly **8 to 12 weeks** of one engineer's 
 3. **Reply promise:** remove "within one business day" until the notification system runs and a person owns the inbox; then "We aim to reply within one business day."
 4. **Commissions:** the partnership page must not display a commission rate until the lawyer has reviewed the wording and an agreement template exists (`59`).
 5. **Legal block:** "GCO is operated by [legal name], sole proprietor (ditta individuale), VAT [number], [address]" only when the accountant confirms what must and may be shown; no wording suggesting a registered company.
+
+## 4. CEO decisions of 14 Nov 2026 (applied to this proposal)
+1. **Headline:** "24/7 Human Conversation Operations" unchanged; the staffing and operational-requirements qualification stays beneath it.
+2. **AI:** keep Human + AI prominent, with live functionality clearly separated from features being prepared for reactivation (section 2).
+3. **Pilot (replaces the wording suggested in section 3, point 1):** **keep the seven-day free pilot as a visible commercial offer**, with scope, conditions and feasibility explained clearly (acceptance depends on feasibility, security, staffing and sustainable costs). The "Start Your 7-Day Free Pilot" buttons stay.
+4. **Reply promise:** **temporarily remove** "within one business day" until the notification system works reliably.
+5. **Legal information:** prepare an accurate sole-proprietor legal block for review with the CEO's accountant.
+6. **Photography and quality:** stronger human presentation; homepage visual proposal and image options prepared (`63` and the HTML proposal); stronger About, Partners, Careers, industry and commercial-model sections.
+7. **Order:** security and controlled release; coverage drill and first-client readiness; inbox Tier B; essential trust and website improvements; multilingual recruitment and sales-partner pages; wider redesign and SEO; AI reactivation after controlled testing and approval.
+8. Nothing is published without his approval.
