@@ -25,15 +25,19 @@ Do this on a **new empty bucket** with a throw-away file. Command names below ar
 7. After the retention ends, delete the bucket and its test keys.
 **Record:** each result, the exact capability names, and any surprise. **Decision rule:** if step 3 shows the upload key can shorten or delete, the production bucket stays as it is. The production bucket is changed only with the CEO's explicit written authorisation and after the lawyer's view on retention versus erasure requests (`54` §2).
 
-## 3. Operator coverage drill (tabletop plus demo stack; proposed for the week of 16 Nov)
-**Who:** CEO (client contact and escalation), CTO (supervisor), two people playing operators using demo accounts. **Where:** the local demo copy, fictional data; the CEO can watch the screen share. **Length:** about 60 minutes.
+## 3. Operator coverage drill — six scenarios (tabletop plus demo stack; scheduled 17 Nov 15:00–16:00 CET)
+**Correction (15 Nov):** this section originally listed four scenarios. The CEO has referred to "all six scenarios" in every message since, and he's right to expect six — two were missing. Added below (5 and 6), covering the continuity risks a single planned-absence or single-dropout test doesn't reach: more than one person out at once, and the escalation path itself failing.
+
+**Who:** CEO (client contact and escalation), CTO (supervisor), two people playing operators using demo accounts. **Where:** the local demo copy, fictional data; the CEO can watch the screen share. **Length:** about 60–75 minutes for six scenarios.
 | # | Scenario | What must happen | Pass if |
 |---|---|---|---|
 | 1 | Planned absence with 12 hours' notice | Absence recorded; coverage gap shown; backup operator named in the plan takes the shift | Gap visible within a minute; backup assigned and shown on the shift plan |
 | 2 | Operator goes offline mid-shift, with conversations held | "On shift but offline" alert after 10 minutes; supervisor transfers the conversations with a handover note; backup called | Conversations answered by another operator within the response target; handover acknowledged |
 | 3 | Nobody available within 30 minutes | Supervisor informs the client contact with an expected recovery time; queue handled in priority order | Client message sent within 30 minutes; gap logged (date, cause, minutes uncovered, client informed) |
 | 4 | Shift time zones | Operator in another time zone reads the right shift time | Shift shown in the client's zone and the operator's local time without a question |
-**Measure:** time to notice, time to reassign, conversations missed, and every manual step. **Known gap to observe, not fix:** the supervisor finds a replacement by hand (no "who can cover?" list). Result and changes go into a short note for the CEO.
+| 5 | Two operators out at once (unplanned) | Supervisor sees both gaps together, not as two separate alerts to piece together; decides whether the remaining operator(s) can absorb the queue or the client must be informed | Combined gap visible within a minute of the second dropout; a single, clear decision made and logged, not two uncoordinated reactions |
+| 6 | The supervisor is also unreachable during an incident | Escalation does not dead-end at an absent supervisor; it reaches the client contact (CEO) directly within the response target | Client contact notified within 30 minutes even with no supervisor acknowledging; the gap in the escalation chain itself is the thing being tested, not just operator coverage |
+**Measure:** time to notice, time to reassign, conversations missed, and every manual step. **Known gaps to observe, not fix today:** the supervisor finds a replacement by hand (no "who can cover?" list); there is no automatic second-level escalation if a supervisor doesn't respond (scenario 6 shows this by hand). Result and changes go into a short note for the CEO.
 
 ## 4. Real-model AI test: preparation (nothing activated; the CEO creates the OpenAI project and prepaid credit)
 **Configuration (to confirm with the CEO before any activation):** staging stack only; model `gpt-4o-mini`; `AI_MASTER_SWITCH=enabled`, `AI_PROVIDER=openai`, the external-provider approval flag set on **staging only**; key stored only in the staging environment file (never in the repository, never in production); a test client with a **daily call cap of 200** and masking on; OpenAI project budget with alerts at 50% and 80%, and prepaid credit of about €10 with automatic recharge off (**to be verified in OpenAI's console**).
