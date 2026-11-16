@@ -80,6 +80,25 @@ async function main() {
     })
   }
 
+  // Second demo operator (16 Nov 2026): the coverage drill needs a real backup operator to reassign/transfer to,
+  // not just the one operator1 account every other seeded scenario already uses.
+  const operator2User = await db.user.upsert({
+    where: { email: 'operator2@demo.gco' },
+    update: {},
+    create: { email: 'operator2@demo.gco', passwordHash: pass, role: 'OPERATOR', displayName: '[DEMO] Operator Two', tenantId: tenant.id },
+  })
+  const existingOperator2 = await db.operator.findUnique({ where: { userId: operator2User.id } })
+  if (!existingOperator2) {
+    await db.operator.create({
+      data: {
+        userId: operator2User.id,
+        tenantId: tenant.id,
+        status: 'AVAILABLE',
+        services: { create: { tenantId: tenant.id } },
+      },
+    })
+  }
+
   const clientUser = await db.user.upsert({
     where: { email: 'client@demo.gco' },
     update: {},
@@ -194,6 +213,7 @@ async function main() {
   console.log(` - ${admin.email} (CEO_ADMIN)`)
   console.log(` - ${manager.email} (MANAGER)`)
   console.log(` - ${operatorUser.email} (OPERATOR)`)
+  console.log(` - ${operator2User.email} (OPERATOR, second seat - coverage drill backup)`)
   console.log(` - ${clientUser.email} (CLIENT)`)
   console.log(` - ${hunterUser.email} (HUNTER)`)
   console.log(`Integration webhook URL: /api/v1/webhooks/${integration.id}`)
