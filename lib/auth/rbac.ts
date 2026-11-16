@@ -77,7 +77,11 @@ export const PERMISSIONS = {
   // Sales CRM - leads
   LEAD_CREATE: ['HUNTER', 'MANAGER', 'CEO_ADMIN'],
   LEAD_VIEW_OWN: ['HUNTER'],
-  LEAD_VIEW_TEAM: ['MANAGER', 'CEO_ADMIN'],
+  // View-only (list, detail, dashboards). CTO is view-only by design (CEO decision, 16 Nov) - it must NOT also get LEAD_MANAGE.
+  LEAD_VIEW_TEAM: ['MANAGER', 'CEO_ADMIN', 'CTO'],
+  // Editing a lead's stage/discovery/notes - deliberately separate from LEAD_VIEW_TEAM so a view-only role can be granted
+  // without also granting write access (see app/api/v1/crm/leads/[id]/route.ts PATCH and .../discovery/route.ts PATCH).
+  LEAD_MANAGE: ['MANAGER', 'CEO_ADMIN'],
   LEAD_CLAIM: ['HUNTER'],
   // Moving a lead through the pipeline. A Hunter only on their own lead (enforced in the route); Manager/CEO anywhere.
   // Closed Won is never reachable here - only the approval path can set it.
@@ -129,7 +133,8 @@ export const PERMISSIONS = {
 
   // Public website - careers applications
   // Applicant personal data: CEO only (previously the list API also allowed MANAGER, which had no UI).
-  CAREER_VIEW: ['CEO_ADMIN'],
+  // View-only; already separate from CAREER_MANAGE. CTO added 16 Nov (CEO decision) - view-only applicant data, no status changes.
+  CAREER_VIEW: ['CEO_ADMIN', 'CTO'],
   CAREER_MANAGE: ['CEO_ADMIN'],
 } as const
 

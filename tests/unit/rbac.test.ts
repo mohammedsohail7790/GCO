@@ -2,10 +2,33 @@ import { describe, it, expect } from 'vitest'
 import { can, assertCan } from '@/lib/auth/rbac'
 
 describe('RBAC permission matrix', () => {
-  it('operator applications (applicant personal data) are CEO_ADMIN only', () => {
-    for (const perm of ['CAREER_VIEW', 'CAREER_MANAGE'] as const) {
-      expect(can('CEO_ADMIN', perm)).toBe(true)
-      for (const role of ['MANAGER', 'ASSISTANT', 'OPERATOR', 'CLIENT', 'HUNTER'] as const) expect(can(role, perm)).toBe(false)
+  it('operator applications (applicant personal data): CEO_ADMIN can view and manage; CTO can view only (CEO decision, 16 Nov)', () => {
+    expect(can('CEO_ADMIN', 'CAREER_VIEW')).toBe(true)
+    expect(can('CEO_ADMIN', 'CAREER_MANAGE')).toBe(true)
+    expect(can('CTO', 'CAREER_VIEW')).toBe(true)
+    expect(can('CTO', 'CAREER_MANAGE')).toBe(false) // view-only: cannot change an applicant's status
+    for (const role of ['MANAGER', 'ASSISTANT', 'OPERATOR', 'CLIENT', 'HUNTER'] as const) {
+      expect(can(role, 'CAREER_VIEW')).toBe(false)
+      expect(can(role, 'CAREER_MANAGE')).toBe(false)
+    }
+  })
+
+  it('leads: CEO_ADMIN and MANAGER can view and manage; CTO can view only, never edit a lead (CEO decision, 16 Nov)', () => {
+    expect(can('CEO_ADMIN', 'LEAD_VIEW_TEAM')).toBe(true)
+    expect(can('MANAGER', 'LEAD_VIEW_TEAM')).toBe(true)
+    expect(can('CTO', 'LEAD_VIEW_TEAM')).toBe(true)
+    expect(can('CEO_ADMIN', 'LEAD_MANAGE')).toBe(true)
+    expect(can('MANAGER', 'LEAD_MANAGE')).toBe(true)
+    expect(can('CTO', 'LEAD_MANAGE')).toBe(false) // view-only: cannot change a lead's stage, notes or discovery
+    for (const role of ['ASSISTANT', 'OPERATOR', 'CLIENT', 'HUNTER'] as const) {
+      expect(can(role, 'LEAD_VIEW_TEAM')).toBe(false)
+      expect(can(role, 'LEAD_MANAGE')).toBe(false)
+    }
+  })
+
+  it('CTO still has no billing, revenue or full administrative access, even with the new view-only CRM scope', () => {
+    for (const perm of ['VIEW_REVENUE', 'TENANT_MANAGE', 'USER_MANAGE', 'PERMISSION_MANAGE', 'AI_CONFIG_MANAGE'] as const) {
+      expect(can('CTO', perm)).toBe(false)
     }
   })
 

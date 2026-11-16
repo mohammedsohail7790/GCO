@@ -54,7 +54,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (session.role === 'HUNTER') {
       if (lead.ownerId !== session.sub) return fail('Forbidden', 403)
     } else {
-      assertCan(session.role, 'LEAD_VIEW_TEAM')
+      assertCan(session.role, 'LEAD_MANAGE')
     }
 
     const body = PatchSchema.parse(await req.json())

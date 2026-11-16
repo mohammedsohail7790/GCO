@@ -15,7 +15,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   try {
     const session = await getSession(req)
     if (session.role === 'HUNTER') assertCan(session.role, 'LEAD_VIEW_OWN')
-    else assertCan(session.role, 'LEAD_VIEW_TEAM')
+    else assertCan(session.role, 'LEAD_MANAGE')
     const { id } = await params
     const lead = await db.lead.findUnique({ where: { id }, select: { id: true, ownerId: true } })
     if (!lead) return fail('Lead not found', 404)
