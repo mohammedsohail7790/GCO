@@ -16,6 +16,9 @@ const CreateSchema = z.object({
   tenantId: z.string().nullable().optional(),
   operatorCapacity: z.number().int().positive().optional(),
   commissionPercentage: z.number().min(0).max(100).optional(),
+  // Time-limited privileged access (CEO decision, 16 Nov 2026): optional, future, auto-disables the account via the
+  // hourly sweep in workers/index.ts (lib/auth/accessExpiry.ts) once it passes. Omit for normal, non-expiring accounts.
+  accessExpiresAt: z.string().datetime().optional(),
 })
 
 export async function POST(req: NextRequest) {
@@ -36,6 +39,8 @@ export async function POST(req: NextRequest) {
     if (tenantScopedRoles.includes(body.role) && !body.tenantId) {
       return fail(`role ${body.role} requires a tenantId`, 400)
     }
+    const accessExpiresAt = body.accessExpiresAt ? new Date(body.accessExpiresAt) : null
+    if (accessExpiresAt && accessExpiresAt.getTime() <= Date.now()) return fail('accessExpiresAt must be in the future', 400)
 
     const passwordHash = await bcrypt.hash(body.password, 12)
 
@@ -46,6 +51,7 @@ export async function POST(req: NextRequest) {
         displayName: body.displayName,
         role: body.role,
         tenantId: tenantScopedRoles.includes(body.role) ? body.tenantId : null,
+        accessExpiresAt,
       },
     })
 
@@ -72,10 +78,10 @@ export async function POST(req: NextRequest) {
       action: 'user.create',
       resource: 'user',
       resourceId: user.id,
-      metadata: { role: body.role, email: body.email },
+      metadata: { role: body.role, email: body.email, ...(accessExpiresAt ? { accessExpiresAt: accessExpiresAt.toISOString() } : {}) },
     })
 
-    return created({ id: user.id, email: user.email, role: user.role, tenantId: user.tenantId })
+    return created({ id: user.id, email: user.email, role: user.role, tenantId: user.tenantId, accessExpiresAt: user.accessExpiresAt })
   } catch (err) {
     return handleRouteError(err)
   }

@@ -104,11 +104,24 @@ const leadSweepTimer = setInterval(async () => {
   }
 }, LEAD_SWEEP_INTERVAL_MS)
 
+// Access-expiry sweep (CEO decision, 16 Nov 2026): disables any account whose time-limited privileged access
+// (User.accessExpiresAt) has passed. Hourly, same reasoning as the lead sweep above - this is not SLA-urgent.
+const ACCESS_EXPIRY_SWEEP_INTERVAL_MS = 60 * 60 * 1000
+const accessExpirySweepTimer = setInterval(async () => {
+  try {
+    const { expirePrivilegedAccess } = await import('@/lib/auth/accessExpiry')
+    await expirePrivilegedAccess()
+  } catch (err) {
+    logger.error({ component: 'worker:access-expiry-sweep', err: err instanceof Error ? err.message : err }, 'access expiry sweep error')
+  }
+}, ACCESS_EXPIRY_SWEEP_INTERVAL_MS)
+
 logger.info({ queueCount: workers.length, sweepIntervalMs: SWEEP_INTERVAL_MS }, 'GCO workers started')
 
 async function shutdown() {
   clearInterval(sweepTimer)
   clearInterval(leadSweepTimer)
+  clearInterval(accessExpirySweepTimer)
   await Promise.all(workers.map((w) => w.close()))
   await connection.quit()
   process.exit(0)
